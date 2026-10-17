@@ -1,4 +1,6 @@
 export {
+  BOOTSTRAP_SCRIPT,
+  BOOTSTRAP_SQL,
   loadMigrations,
   migrate,
   MigrationError,
