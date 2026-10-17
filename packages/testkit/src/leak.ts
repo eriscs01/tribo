@@ -2,7 +2,7 @@
 // memberships (some soft-deleted) and items (shared, private or selected, some deleted);
 // a TypeScript oracle states who may see what; the property checks that the database's
 // tribo.item_visible and tribo.person_visible agree with it for every pair in the world.
-import type { DB } from '@tribo/db';
+import { VALUE_SETS, type DB } from '@tribo/db';
 import fc from 'fast-check';
 import { sql, type Kysely } from 'kysely';
 import {
@@ -40,6 +40,10 @@ const sometimes = fc.oneof(
   { weight: 1, arbitrary: fc.constant(true) },
 );
 
+const nonOwnerRoles = VALUE_SETS['tribo.memberships.trip_role'].filter(
+  (r): r is Exclude<TripRole, 'owner'> => r !== 'owner',
+);
+
 function tripArb(nUsers: number, nPersons: number) {
   return fc
     .record({
@@ -48,7 +52,7 @@ function tripArb(nUsers: number, nPersons: number) {
       others: fc.uniqueArray(
         fc.record({
           person: fc.nat({ max: nPersons - 1 }),
-          role: fc.constantFrom<TripRole>('organizer', 'member', 'viewer'),
+          role: fc.constantFrom(...nonOwnerRoles),
           deleted: sometimes,
         }),
         { selector: (m) => m.person, maxLength: 5 },
@@ -61,7 +65,7 @@ function tripArb(nUsers: number, nPersons: number) {
       ];
       const item = fc.record({
         owner: fc.nat({ max: members.length - 1 }),
-        visibility: fc.constantFrom<Visibility>('shared', 'private', 'selected'),
+        visibility: fc.constantFrom(...VALUE_SETS['tribo.items.visibility']),
         // Shares on shared or private items too: the predicate must ignore them there.
         shares: fc.uniqueArray(fc.nat({ max: members.length - 1 }), { maxLength: members.length }),
         deleted: sometimes,
