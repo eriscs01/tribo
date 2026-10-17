@@ -1,5 +1,6 @@
 // Generated from operations.csv by src/scripts/import-operations.ts. A story replaces an
 // entry's status with 'implemented' and adds its input and output schemas.
+import { LoginInput, Session } from '../account.js';
 import { defineOperation } from '../operation.js';
 
 export const authOperations = [
@@ -19,7 +20,9 @@ export const authOperations = [
     mcpTool: null,
     notes:
       'Sign in with username + password (+ TOTP or recovery code); Lockout 5 fails/15 min; 10 logins/min per IP; No Idempotency-Key: a retried login is just another login (R2)',
-    status: 'planned',
+    status: 'implemented',
+    input: LoginInput,
+    output: Session,
   }),
   defineOperation({
     id: 'auth.logout',
@@ -36,7 +39,7 @@ export const authOperations = [
     mcpApproval: false,
     mcpTool: null,
     notes: 'End the current session',
-    status: 'planned',
+    status: 'implemented',
   }),
   defineOperation({
     id: 'auth.session',
@@ -53,7 +56,8 @@ export const authOperations = [
     mcpApproval: false,
     mcpTool: null,
     notes: 'Current session + CSRF token',
-    status: 'planned',
+    status: 'implemented',
+    output: Session,
   }),
   defineOperation({
     id: 'auth.mfa.setup',

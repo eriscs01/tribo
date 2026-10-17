@@ -50,4 +50,14 @@ describe('toOpenApi', () => {
     expect((await new Validator().validate(single)).valid).toBe(true);
     expect(JSON.stringify(single)).toContain('"local"');
   });
+
+  it('answers 204 for an implemented operation without output', () => {
+    const logout = registry.find((op) => op.id === 'auth.logout');
+    const paths = toOpenApi(registry).paths as Record<
+      string,
+      Record<string, { responses: object }>
+    >;
+    expect(logout?.output).toBeUndefined();
+    expect(paths['/v1/auth/logout']?.post?.responses).toHaveProperty('204');
+  });
 });

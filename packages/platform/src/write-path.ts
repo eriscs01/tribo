@@ -92,7 +92,8 @@ export function createWritePath(db: Kysely<DB>, ports: WritePorts): WritePath {
     });
 }
 
-function validate<Input>(schema: z.ZodType<Input>, body: unknown): Input {
+/** Parses a body with the operation's schema; failures become validation_failed with field paths. */
+export function validate<Input>(schema: z.ZodType<Input>, body: unknown): Input {
   const parsed = schema.safeParse(body);
   if (parsed.success) return parsed.data;
   throw new ApiError('validation_failed', {

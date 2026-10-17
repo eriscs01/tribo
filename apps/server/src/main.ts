@@ -1,30 +1,21 @@
 // Tribo app process: config → app key → migrations (as tribo_owner) → HTTP (as tribo_app).
-import { loadAppKey } from '@tribo/crypto';
 import { loadMigrations, migrate } from '@tribo/db';
 import pg from 'pg';
 import { loadConfig } from './config.js';
+import { authHandlers } from './handlers/auth.js';
+import { openRuntime } from './runtime.js';
 import { buildServer } from './server.js';
 import { csrfSecret } from './session.js';
 
 const config = loadConfig(process.env);
-const appKey = await loadAppKey(config.appKeyFile);
-const connection = {
-  host: config.db.host,
-  port: config.db.port,
-  database: config.db.database,
-};
-
-const pool = new pg.Pool({
-  ...connection,
-  user: 'tribo_app',
-  password: config.db.appPassword,
-  application_name: 'tribo',
-  max: 10,
-});
+const { appKey, pool, identity, close } = await openRuntime(config, 'tribo');
+const csrf = csrfSecret(appKey);
 
 const app = await buildServer({
   trustedProxies: config.trustedProxies,
-  csrfSecret: csrfSecret(appKey),
+  csrfSecret: csrf,
+  authenticate: (token) => identity.authenticate(token),
+  handlers: authHandlers(identity, csrf),
   logLevel: config.logLevel,
   ping: async () => {
     await pool.query('SELECT 1');
@@ -45,7 +36,9 @@ pool.on('error', (error) => {
 });
 
 const owner = new pg.Client({
-  ...connection,
+  host: config.db.host,
+  port: config.db.port,
+  database: config.db.database,
   user: 'tribo_owner',
   password: config.db.ownerPassword,
   application_name: 'tribo-migrate',
@@ -65,7 +58,7 @@ for (const signal of ['SIGTERM', 'SIGINT'] as const) {
     app.log.info({ signal }, 'shutting down');
     void app
       .close()
-      .then(() => pool.end())
+      .then(close)
       .then(() => process.exit(0));
   });
 }

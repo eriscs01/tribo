@@ -3,12 +3,20 @@ import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
-import { defineOperation, registry, SESSION_COOKIE, type Operation } from '@tribo/contract';
+import {
+  defineOperation,
+  encodeTypeId,
+  registry,
+  SESSION_COOKIE,
+  type Operation,
+} from '@tribo/contract';
 import type { FastifyInstance } from 'fastify';
 import * as z from 'zod';
+import type { IdentityService, SignedIn } from '@tribo/core';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ConfigError, loadConfig } from './config.js';
 import { ApiError } from '@tribo/platform';
+import { authHandlers } from './handlers/auth.js';
 import { buildServer, type ServerDeps } from './server.js';
 import { csrfTokenFor, setSessionCookie } from './session.js';
 
@@ -26,7 +34,33 @@ const testRegistry: Operation[] = [
   testOp('test.conflict', 'GET', '/v1/test/conflict', ['public']),
   testOp('test.login', 'POST', '/v1/test/login', ['public']),
   testOp('test.write', 'POST', '/v1/test/write', ['session', 'pat:write']),
+  testOp('test.me', 'GET', '/v1/test/me', ['session']),
 ];
+
+const alice: SignedIn = {
+  sessionId: '019a0f3c-5b2e-7c41-9d3a-6e8f1a2b3c4d',
+  userId: '019a0f3c-5b2e-7c41-9d3a-6e8f1a2b3c4e',
+  username: 'alice',
+  platformRole: 'user',
+  mfaVerified: false,
+  expiresAt: new Date('2026-11-17T00:00:00Z'),
+};
+/** Only the cookie value 'session-token' is a live session. */
+const authenticate = (token: string) => Promise.resolve(token === 'session-token' ? alice : null);
+const loggedOut: string[] = [];
+/** Core's identity service stands in here; its rules are proven in identity.int.test.ts. */
+const identity: IdentityService = {
+  login: (_ctx, input) =>
+    input.password === 'correct horse battery'
+      ? Promise.resolve({ token: 'session-token', session: alice })
+      : Promise.reject(new ApiError('unauthenticated')),
+  authenticate,
+  logout: (_ctx, token) => {
+    loggedOut.push(token);
+    return Promise.resolve();
+  },
+  createAdmin: () => Promise.reject(new Error('not used here')),
+};
 
 let app: FastifyInstance | undefined;
 let lines: Record<string, unknown>[] = [];
@@ -42,10 +76,12 @@ async function server(overrides: Partial<ServerDeps> = {}) {
   app = await buildServer({
     trustedProxies: ['loopback', 'uniquelocal'],
     csrfSecret: secret,
+    authenticate,
     ping: () => Promise.resolve(),
     logStream: stream,
     registry: testRegistry,
     handlers: {
+      ...authHandlers(identity, secret),
       'test.ip': (request) => {
         request.log.info('handler ran');
         return Promise.resolve({ ip: request.ip });
@@ -57,6 +93,7 @@ async function server(overrides: Partial<ServerDeps> = {}) {
         return Promise.resolve({ ok: true });
       },
       'test.write': () => Promise.resolve({ ok: true }),
+      'test.me': (request) => Promise.resolve({ userId: request.signedIn?.userId }),
     },
     ...overrides,
   });
@@ -232,17 +269,110 @@ describe('session cookie and CSRF', () => {
 
   it('leaves requests without a session cookie to authentication', async () => {
     const res = await (await server()).inject({ method: 'POST', url: '/v1/test/write' });
-    expect(res.statusCode).toBe(200);
+    expect(res.statusCode).toBe(401);
+    expect(res.json()).toMatchObject({ code: 'unauthenticated' });
   });
 
   it('checks CSRF on planned session routes too, before the 501', async () => {
     const s = await server();
     const res = await s.inject({
       method: 'POST',
-      url: '/v1/auth/logout',
+      url: '/v1/auth/mfa/totp',
       cookies: { [SESSION_COOKIE]: 'session-token' },
     });
     expect(res.statusCode).toBe(403);
+  });
+});
+
+describe('authentication', () => {
+  it('resolves the session cookie and hands the caller to the handler', async () => {
+    const res = await (
+      await server()
+    ).inject({ method: 'GET', url: '/v1/test/me', cookies: { [SESSION_COOKIE]: 'session-token' } });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ userId: alice.userId });
+  });
+
+  it('answers 401 unauthenticated without a cookie or with a dead session', async () => {
+    const s = await server();
+    for (const cookies of [{}, { [SESSION_COOKIE]: 'revoked-token' }]) {
+      const res = await s.inject({ method: 'GET', url: '/v1/test/me', cookies });
+      expect(res.statusCode).toBe(401);
+      expect(res.json()).toMatchObject({ code: 'unauthenticated' });
+    }
+  });
+
+  it('leaves public operations and planned stubs alone', async () => {
+    const s = await server();
+    expect((await s.inject({ method: 'GET', url: '/healthz' })).statusCode).toBe(200);
+    expect((await s.inject({ method: 'GET', url: '/v1/trips' })).statusCode).toBe(501);
+  });
+});
+
+describe('auth handlers', () => {
+  it('auth.login sets the session cookie and returns the session with its CSRF token', async () => {
+    const res = await (
+      await server()
+    ).inject({
+      method: 'POST',
+      url: '/v1/auth/login',
+      payload: { username: 'alice', password: 'correct horse battery' },
+    });
+    expect(res.statusCode).toBe(201);
+    expect(String(res.headers['set-cookie'])).toMatch(
+      new RegExp(`^${SESSION_COOKIE}=session-token;`),
+    );
+    expect(res.json()).toEqual({
+      user: { id: encodeTypeId('usr', alice.userId), username: 'alice', platformRole: 'user' },
+      mfaVerified: false,
+      csrfToken: csrfTokenFor(secret, 'session-token'),
+      expiresAt: '2026-11-17T00:00:00.000Z',
+    });
+  });
+
+  it('auth.login validates the body and passes refusals through', async () => {
+    const s = await server();
+    const bad = await s.inject({
+      method: 'POST',
+      url: '/v1/auth/login',
+      payload: { username: 'a' },
+    });
+    expect(bad.json()).toMatchObject({
+      code: 'validation_failed',
+      errors: [{ path: '/password' }],
+    });
+    const wrong = await s.inject({
+      method: 'POST',
+      url: '/v1/auth/login',
+      payload: { username: 'alice', password: 'wrong' },
+    });
+    expect(wrong.statusCode).toBe(401);
+    expect(wrong.headers['set-cookie']).toBeUndefined();
+  });
+
+  it('auth.session returns the caller and a CSRF token for this session', async () => {
+    const res = await (
+      await server()
+    ).inject({
+      method: 'GET',
+      url: '/v1/auth/session',
+      cookies: { [SESSION_COOKIE]: 'session-token' },
+    });
+    expect(res.json()).toMatchObject({ csrfToken: csrfTokenFor(secret, 'session-token') });
+  });
+
+  it('auth.logout revokes the session and clears the cookie', async () => {
+    const res = await (
+      await server()
+    ).inject({
+      method: 'POST',
+      url: '/v1/auth/logout',
+      cookies: { [SESSION_COOKIE]: 'session-token' },
+      headers: { 'x-csrf-token': csrfTokenFor(secret, 'session-token') },
+    });
+    expect(res.statusCode).toBe(204);
+    expect(loggedOut).toContain('session-token');
+    expect(String(res.headers['set-cookie'])).toMatch(new RegExp(`^${SESSION_COOKIE}=;`));
   });
 });
 
@@ -256,9 +386,7 @@ describe('registry coverage at start', () => {
   it('refuses an implemented operation without a handler', async () => {
     await expect(
       server({
-        handlers: {},
-
-        registry: [...registry, testOp('test.orphan', 'GET', '/v1/test/orphan', ['public'])],
+        registry: [...testRegistry, testOp('test.orphan', 'GET', '/v1/test/orphan', ['public'])],
       }),
     ).rejects.toThrow(/test.orphan has no handler/);
   });
