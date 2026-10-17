@@ -7,3 +7,5 @@ packages/db/migrations/
 packages/contract/openapi.json
 **/boundary-fixtures/
 .claude/worktrees/
+deploy/secrets/
+secrets/
