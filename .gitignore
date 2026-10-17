@@ -1,0 +1,30 @@
+# Secrets and backups: the repo is public, these never enter it
+deploy/secrets/
+deploy/.env
+.env
+.env.*
+!.env.example
+secrets/
+*.dump
+*.sql.gz
+app_key
+
+# Dependencies and build output
+node_modules/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+.turbo/
+.vite/
+
+# Test output
+playwright-report/
+test-results/
+
+# Editors and OS
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.log
