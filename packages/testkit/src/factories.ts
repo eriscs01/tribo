@@ -1,12 +1,12 @@
 // Test factories: write rows straight into tribo tables with sensible defaults. They skip
 // the services (no audit rows, no snapshots), so use them to set up a world, never to
 // test a write path.
-import type { DB } from '@tribo/db';
+import type { DB, ValueOf } from '@tribo/db';
 import type { Kysely } from 'kysely';
 
 type Db = Kysely<DB>;
-export type TripRole = 'owner' | 'organizer' | 'member' | 'viewer';
-export type Visibility = 'shared' | 'private' | 'selected';
+export type TripRole = ValueOf<'tribo.memberships.trip_role'>;
+export type Visibility = ValueOf<'tribo.items.visibility'>;
 
 let counter = 0;
 const next = () => (++counter).toString(36);
@@ -19,7 +19,11 @@ export interface UserFixture {
 /** An account and its own person (every account has exactly one). */
 export async function createUser(
   db: Db,
-  init: { username?: string; displayName?: string; platformRole?: 'user' | 'admin' } = {},
+  init: {
+    username?: string;
+    displayName?: string;
+    platformRole?: ValueOf<'tribo.users.platform_role'>;
+  } = {},
 ): Promise<UserFixture> {
   const n = next();
   const { id: userId } = await db
@@ -112,7 +116,7 @@ export async function createItem(
     visibility?: Visibility;
     sharedWith?: readonly string[];
     title?: string;
-    type?: 'transport' | 'lodging' | 'ground' | 'activity' | 'meal' | 'task' | 'note' | 'document';
+    type?: ValueOf<'tribo.items.type'>;
   },
 ): Promise<string> {
   const { id } = await db
