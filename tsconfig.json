@@ -1,0 +1,29 @@
+{
+  "files": [],
+  "references": [
+    {
+      "path": "packages/contract"
+    },
+    {
+      "path": "packages/crypto"
+    },
+    {
+      "path": "packages/db"
+    },
+    {
+      "path": "packages/platform"
+    },
+    {
+      "path": "packages/core"
+    },
+    {
+      "path": "packages/testkit"
+    },
+    {
+      "path": "apps/server"
+    },
+    {
+      "path": "apps/web"
+    }
+  ]
+}

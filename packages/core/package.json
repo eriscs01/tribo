@@ -1,0 +1,18 @@
+{
+  "name": "@tribo/core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "@tribo/contract": "workspace:*",
+    "@tribo/crypto": "workspace:*",
+    "@tribo/db": "workspace:*",
+    "@tribo/platform": "workspace:*"
+  }
+}
