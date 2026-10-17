@@ -8,5 +8,17 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     }
+  },
+  "dependencies": {
+    "kysely": "0.29.6",
+    "pg": "8.23.1"
+  },
+  "devDependencies": {
+    "@types/pg": "8.23.1",
+    "kysely-codegen": "0.20.0"
+  },
+  "scripts": {
+    "migrate": "node dist/bin/migrate.js",
+    "codegen": "kysely-codegen --dialect postgres --include-pattern '(tribo|audit).*' --out-file src/generated/db.ts"
   }
 }
