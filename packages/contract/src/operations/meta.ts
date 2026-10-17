@@ -1,5 +1,6 @@
 // Generated from operations.csv by src/scripts/import-operations.ts. A story replaces an
 // entry's status with 'implemented' and adds its input and output schemas.
+import * as z from 'zod';
 import { defineOperation } from '../operation.js';
 
 export const metaOperations = [
@@ -18,7 +19,8 @@ export const metaOperations = [
     mcpApproval: false,
     mcpTool: null,
     notes: 'Liveness for Compose/Caddy: 200 when DB reachable; No details returned; Decided (G13)',
-    status: 'planned',
+    status: 'implemented',
+    output: z.object({ status: z.literal('ok') }),
   }),
   defineOperation({
     id: 'meta.openapi',

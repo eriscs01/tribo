@@ -29,7 +29,8 @@ describe('toOpenApi', () => {
     const paths = doc.paths as Record<string, Record<string, { responses: object }>>;
     for (const op of registry) {
       const responses = paths[op.path]?.[op.method.toLowerCase()]?.responses;
-      expect(responses, op.id).toHaveProperty('501');
+      if (op.status === 'planned') expect(responses, op.id).toHaveProperty('501');
+      else expect(responses, op.id).not.toHaveProperty('501');
     }
   });
 

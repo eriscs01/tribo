@@ -40,8 +40,9 @@ describe('TypeID', () => {
 });
 
 describe('errors and problem details', () => {
-  it('keeps the design codes plus the dev-only not_implemented', () => {
-    expect(ERROR_CODES).toHaveLength(30);
+  it('keeps the 29 design codes plus internal_error and the dev-only not_implemented', () => {
+    expect(ERROR_CODES).toHaveLength(31);
+    expect(ERROR_STATUS.internal_error).toBe(500);
     expect(ERROR_STATUS.version_conflict).toBe(412);
     expect(ERROR_STATUS.if_match_required).toBe(428);
     expect(ERROR_STATUS.not_implemented).toBe(501);

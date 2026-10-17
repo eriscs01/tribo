@@ -2,8 +2,9 @@ import * as z from 'zod';
 
 /**
  * The one closed set of error codes shared by REST and MCP, with the HTTP status each
- * maps to. `not_implemented` is dev-only: registry stubs return it until their story
- * lands, and the 1a gate fails if any 1a operation still does.
+ * maps to. `internal_error` covers unexpected failures (500, no details). `not_implemented`
+ * is dev-only: registry stubs return it until their story lands, and the 1a gate fails if
+ * any 1a operation still does.
  */
 export const ERROR_STATUS = {
   unauthenticated: 401,
@@ -35,6 +36,7 @@ export const ERROR_STATUS = {
   trip_retired: 410,
   approval_required: 409,
   approval_not_pending: 409,
+  internal_error: 500,
   not_implemented: 501,
 } as const satisfies Record<string, number>;
 
