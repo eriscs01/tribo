@@ -1,6 +1,7 @@
 // Writes src/operations/<module>.ts from operations.csv, every entry status 'planned'.
-// Run after a CSV change: `pnpm --filter @tribo/contract import:operations`. It refuses to
-// overwrite an entry a story has already marked 'implemented'.
+// Run after a CSV change: `pnpm --filter @tribo/contract import:operations`. A file holding an
+// operation a story has marked 'implemented' is hand-owned from then on and never rewritten:
+// edit it by hand until registry.test.ts, which checks every entry against the CSV, passes.
 import { readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { fromCsvRow, MODULE_FILE, type CsvOperation } from '../csv-row.js';
@@ -10,22 +11,27 @@ import { registry } from '../operations/index.js';
 const root = new URL('../../', import.meta.url);
 const csv = parseCsv(await readFile(new URL('operations.csv', root), 'utf8')).map(fromCsvRow);
 
-const implemented = registry.filter((op) => op.status === 'implemented').map((op) => op.id);
-if (implemented.length > 0) {
-  console.error(`refusing to regenerate over implemented operations: ${implemented.join(', ')}`);
-  process.exit(1);
+function fileOf(module: string, id: string): string {
+  const file = MODULE_FILE[module];
+  if (!file) throw new Error(`${id}: no registry file for module ${module}`);
+  return file;
 }
 
 const byFile = new Map<string, CsvOperation[]>();
 for (const op of csv) {
-  const file = MODULE_FILE[op.module];
-  if (!file) throw new Error(`${op.id}: no registry file for module ${op.module}`);
+  const file = fileOf(op.module, op.id);
   byFile.set(file, [...(byFile.get(file) ?? []), op]);
 }
 
+const handOwned = new Set(
+  registry.filter((op) => op.status === 'implemented').map((op) => fileOf(op.module, op.id)),
+);
+
 const camel = (file: string) => `${file}Operations`;
 
+const written: string[] = [];
 for (const [file, ops] of byFile) {
+  if (handOwned.has(file)) continue;
   const entries = ops.map(
     (op) => `  defineOperation(${JSON.stringify({ ...op, status: 'planned' })}),`,
   );
@@ -40,6 +46,7 @@ for (const [file, ops] of byFile) {
     '',
   ].join('\n');
   await writeFile(new URL(`src/operations/${file}.ts`, root), source);
+  written.push(file);
 }
 
 const files = [...byFile.keys()];
@@ -55,6 +62,10 @@ const index = [
 ].join('\n');
 await writeFile(new URL('src/operations/index.ts', root), index);
 
+const kept =
+  handOwned.size > 0
+    ? `; kept hand-owned ${[...handOwned].join(', ')} (update by hand; registry.test.ts checks them)`
+    : '';
 console.log(
-  `wrote ${String(csv.length)} operations to ${fileURLToPath(new URL('src/operations/', root))}`,
+  `wrote ${String(written.length)} registry files to ${fileURLToPath(new URL('src/operations/', root))}${kept}`,
 );

@@ -2,12 +2,12 @@ import { randomUUID } from 'node:crypto';
 import type { IncomingMessage } from 'node:http';
 import cookie from '@fastify/cookie';
 import proxyAddr from '@fastify/proxy-addr';
-import { registry as defaultRegistry, type Operation } from '@tribo/contract';
+import { CSRF_HEADER, registry as defaultRegistry, type Operation } from '@tribo/contract';
 import Fastify, { LogController, type FastifyInstance } from 'fastify';
 import { ApiError, registerErrorHandling } from './errors.js';
 import { loggerOptions } from './logger.js';
 import { mountRegistry, type Handlers } from './routes.js';
-import { CSRF_HEADER, csrfValid, sessionTokenOf } from './session.js';
+import { csrfValid, sessionTokenOf } from './session.js';
 
 export interface ServerDeps {
   /** proxy-addr trust list: names (loopback, uniquelocal), IPs or CIDRs. */

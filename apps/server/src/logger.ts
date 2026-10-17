@@ -1,3 +1,4 @@
+import { CSRF_HEADER } from '@tribo/contract';
 import type { FastifyServerOptions } from 'fastify';
 
 /**
@@ -7,7 +8,7 @@ import type { FastifyServerOptions } from 'fastify';
 export const REDACT_PATHS = [
   'req.headers.authorization',
   'req.headers.cookie',
-  'req.headers["x-csrf-token"]',
+  `req.headers["${CSRF_HEADER}"]`,
   'res.headers["set-cookie"]',
   ...['password', 'newPassword', 'currentPassword', 'totp', 'totpCode', 'code', 'recoveryCode'],
   ...['token', 'sessionToken', 'csrfToken', 'secret', 'appKey'],

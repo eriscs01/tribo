@@ -53,7 +53,9 @@ export const PATH_PARAM_PREFIX: Record<string, IdPrefix> = {
 };
 
 const ALPHABET = '0123456789abcdefghjkmnpqrstvwxyz';
-const SUFFIX = /^[0-7][0-9a-hjkmnp-tv-z]{25}$/;
+/** A TypeID suffix: 26 Crockford base32 characters, the first at most 7 (128 bits). */
+const SUFFIX_PATTERN = '[0-7][0-9a-hjkmnp-tv-z]{25}';
+const SUFFIX = new RegExp(`^${SUFFIX_PATTERN}$`);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export class TypeIdError extends Error {
@@ -80,9 +82,12 @@ export function decodeTypeId(prefix: IdPrefix, id: string): string {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
+/** The regular expression source a TypeID with the given prefix matches, anchored. */
+export function typeIdPattern(prefix: IdPrefix): string {
+  return `^${prefix}_${SUFFIX_PATTERN}$`;
+}
+
 /** Zod schema for a TypeID with the given prefix, as it appears in JSON and paths. */
 export function typeId(prefix: IdPrefix) {
-  return z
-    .string()
-    .regex(new RegExp(`^${prefix}_[0-7][0-9a-hjkmnp-tv-z]{25}$`), `expected a ${prefix}_ id`);
+  return z.string().regex(new RegExp(typeIdPattern(prefix)), `expected a ${prefix}_ id`);
 }
