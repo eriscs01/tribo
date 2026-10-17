@@ -6,6 +6,12 @@ import type { ClientBase } from 'pg';
 
 export const MIGRATIONS_DIR = fileURLToPath(new URL('../migrations/', import.meta.url));
 
+/** The superuser bootstrap, for container init (see README): roles, passwords, database. */
+export const BOOTSTRAP_SCRIPT = fileURLToPath(
+  new URL('../bootstrap/10-tribo-init.sh', import.meta.url),
+);
+export const BOOTSTRAP_SQL = join(MIGRATIONS_DIR, '0000_bootstrap.sql');
+
 /**
  * Session-level advisory lock every app instance takes before migrating, so of two
  * instances started together one migrates and the other waits, then finds nothing to do.

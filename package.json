@@ -13,7 +13,10 @@
     "clean": "tsc -b --clean",
     "lint": "eslint . && prettier --check . && depcruise apps packages --config .dependency-cruiser.cjs",
     "format": "prettier --write .",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run",
+    "test:unit": "vitest run --project unit",
+    "test:integration": "vitest run --project integration",
+    "test:leak": "vitest run --project leak"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

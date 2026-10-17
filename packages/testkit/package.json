@@ -11,7 +11,15 @@
   },
   "dependencies": {
     "@tribo/contract": "workspace:*",
+    "@tribo/core": "workspace:*",
     "@tribo/db": "workspace:*",
-    "@tribo/core": "workspace:*"
+    "fast-check": "4.10.2",
+    "kysely": "0.29.6",
+    "pg": "8.23.1",
+    "testcontainers": "12.2.1",
+    "vitest": "5.0.5"
+  },
+  "devDependencies": {
+    "@types/pg": "8.23.1"
   }
 }
