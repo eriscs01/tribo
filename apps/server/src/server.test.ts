@@ -8,7 +8,7 @@ import type { FastifyInstance } from 'fastify';
 import * as z from 'zod';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ConfigError, loadConfig } from './config.js';
-import { ApiError } from './errors.js';
+import { ApiError } from '@tribo/platform';
 import { buildServer, type ServerDeps } from './server.js';
 import { csrfTokenFor, setSessionCookie } from './session.js';
 

@@ -1,6 +1,6 @@
 import type { Operation } from '@tribo/contract';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import { ApiError } from './errors.js';
+import { ApiError } from '@tribo/platform';
 
 export type Handler = (request: FastifyRequest, reply: FastifyReply) => Promise<unknown>;
 export type Handlers = Readonly<Record<string, Handler>>;
