@@ -46,6 +46,8 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup
+      # Workspace packages resolve through their built dist.
+      - run: pnpm build
       - run: pnpm test:unit
 
   # Integration and leak tests start PostgreSQL 18 through Testcontainers on the runner's Docker.
@@ -58,6 +60,8 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup
+      # Workspace packages resolve through their built dist.
+      - run: pnpm build
       - run: pnpm test:integration
 
   leak:
@@ -69,5 +73,7 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup
+      # Workspace packages resolve through their built dist.
+      - run: pnpm build
       # Fixed seed (the testkit default) so pushes are reproducible; random seeds belong to the nightly job.
       - run: pnpm test:leak
