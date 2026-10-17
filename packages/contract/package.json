@@ -8,5 +8,15 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     }
+  },
+  "dependencies": {
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@seriousme/openapi-schema-validator": "2.11.0"
+  },
+  "scripts": {
+    "import:operations": "node dist/scripts/import-operations.js && prettier --write src/operations",
+    "openapi": "node dist/scripts/write-openapi.js"
   }
 }

@@ -17,6 +17,12 @@ export default defineConfig(
         tsconfigRootDir: import.meta.dirname,
       },
     },
+    rules: {
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_', destructuredArrayIgnorePattern: '^_' },
+      ],
+    },
   },
   { files: ['**/*.js'], extends: [tseslint.configs.disableTypeChecked] },
   prettier,
