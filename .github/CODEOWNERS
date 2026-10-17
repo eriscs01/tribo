@@ -1,0 +1,6 @@
+# Every change to this repository needs the owner's review before it reaches main.
+# The ruleset on main requires a code-owner approval, so keep this rule first and broad.
+*                   @eriscs01
+
+# Repository governance: changing who reviews must itself be reviewed.
+/.github/           @eriscs01
