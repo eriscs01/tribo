@@ -6,3 +6,4 @@ packages/db/migrations/
 **/src/generated/
 packages/contract/openapi.json
 **/boundary-fixtures/
+.claude/worktrees/
