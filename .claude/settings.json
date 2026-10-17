@@ -19,7 +19,7 @@
     "enabled": true,
     "failIfUnavailable": true,
     "filesystem": {
-      "denyRead": ["~/.ssh", "~/.aws", "~/.config/gh", "~/.docker/config.json"]
+      "denyRead": ["~/.ssh", "~/.aws"]
     }
   },
   "hooks": {
