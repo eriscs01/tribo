@@ -1,16 +1,6 @@
 import { problem, PROBLEM_CONTENT_TYPE, type ErrorCode, type Problem } from '@tribo/contract';
+import { ApiError } from '@tribo/platform';
 import type { FastifyError, FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-
-/** An expected failure, answered as RFC 9457 problem details with its closed code. */
-export class ApiError extends Error {
-  constructor(
-    readonly code: ErrorCode,
-    readonly extra: Pick<Problem, 'detail' | 'errors'> = {},
-  ) {
-    super(code);
-    this.name = 'ApiError';
-  }
-}
 
 export function sendProblem(
   reply: FastifyReply,
