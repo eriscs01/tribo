@@ -1,0 +1,28 @@
+import { createIdentityService } from '@tribo/core';
+import { keyring, loadAppKey } from '@tribo/crypto';
+import type { DB } from '@tribo/db';
+import { Kysely, PostgresDialect } from 'kysely';
+import pg from 'pg';
+import type { Config } from './config.js';
+
+/** What the HTTP server and the CLI share: the app key, a tribo_app pool and the services. */
+export async function openRuntime(config: Config, applicationName: string) {
+  const appKey = await loadAppKey(config.appKeyFile);
+  const pool = new pg.Pool({
+    host: config.db.host,
+    port: config.db.port,
+    database: config.db.database,
+    user: 'tribo_app',
+    password: config.db.appPassword,
+    application_name: applicationName,
+    max: 10,
+  });
+  const db = new Kysely<DB>({ dialect: new PostgresDialect({ pool }) });
+  return {
+    appKey,
+    pool,
+    identity: createIdentityService(db, keyring(appKey)),
+    /** Ends the pool. */
+    close: () => db.destroy(),
+  };
+}

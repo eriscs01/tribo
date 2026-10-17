@@ -24,3 +24,4 @@ export {
   type WorldSpec,
 } from './leak.js';
 export { POSTGRES_IMAGE, startPostgres, type PostgresInfo } from './postgres.js';
+export { totpFor } from './totp.js';

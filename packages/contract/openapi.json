@@ -1300,12 +1300,12 @@
           {}
         ],
         "responses": {
-          "501": {
-            "description": "Registered but not implemented yet (not_implemented)",
+          "201": {
+            "description": "OK",
             "content": {
-              "application/problem+json": {
+              "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Problem"
+                  "$ref": "#/components/schemas/Session"
                 }
               }
             }
@@ -1322,7 +1322,7 @@
           }
         },
         "x-tribo": {
-          "status": "planned",
+          "status": "implemented",
           "slice": "1a",
           "drop": "A",
           "roles": "anyone",
@@ -1331,6 +1331,16 @@
           "destructive": false,
           "mcpApproval": false,
           "mcpTool": null
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginInput"
+              }
+            }
+          }
         }
       }
     },
@@ -1348,15 +1358,8 @@
           }
         ],
         "responses": {
-          "501": {
-            "description": "Registered but not implemented yet (not_implemented)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
+          "204": {
+            "description": "No content"
           },
           "default": {
             "description": "Error",
@@ -1370,7 +1373,7 @@
           }
         },
         "x-tribo": {
-          "status": "planned",
+          "status": "implemented",
           "slice": "1a",
           "drop": "A",
           "roles": "self",
@@ -1550,12 +1553,12 @@
           }
         ],
         "responses": {
-          "501": {
-            "description": "Registered but not implemented yet (not_implemented)",
+          "200": {
+            "description": "OK",
             "content": {
-              "application/problem+json": {
+              "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Problem"
+                  "$ref": "#/components/schemas/Session"
                 }
               }
             }
@@ -1572,7 +1575,7 @@
           }
         },
         "x-tribo": {
-          "status": "planned",
+          "status": "implemented",
           "slice": "1a",
           "drop": "A",
           "roles": "self",
@@ -8290,6 +8293,39 @@
           "not_implemented"
         ]
       },
+      "Instant": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+      },
+      "LoginInput": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "password": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "totp": {
+            "$ref": "#/components/schemas/TotpCode"
+          },
+          "recoveryCode": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32
+          }
+        },
+        "required": [
+          "username",
+          "password"
+        ],
+        "additionalProperties": false
+      },
       "Problem": {
         "type": "object",
         "properties": {
@@ -8344,6 +8380,60 @@
           "requestId"
         ],
         "additionalProperties": false
+      },
+      "Session": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^usr_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+              },
+              "username": {
+                "$ref": "#/components/schemas/Username"
+              },
+              "platformRole": {
+                "type": "string",
+                "enum": [
+                  "admin",
+                  "user"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "username",
+              "platformRole"
+            ],
+            "additionalProperties": false
+          },
+          "mfaVerified": {
+            "type": "boolean"
+          },
+          "csrfToken": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "$ref": "#/components/schemas/Instant"
+          }
+        },
+        "required": [
+          "user",
+          "mfaVerified",
+          "csrfToken",
+          "expiresAt"
+        ],
+        "additionalProperties": false
+      },
+      "TotpCode": {
+        "type": "string",
+        "pattern": "^\\d{6}$"
+      },
+      "Username": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9._-]{3,32}$"
       }
     },
     "securitySchemes": {

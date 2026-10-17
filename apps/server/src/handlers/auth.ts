@@ -1,0 +1,44 @@
+import { encodeTypeId, ID_PREFIX, LoginInput, type Session } from '@tribo/contract';
+import type { IdentityService, SignedIn } from '@tribo/core';
+import { validate } from '@tribo/platform';
+import { requestContext, signedIn } from '../context.js';
+import type { Handlers } from '../routes.js';
+import { clearSessionCookie, csrfTokenFor, sessionTokenOf, setSessionCookie } from '../session.js';
+
+const USER_AGENT_MAX = 512;
+
+/** auth.login, auth.session and auth.logout over the web session cookie. */
+export function authHandlers(identity: IdentityService, csrfSecret: Buffer): Handlers {
+  const view = (session: SignedIn, token: string): Session => ({
+    user: {
+      id: encodeTypeId(ID_PREFIX.user, session.userId),
+      username: session.username,
+      platformRole: session.platformRole,
+    },
+    mfaVerified: session.mfaVerified,
+    csrfToken: csrfTokenFor(csrfSecret, token),
+    expiresAt: session.expiresAt.toISOString(),
+  });
+
+  return {
+    'auth.login': async (request, reply) => {
+      const input = validate(LoginInput, request.body);
+      const { token, session } = await identity.login(requestContext(request), input, {
+        ip: request.ip,
+        userAgent: request.headers['user-agent']?.slice(0, USER_AGENT_MAX) ?? null,
+      });
+      const maxAge = Math.floor((session.expiresAt.getTime() - Date.now()) / 1000);
+      setSessionCookie(reply, token, maxAge);
+      return reply.code(201).send(view(session, token));
+    },
+
+    'auth.session': (request) =>
+      Promise.resolve(view(signedIn(request), sessionTokenOf(request) ?? '')),
+
+    'auth.logout': async (request, reply) => {
+      await identity.logout(requestContext(request), sessionTokenOf(request) ?? '');
+      clearSessionCookie(reply);
+      return reply.code(204).send();
+    },
+  };
+}

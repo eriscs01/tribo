@@ -3,6 +3,7 @@ import type { IncomingMessage } from 'node:http';
 import cookie from '@fastify/cookie';
 import proxyAddr from '@fastify/proxy-addr';
 import { CSRF_HEADER, registry as defaultRegistry, type Operation } from '@tribo/contract';
+import type { SignedIn } from '@tribo/core';
 import Fastify, { LogController, type FastifyInstance } from 'fastify';
 import { ApiError } from '@tribo/platform';
 import { registerErrorHandling } from './errors.js';
@@ -14,13 +15,15 @@ export interface ServerDeps {
   /** proxy-addr trust list: names (loopback, uniquelocal), IPs or CIDRs. */
   trustedProxies: readonly string[];
   csrfSecret: Buffer;
+  /** Resolves a session cookie to its live session, or null. */
+  authenticate: (sessionToken: string) => Promise<SignedIn | null>;
   /** Resolves when the database answers; liveness depends on nothing else. */
   ping: () => Promise<void>;
   logLevel?: string;
   /** Log destination; tests capture lines here. */
   logStream?: NodeJS.WritableStream;
   registry?: readonly Operation[];
-  /** Extra handlers (tests); merged over the built-in ones. */
+  /** Operation handlers (identity, later the other modules; tests add their own). */
   handlers?: Handlers;
 }
 
@@ -59,6 +62,16 @@ export async function buildServer(deps: ServerDeps): Promise<FastifyInstance> {
     if (session && !csrfValid(deps.csrfSecret, session, request.headers[CSRF_HEADER])) {
       throw new ApiError('forbidden', { detail: 'missing or invalid CSRF token' });
     }
+  });
+
+  // Authentication runs only for implemented operations: a planned one answers 501 to anyone.
+  app.addHook('onRequest', async (request) => {
+    const op = request.routeOptions.config.operation;
+    if (op?.status !== 'implemented' || op.auth.includes('public')) return;
+    const token = op.auth.includes('session') ? sessionTokenOf(request) : undefined;
+    const session = token === undefined ? null : await deps.authenticate(token);
+    if (!session) throw new ApiError('unauthenticated');
+    request.signedIn = session;
   });
 
   const builtIn: Handlers = {

@@ -1,6 +1,7 @@
 // Test factories: write rows straight into tribo tables with sensible defaults. They skip
 // the services (no audit rows, no snapshots), so use them to set up a world, never to
 // test a write path.
+import { hash } from '@node-rs/argon2';
 import type { DB, ValueOf } from '@tribo/db';
 import type { Kysely } from 'kysely';
 
@@ -23,6 +24,8 @@ export async function createUser(
     username?: string;
     displayName?: string;
     platformRole?: ValueOf<'tribo.users.platform_role'>;
+    /** Hashed with Argon2id so the account can sign in; by default it has no password. */
+    password?: string;
   } = {},
 ): Promise<UserFixture> {
   const n = next();
@@ -30,7 +33,7 @@ export async function createUser(
     .insertInto('tribo.users')
     .values({
       username: init.username ?? `user_${n}`,
-      password_hash: '!',
+      password_hash: init.password === undefined ? '!' : await hash(init.password),
       platform_role: init.platformRole ?? 'user',
       // An active admin needs MFA; tests that need one enable it themselves.
       status: init.platformRole === 'admin' ? 'disabled' : 'active',

@@ -56,10 +56,9 @@ describe('registry against operations.csv', () => {
     }
   });
 
-  it('gives an implemented operation input or output schemas, and a planned one none', () => {
-    for (const op of registry) {
-      if (op.status === 'planned') expect(op.input ?? op.output, op.id).toBeUndefined();
-      else expect(op.output, op.id).toBeDefined();
+  it('gives a planned operation no input or output schema', () => {
+    for (const op of registry.filter((o) => o.status === 'planned')) {
+      expect(op.input ?? op.output, op.id).toBeUndefined();
     }
   });
 });

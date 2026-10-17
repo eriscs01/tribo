@@ -4,9 +4,15 @@
 -- that goes through the services, so the rows get audit events and snapshots too.
 -- Invented people and places only.
 
+-- Dev-only password 'demo-password-dev' (Argon2id); no MFA.
 INSERT INTO tribo.users (id, username, password_hash)
-VALUES ('0192f000-0000-7000-8000-000000000001', 'demo', '!')  -- '!' = no password until task 9
+VALUES ('0192f000-0000-7000-8000-000000000001', 'demo',
+        '$argon2id$v=19$m=19456,t=2,p=1$UB+WCnHALFaJ8LshO3sUWQ$kvtHG8eo6/N7Yis+abmH82yeY1z4/dZG3GaQ6jWg9BA')
 ON CONFLICT DO NOTHING;
+-- Volumes seeded before task 9 hold '!' (no password).
+UPDATE tribo.users
+SET password_hash = '$argon2id$v=19$m=19456,t=2,p=1$UB+WCnHALFaJ8LshO3sUWQ$kvtHG8eo6/N7Yis+abmH82yeY1z4/dZG3GaQ6jWg9BA'
+WHERE id = '0192f000-0000-7000-8000-000000000001' AND password_hash = '!';
 
 INSERT INTO tribo.persons (id, user_id, display_name, created_by)
 VALUES

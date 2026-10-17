@@ -109,13 +109,13 @@ function operationObject(op: Operation, components: Components): Json {
   const responses: Json = {};
   if (op.status === 'planned') {
     responses['501'] = problemResponse('Registered but not implemented yet (not_implemented)');
+  } else if (op.output) {
+    responses[op.method === 'POST' ? '201' : '200'] = {
+      description: 'OK',
+      content: { 'application/json': { schema: jsonSchema(op.output, 'output', components) } },
+    };
   } else {
-    responses[op.method === 'POST' ? '201' : '200'] = op.output
-      ? {
-          description: 'OK',
-          content: { 'application/json': { schema: jsonSchema(op.output, 'output', components) } },
-        }
-      : { description: 'OK' };
+    responses['204'] = { description: 'No content' };
   }
   responses.default = problemResponse('Error');
 

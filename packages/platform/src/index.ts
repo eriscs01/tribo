@@ -10,4 +10,5 @@ export {
   type WritePorts,
   type WriteRecord,
   type WriteSpec,
+  validate,
 } from './write-path.js';
