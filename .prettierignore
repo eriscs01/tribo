@@ -3,3 +3,4 @@ pnpm-lock.yaml
 coverage/
 docs/design/
 packages/db/migrations/
+**/src/generated/

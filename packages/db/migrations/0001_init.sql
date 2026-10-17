@@ -63,7 +63,8 @@
 --   * No RLS (design review row 5): visibility is a service rule; tribo.item_visible() and
 --     tribo.person_visible() are the shared SQL predicates the repository composes.
 
-BEGIN;
+-- No BEGIN/COMMIT: the migration runner wraps this file and its schema_migrations row
+-- in one transaction (packages/db/src/migrate.ts).
 
 CREATE EXTENSION IF NOT EXISTS citext;
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
@@ -1191,4 +1192,4 @@ GRANT EXECUTE ON FUNCTION audit.purge_trip_chain(uuid), audit.purge_auth_chain(t
 
 ALTER DEFAULT PRIVILEGES IN SCHEMA tribo GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO tribo_app;
 
-COMMIT;
+-- End of 0001; the runner commits it.
