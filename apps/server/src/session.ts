@@ -1,9 +1,7 @@
 import { createHmac, hkdfSync, timingSafeEqual } from 'node:crypto';
-import { CSRF_HEADER, SESSION_COOKIE } from '@tribo/contract';
+import { SESSION_COOKIE } from '@tribo/contract';
 import type { AppKey } from '@tribo/crypto';
 import type { FastifyReply, FastifyRequest } from 'fastify';
-
-export { CSRF_HEADER, SESSION_COOKIE };
 
 const COOKIE_OPTIONS = { path: '/', secure: true, httpOnly: true, sameSite: 'lax' } as const;
 

@@ -3,14 +3,14 @@ import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
-import { defineOperation, registry, type Operation } from '@tribo/contract';
+import { defineOperation, registry, SESSION_COOKIE, type Operation } from '@tribo/contract';
 import type { FastifyInstance } from 'fastify';
 import * as z from 'zod';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ConfigError, loadConfig } from './config.js';
 import { ApiError } from './errors.js';
 import { buildServer, type ServerDeps } from './server.js';
-import { csrfTokenFor, SESSION_COOKIE, setSessionCookie } from './session.js';
+import { csrfTokenFor, setSessionCookie } from './session.js';
 
 const secret = randomBytes(32);
 const base = registry.find((op) => op.id === 'meta.liveness');

@@ -1,12 +1,11 @@
 // Writes src/operations/<module>.ts from operations.csv, every entry status 'planned'.
 // Run after a CSV change: `pnpm --filter @tribo/contract import:operations`. A file holding an
-// operation a story has marked 'implemented' is hand-owned from then on and never rewritten;
-// instead its entries must already match the CSV, and any drift is listed for a hand edit.
+// operation a story has marked 'implemented' is hand-owned from then on and never rewritten:
+// edit it by hand until registry.test.ts, which checks every entry against the CSV, passes.
 import { readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { fromCsvRow, MODULE_FILE, type CsvOperation } from '../csv-row.js';
 import { parseCsv } from '../csv.js';
-import type { Operation } from '../operation.js';
 import { registry } from '../operations/index.js';
 
 const root = new URL('../../', import.meta.url);
@@ -27,39 +26,6 @@ for (const op of csv) {
 const handOwned = new Set(
   registry.filter((op) => op.status === 'implemented').map((op) => fileOf(op.module, op.id)),
 );
-
-/** Differences between the CSV and the registry for one hand-owned file, as readable lines. */
-function drift(file: string, wanted: readonly CsvOperation[]): string[] {
-  const current = new Map<string, Operation>(
-    registry.filter((op) => fileOf(op.module, op.id) === file).map((op) => [op.id, op]),
-  );
-  const out: string[] = [];
-  for (const want of wanted) {
-    const have = current.get(want.id);
-    current.delete(want.id);
-    if (!have) {
-      out.push(`${file}: add ${want.id}`);
-      continue;
-    }
-    for (const key of Object.keys(want) as (keyof CsvOperation)[]) {
-      if (JSON.stringify(want[key]) !== JSON.stringify(have[key])) {
-        out.push(
-          `${file}: ${want.id}.${key} is ${JSON.stringify(have[key])}, CSV says ${JSON.stringify(want[key])}`,
-        );
-      }
-    }
-  }
-  for (const id of current.keys()) out.push(`${file}: remove ${id}`);
-  return out;
-}
-
-const problems = [...handOwned].flatMap((file) => drift(file, byFile.get(file) ?? []));
-if (problems.length > 0) {
-  console.error(
-    `hand-owned registry files disagree with operations.csv:\n  ${problems.join('\n  ')}`,
-  );
-  process.exit(1);
-}
 
 const camel = (file: string) => `${file}Operations`;
 
@@ -96,7 +62,10 @@ const index = [
 ].join('\n');
 await writeFile(new URL('src/operations/index.ts', root), index);
 
-const kept = handOwned.size > 0 ? `; kept hand-owned ${[...handOwned].join(', ')}` : '';
+const kept =
+  handOwned.size > 0
+    ? `; kept hand-owned ${[...handOwned].join(', ')} (update by hand; registry.test.ts checks them)`
+    : '';
 console.log(
   `wrote ${String(written.length)} registry files to ${fileURLToPath(new URL('src/operations/', root))}${kept}`,
 );
