@@ -5,7 +5,7 @@ import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 export default defineConfig(
-  { ignores: ['**/dist/**', '**/coverage/**', '**/src/generated/**'] },
+  { ignores: ['**/dist/**', '**/coverage/**', '**/src/generated/**', '**/boundary-fixtures/**'] },
   js.configs.recommended,
   tseslint.configs.strictTypeChecked,
   tseslint.configs.stylisticTypeChecked,
@@ -24,6 +24,7 @@ export default defineConfig(
       ],
     },
   },
-  { files: ['**/*.js'], extends: [tseslint.configs.disableTypeChecked] },
+  { files: ['**/*.js', '**/*.cjs'], extends: [tseslint.configs.disableTypeChecked] },
+  { files: ['**/*.cjs'], languageOptions: { sourceType: 'commonjs' } },
   prettier,
 );
