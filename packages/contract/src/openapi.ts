@@ -1,8 +1,9 @@
 import * as z from 'zod';
 import { ErrorCode } from './errors.js';
-import { PATH_PARAM_PREFIX } from './ids.js';
+import { PATH_PARAM_PREFIX, typeIdPattern } from './ids.js';
 import { pathParams, type AuthMode, type Operation } from './operation.js';
 import { Problem, PROBLEM_CONTENT_TYPE } from './problem.js';
+import { SESSION_COOKIE } from './session.js';
 
 type Json = Record<string, unknown>;
 
@@ -53,14 +54,24 @@ function jsonSchema(schema: z.ZodType, io: 'input' | 'output', components: Compo
 
 /** OpenAPI security requirements for the REST surface; oauth:mcp is reachable only at /mcp. */
 function security(auth: readonly AuthMode[]): Json[] {
-  const out: Json[] = [];
-  for (const mode of auth) {
-    if (mode === 'public') out.push({});
-    else if (mode === 'session') out.push({ session: [] });
-    else if (mode === 'pat:read') out.push({ pat: ['read'] });
-    else if (mode === 'pat:write') out.push({ pat: ['write'] });
-  }
-  return out;
+  return auth.flatMap((mode): Json[] => {
+    switch (mode) {
+      case 'public':
+        return [{}];
+      case 'session':
+        return [{ session: [] }];
+      case 'pat:read':
+        return [{ pat: ['read'] }];
+      case 'pat:write':
+        return [{ pat: ['write'] }];
+      case 'oauth:mcp':
+        return [];
+      default: {
+        const unhandled: never = mode;
+        throw new Error(`auth mode ${String(unhandled)} has no OpenAPI security scheme`);
+      }
+    }
+  });
 }
 
 function parameters(op: Operation): Json[] {
@@ -70,9 +81,7 @@ function parameters(op: Operation): Json[] {
       name,
       in: 'path',
       required: true,
-      schema: prefix
-        ? { type: 'string', pattern: `^${prefix}_[0-7][0-9a-hjkmnp-tv-z]{25}$` }
-        : { type: 'string' },
+      schema: prefix ? { type: 'string', pattern: typeIdPattern(prefix) } : { type: 'string' },
     };
   });
   if (op.ifMatch !== 'no') {
@@ -169,7 +178,7 @@ export function toOpenApi(
         session: {
           type: 'apiKey',
           in: 'cookie',
-          name: '__Host-tribo_session',
+          name: SESSION_COOKIE,
           description: 'Web session; unsafe methods also need the CSRF header',
         },
         pat: { type: 'http', scheme: 'bearer', description: 'Personal access token (1b)' },

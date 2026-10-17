@@ -1,10 +1,9 @@
 import { createHmac, hkdfSync, timingSafeEqual } from 'node:crypto';
+import { CSRF_HEADER, SESSION_COOKIE } from '@tribo/contract';
 import type { AppKey } from '@tribo/crypto';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
-/** `__Host-` binds the cookie to this exact origin: Secure, Path=/ and no Domain. */
-export const SESSION_COOKIE = '__Host-tribo_session';
-export const CSRF_HEADER = 'x-csrf-token';
+export { CSRF_HEADER, SESSION_COOKIE };
 
 const COOKIE_OPTIONS = { path: '/', secure: true, httpOnly: true, sameSite: 'lax' } as const;
 
