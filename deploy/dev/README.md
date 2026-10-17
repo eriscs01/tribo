@@ -1,0 +1,19 @@
+# Local dev stack
+
+Needs Docker (Colima, OrbStack or Docker Desktop) and Node 26 with pnpm.
+
+| Command          | What it does                                                                                                                        |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm dev:up`    | Creates dev secrets on first run, then starts `db`, `app`, `seed` and `proxy`; returns when https://tribo.localhost/healthz answers |
+| `pnpm dev:logs`  | Follows the app log                                                                                                                 |
+| `pnpm dev:psql`  | psql as `tribo_app`                                                                                                                 |
+| `pnpm dev:down`  | Stops the stack, keeps data                                                                                                         |
+| `pnpm dev:reset` | Stops the stack and deletes every volume (database, Caddy CA, dependencies)                                                         |
+| `pnpm dev:trust` | Copies Caddy's local root CA out and prints the command that trusts it, so browsers accept https://tribo.localhost                  |
+
+- **db:** `postgres:18.6`. On an empty volume the init script runs `0000_bootstrap.sql` and sets both role passwords from `deploy/secrets/dev/`. The database is also on `127.0.0.1:55432` for GUI tools.
+- **app:** runs from the repo bind mount, with its own Linux `node_modules` in named volumes. It installs, builds, then rebuilds on change (`tsc -b -w`, polling because some VMs drop host file events) and restarts (`node --watch`). Migrations apply at start.
+- **seed:** a one-shot `deploy/dev/seed.sql` that adds a demo account `demo`, one trip and four items (shared, private, selected). It can be re-run and doesn't log in until task 9 sets a password.
+- **proxy:** `caddy:2.11.7` with its internal CA on 80 and 443 (`TRIBO_DEV_HTTP_PORT` and `TRIBO_DEV_HTTPS_PORT` change them). It sets `X-Request-Id` and passes one client IP.
+
+Dev secrets in `deploy/secrets/dev/` are random, git-ignored and world-readable so the containers can read them. They are not for any real deployment.

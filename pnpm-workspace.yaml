@@ -5,3 +5,11 @@ minimumReleaseAgeExclude:
   - eslint@10.13.0
 
 engineStrict: true
+
+# Install scripts: allow only what the toolchain needs. ssh2 and cpu-features are optional
+# native add-ons of testcontainers' Docker client (SSH hosts, unused); protobufjs prints a notice.
+allowBuilds:
+  esbuild: true
+  cpu-features: false
+  protobufjs: false
+  ssh2: false
