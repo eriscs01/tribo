@@ -234,7 +234,7 @@
 - [x] `library.people.get` · Drop A · `GET /v1/library/people/{personId}`
   - Person detail; person_visible; emergency contact masked; Merged id resolves to the survivor
   - Roles: any signed-in user. If-Match: `no`. Idempotency: safe to repeat.
-- [ ] `library.people.update` · Drop A · `PATCH /v1/library/people/{personId}`
+- [x] `library.people.update` · Drop A · `PATCH /v1/library/people/{personId}`
   - Edit person; masked_field_write; Placeholders only (account persons use me.update); ID/passport fields join in 1b and need recorded consent; Emergency contact stored encrypted (emergency_contact_enc, R5)
   - Roles: creator (placeholders only); own person via me.update. If-Match: `version`. Idempotency: safe to repeat.
 - [ ] `library.places.create` · Drop A · `POST /v1/library/places`

@@ -83,14 +83,43 @@ const PERSON_COLUMNS = [
 
 export type PersonRow = NonNullable<Awaited<ReturnType<typeof findPerson>>>;
 
+/** A live person, locked until commit, for the write that changes it. */
+export function lockPerson(db: LibraryDb, personId: string) {
+  return findLivePerson(db, personId).forUpdate().executeTakeFirst();
+}
+
 /** A live person, for the writer that holds it or just created it. */
 export function findPerson(db: LibraryDb, personId: string) {
+  return findLivePerson(db, personId).executeTakeFirst();
+}
+
+function findLivePerson(db: LibraryDb, personId: string) {
   return db
     .selectFrom('tribo.persons as p')
     .select(PERSON_COLUMNS)
     .where('p.id', '=', personId)
-    .where('p.deleted_at', 'is', null)
-    .executeTakeFirst();
+    .where('p.deleted_at', 'is', null);
+}
+
+export async function updatePerson(
+  db: LibraryDb,
+  personId: string,
+  person: PersonFields & { updatedBy: string },
+): Promise<void> {
+  await db
+    .updateTable('tribo.persons')
+    .set((eb) => ({
+      display_name: person.displayName,
+      contacts: jsonb(person.contacts),
+      dietary: person.dietary,
+      driving_licence: person.drivingLicence,
+      emergency_contact_enc: person.emergencyContactEnc,
+      version: eb('version', '+', 1),
+      updated_at: sql<Date>`now()`,
+      updated_by: person.updatedBy,
+    }))
+    .where('id', '=', personId)
+    .execute();
 }
 
 /**

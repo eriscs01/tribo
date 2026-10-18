@@ -1,4 +1,4 @@
-import { PersonInput, type Contacts, type EmergencyContact } from '@tribo/contract';
+import { PersonInput, PersonPatch, type Contacts, type EmergencyContact } from '@tribo/contract';
 import { sealJson, type FieldRef, type Keyring } from '@tribo/crypto';
 import { forModule, type DB } from '@tribo/db';
 import {
@@ -10,13 +10,17 @@ import {
 } from '@tribo/platform';
 import type { Kysely } from 'kysely';
 import { writeOperation } from '../write-operation.js';
+import { placeholderEditRefusal } from './policy.js';
 import {
   findAccountPerson,
   findPerson,
   findVisiblePerson,
   insertAccountPerson,
   insertPlaceholder,
+  lockPerson,
   newRowId,
+  updatePerson,
+  type PersonFields,
   type PersonRow,
 } from './repo.js';
 
@@ -40,9 +44,17 @@ export interface LibraryService {
   createPerson(ctx: RequestContext, body: unknown): Promise<PersonRecord>;
   /** library.people.get: not_found unless tribo.person_visible lets the caller see it. */
   getPerson(userId: string, personId: string): Promise<PersonRecord>;
+  /** library.people.update: a placeholder, by its creator, under If-Match on its version. */
+  updatePerson(
+    ctx: RequestContext,
+    personId: string,
+    body: unknown,
+    ifMatch: number | undefined,
+  ): Promise<PersonRecord>;
 }
 
 const peopleCreate = writeOperation('library.people.create', PersonInput);
+const peopleUpdate = writeOperation('library.people.update', PersonPatch);
 
 const EMERGENCY_CONTACT = (personId: string): FieldRef => ({
   table: 'persons',
@@ -58,6 +70,46 @@ export function createLibraryService(
 ): LibraryService {
   const sealContact = (personId: string, contact: EmergencyContact | null) =>
     contact === null ? null : sealJson(keys, EMERGENCY_CONTACT(personId), contact);
+
+  /**
+   * The one person edit: `authorize` names the person the caller may edit (or throws), the
+   * row is locked and checked against If-Match, and the merge patch is applied to it.
+   */
+  const editPerson = (
+    ctx: RequestContext,
+    edit: {
+      operation: typeof peopleUpdate;
+      body: unknown;
+      ifMatch: number | undefined;
+      authorize: (tx: Tx, userId: string) => Promise<string>;
+    },
+  ) => {
+    let personId: string | undefined;
+    let current: PersonRow | undefined;
+    return write(ctx, {
+      operation: edit.operation,
+      target: null,
+      body: edit.body,
+      ifMatch: edit.ifMatch,
+      authorize: async (tx, c) => {
+        personId = await edit.authorize(tx, actingUser(c));
+      },
+      load: async (tx) => {
+        current =
+          personId === undefined ? undefined : await lockPerson(forModule(tx, 'library'), personId);
+        if (!current) throw new ApiError('not_found');
+        return { tripId: null, counter: current.version };
+      },
+      mutate: async (tx, c, _loaded, patch) => {
+        if (!current) throw new Error(`${edit.operation.id} mutated before load`);
+        await updatePerson(forModule(tx, 'library'), current.id, {
+          ...patched(current, patch, sealContact),
+          updatedBy: actingUser(c),
+        });
+        return personChange(tx, 'update', current.id);
+      },
+    });
+  };
 
   return {
     async getPerson(userId, personId) {
@@ -90,6 +142,50 @@ export function createLibraryService(
           return personChange(tx, 'create', id);
         },
       }),
+
+    updatePerson: (ctx, personId, body, ifMatch) =>
+      editPerson(ctx, {
+        operation: peopleUpdate,
+        body,
+        ifMatch,
+        authorize: async (tx, userId) => {
+          const row = await findVisiblePerson(forModule(tx, 'library'), userId, personId);
+          if (!row) throw new ApiError('not_found');
+          const refusal = placeholderEditRefusal(
+            { userId: row.user_id, createdBy: row.created_by, erased: row.erased_at !== null },
+            userId,
+          );
+          if (refusal) throw new ApiError(refusal);
+          return row.id;
+        },
+      }),
+  };
+}
+
+/**
+ * A person's stored fields with a merge patch applied. The masked value stands for what
+ * the caller was shown, not for a value, so writing it back is refused.
+ */
+function patched(
+  row: PersonRow,
+  patch: PersonPatch,
+  sealContact: (personId: string, contact: EmergencyContact | null) => Buffer | null,
+): PersonFields {
+  const contact = patch.emergencyContact;
+  if (contact && 'masked' in contact) throw new ApiError('masked_field_write');
+  const contacts: Record<string, string | null | undefined> = {
+    ...contactsOf(row.contacts),
+    ...patch.contacts,
+  };
+  return {
+    displayName: patch.displayName ?? row.display_name,
+    contacts: Object.fromEntries(
+      Object.entries(contacts).filter(([, value]) => typeof value === 'string'),
+    ),
+    dietary: patch.dietary === undefined ? row.dietary : patch.dietary,
+    drivingLicence: patch.drivingLicence ?? row.driving_licence,
+    emergencyContactEnc:
+      contact === undefined ? row.emergency_contact_enc : sealContact(row.id, contact),
   };
 }
 

@@ -146,3 +146,37 @@ describe('library.people.get over HTTP', () => {
     });
   });
 });
+
+describe('library.people.update over HTTP', () => {
+  it('reads If-Match as the version: 428 without it, 412 when stale, 200 when current', async () => {
+    const ana = await signedInUser();
+    const created = await app.inject({
+      method: 'POST',
+      url: '/v1/library/people',
+      ...ana.auth,
+      payload: { displayName: 'Carla Cruz' },
+    });
+    const { id } = created.json<{ id: string }>();
+    const patch = (ifMatch?: string) =>
+      app.inject({
+        method: 'PATCH',
+        url: `/v1/library/people/${id}`,
+        cookies: ana.auth.cookies,
+        headers: { ...ana.auth.headers, ...(ifMatch === undefined ? {} : { 'if-match': ifMatch }) },
+        payload: { dietary: 'Vegan' },
+      });
+    const missing = await patch();
+    expect([missing.statusCode, missing.json<{ code: string }>().code]).toEqual([
+      428,
+      'if_match_required',
+    ]);
+    const stale = await patch('"2"');
+    expect([stale.statusCode, stale.json<{ code: string }>().code]).toEqual([
+      412,
+      'version_conflict',
+    ]);
+    const ok = await patch('"1"');
+    expect(ok.statusCode).toBe(200);
+    expect(ok.json()).toMatchObject({ id, dietary: 'Vegan', version: 2 });
+  });
+});

@@ -1,6 +1,6 @@
 // Person schemas: library people (an account's own person and placeholder travellers).
 import * as z from 'zod';
-import { Contacts } from './contacts.js';
+import { Contacts, ContactsPatch } from './contacts.js';
 import { ID_PREFIX, typeId } from './ids.js';
 import { MaskedValue } from './masked.js';
 import { Instant } from './time.js';
@@ -51,3 +51,20 @@ export const Person = z
   .meta({ id: 'Person' });
 
 export type Person = z.infer<typeof Person>;
+
+/**
+ * JSON Merge Patch of a person (library.people.update for placeholders, me.update for the
+ * caller's own): absent keys stay, null clears. The emergency contact is replaced whole;
+ * sending back its masked value is refused with masked_field_write.
+ */
+export const PersonPatch = z
+  .strictObject({
+    displayName: DisplayName.optional(),
+    contacts: ContactsPatch.optional(),
+    dietary: Dietary.nullable().optional(),
+    drivingLicence: z.boolean().optional(),
+    emergencyContact: z.union([EmergencyContact, MaskedValue]).nullable().optional(),
+  })
+  .meta({ id: 'PersonPatch' });
+
+export type PersonPatch = z.infer<typeof PersonPatch>;

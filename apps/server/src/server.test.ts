@@ -91,7 +91,11 @@ const PLANNED = '/v1/trips/trp_01h455vb4pex5vsknk084sn02q';
 const unused = () => Promise.reject(new Error('not used here'));
 const trips: TripsService = { create: unused, list: unused };
 const items: ItemsService = { create: unused, get: unused };
-const library: LibraryService = { createPerson: unused, getPerson: unused };
+const library: LibraryService = {
+  createPerson: unused,
+  getPerson: unused,
+  updatePerson: unused,
+};
 
 let app: FastifyInstance | undefined;
 let lines: Record<string, unknown>[] = [];
