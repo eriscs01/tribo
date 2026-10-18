@@ -209,7 +209,9 @@ jobs:
           tags: ghcr.io/eriscs01/tribo-proxy:ci
           load: true
           cache-from: type=gha,scope=tribo-proxy
-      # Throwaway secrets, made as the runbook makes them (step 7), for this run only.
+      # Throwaway secrets, made as the runbook makes them (step 7), for this run only. They are
+      # world-readable because the runner's Compose ignores the secrets' uid and mode, so the
+      # db and app users must be able to read the bind-mounted files as they are.
       - name: Create the secrets
         working-directory: deploy
         run: |
@@ -218,10 +220,11 @@ jobs:
           for name in db_superuser_password db_owner_password db_app_password; do
             openssl rand -hex 32 >"secrets/$name"
           done
-          chmod 600 secrets/*
+          chmod 644 secrets/*
+      # The two images just built are used as they are; only PostgreSQL is pulled.
       - name: Start the stack
         run: |
-          docker compose up -d --wait --pull never
+          docker compose up -d --wait
           curl --fail --silent --insecure --retry 30 --retry-delay 2 --retry-all-errors \
             "$TRIBO_PUBLIC_URL/healthz"
       - run: pnpm --filter @tribo/e2e exec playwright install --with-deps chromium
