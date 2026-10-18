@@ -7,8 +7,8 @@
 ## How each acceptance criterion is proven
 
 | Criterion | Proof (test name or command) |
-| --- | --- |
-|  |  |
+| --------- | ---------------------------- |
+|           |                              |
 
 ## Design principles
 
