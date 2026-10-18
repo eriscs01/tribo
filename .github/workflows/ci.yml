@@ -171,12 +171,80 @@ jobs:
           echo "lockfile, images: $RESULTS"
           [ "$RESULTS" = "success success" ]
 
+  # Job 9: exit criteria 1–2 (apps/e2e) in a browser against deploy/compose.yml, run from the
+  # images job 8 scanned (rebuilt here from its layer cache) in the internal TLS mode. It runs
+  # on pull requests too, because a required check must report on the PR it guards.
+  e2e:
+    name: End to end
+    needs: [images]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # What the test's `docker compose exec` and the stack's own variables read.
+      COMPOSE_FILE: deploy/compose.yml
+      TRIBO_VERSION: ci
+      TRIBO_PUBLIC_URL: https://tribo.localhost
+      TRIBO_TLS_MODE: internal
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      # The test imports @tribo/contract and @tribo/testkit through their built dist.
+      - run: pnpm build
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Build the app image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: deploy/app/Dockerfile
+          tags: ghcr.io/eriscs01/tribo-app:ci
+          load: true
+          cache-from: type=gha,scope=tribo-app
+      - name: Build the proxy image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: deploy/caddy/Dockerfile
+          tags: ghcr.io/eriscs01/tribo-proxy:ci
+          load: true
+          cache-from: type=gha,scope=tribo-proxy
+      # Throwaway secrets, made as the runbook makes them (step 7), for this run only.
+      - name: Create the secrets
+        working-directory: deploy
+        run: |
+          mkdir secrets
+          openssl rand -out secrets/app_key 32
+          for name in db_superuser_password db_owner_password db_app_password; do
+            openssl rand -hex 32 >"secrets/$name"
+          done
+          chmod 600 secrets/*
+      - name: Start the stack
+        run: |
+          docker compose up -d --wait --pull never
+          curl --fail --silent --insecure --retry 30 --retry-delay 2 --retry-all-errors \
+            "$TRIBO_PUBLIC_URL/healthz"
+      - run: pnpm --filter @tribo/e2e exec playwright install --with-deps chromium
+      - run: pnpm test:e2e
+      - name: Save the stack's logs
+        if: failure()
+        run: |
+          mkdir -p apps/e2e/playwright-report
+          docker compose logs --no-color >apps/e2e/playwright-report/compose.log 2>&1 || true
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: failure()
+        with:
+          name: e2e-report
+          path: apps/e2e/playwright-report/
+          retention-days: 14
+
   # Release tags only: push both images to GHCR under the tag that deploy/compose.yml pulls
-  # through TRIBO_VERSION, once every other job has passed.
+  # through TRIBO_VERSION, once every other job has passed, End to end included: a tag whose
+  # walking skeleton fails is never published.
   publish:
     name: Publish
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [lint, typecheck, unit, integration, leak, images]
+    needs: [lint, typecheck, unit, integration, leak, images, e2e]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
