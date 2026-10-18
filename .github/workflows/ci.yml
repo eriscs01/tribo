@@ -185,6 +185,8 @@ jobs:
       TRIBO_VERSION: ci
       TRIBO_PUBLIC_URL: https://tribo.localhost
       TRIBO_TLS_MODE: internal
+      COMPOSE_VERSION: v5.6.0
+      COMPOSE_SHA256: 40343e21ca777173e69cff5dbafeb37c6f81f3b0d57d9e597f036e95eb63e76a
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -209,9 +211,18 @@ jobs:
           tags: ghcr.io/eriscs01/tribo-proxy:ci
           load: true
           cache-from: type=gha,scope=tribo-proxy
-      # Throwaway secrets, made as the runbook makes them (step 7), for this run only. They are
-      # world-readable because the runner's Compose ignores the secrets' uid and mode, so the
-      # db and app users must be able to read the bind-mounted files as they are.
+      # The runner's own Compose is older than the host's (runbook step 4): it ignores the
+      # secrets' uid and mode and refuses two image mounts from one image. Use a current one.
+      - name: Install Docker Compose ${{ env.COMPOSE_VERSION }}
+        run: |
+          mkdir -p ~/.docker/cli-plugins
+          curl --fail --silent --show-error --location -o ~/.docker/cli-plugins/docker-compose \
+            "https://github.com/docker/compose/releases/download/$COMPOSE_VERSION/docker-compose-linux-x86_64"
+          echo "$COMPOSE_SHA256  $HOME/.docker/cli-plugins/docker-compose" | sha256sum --check --strict
+          chmod +x ~/.docker/cli-plugins/docker-compose
+          docker version --format 'Docker Engine {{.Server.Version}}'
+          docker compose version
+      # Throwaway secrets, made as the runbook makes them (step 7), for this run only.
       - name: Create the secrets
         working-directory: deploy
         run: |
@@ -220,7 +231,7 @@ jobs:
           for name in db_superuser_password db_owner_password db_app_password; do
             openssl rand -hex 32 >"secrets/$name"
           done
-          chmod 644 secrets/*
+          chmod 600 secrets/*
       # The two images just built are used as they are; only PostgreSQL is pulled.
       - name: Start the stack
         run: |
