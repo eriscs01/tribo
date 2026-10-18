@@ -82,12 +82,12 @@ jobs:
       # Fixed seed (the testkit default) so pushes are reproducible; random seeds belong to the nightly job.
       - run: pnpm test:leak
 
-  # Both images build, and neither the lockfile nor the images carry a high or critical
-  # vulnerability without a recorded exception (osv-scanner.toml, .trivyignore.yaml).
-  images:
-    name: Build and scan
+  # Job 8, in three parts that run at once: the lockfile scan, and one build and Trivy scan
+  # per image. "Build and scan" (the required check) passes only when all of them do.
+  lockfile:
+    name: Scan the lockfile
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -110,39 +110,66 @@ jobs:
             cat blocking.txt
             exit 1
           fi
-      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
-      - name: Build the app image
-        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
-        with:
-          context: .
-          file: deploy/app/Dockerfile
-          tags: tribo-app:ci
-          load: true
-          cache-from: type=gha,scope=tribo-app
-          cache-to: type=gha,scope=tribo-app,mode=max
-      - name: Build the proxy image
-        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
-        with:
-          context: .
-          file: deploy/caddy/Dockerfile
-          tags: tribo-proxy:ci
-          load: true
-          cache-from: type=gha,scope=tribo-proxy
-          cache-to: type=gha,scope=tribo-proxy,mode=max
-      # Findings with no fixed version are left out: no image change could clear them.
-      - name: Scan both images (Trivy)
-        # Both images are scanned before the step fails, so one run reports every finding.
-        run: |
-          failed=0
-          for image in tribo-app:ci tribo-proxy:ci; do
-            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD:/src:ro" "$TRIVY" \
-              image --quiet --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 \
-              --ignorefile /src/.trivyignore.yaml "$image" || failed=1
-          done
-          exit "$failed"
     env:
       OSV_SCANNER: ghcr.io/google/osv-scanner:v2.6.0@sha256:afd838850ac1a0fcc15ff4a041dc9ba11123c3f0d2666217a5f0fcf9222b55fa
+
+  image:
+    name: Build and scan (${{ matrix.image }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: app
+            dockerfile: deploy/app/Dockerfile
+          - image: proxy
+            dockerfile: deploy/caddy/Dockerfile
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Build the image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          tags: tribo-${{ matrix.image }}:ci
+          load: true
+          cache-from: type=gha,scope=tribo-${{ matrix.image }}
+          cache-to: type=gha,scope=tribo-${{ matrix.image }},mode=max
+      # Trivy's vulnerability database from the latest run; Trivy downloads a new one only when
+      # this copy is past its next-update time.
+      - name: Restore the Trivy database
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .trivy-db
+          key: trivy-db-${{ matrix.image }}-${{ github.run_id }}
+          restore-keys: trivy-db-
+      # Findings with no fixed version are left out: no image change could clear them.
+      - name: Scan the image (Trivy)
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD:/src:ro" \
+            -v "$PWD/.trivy-db:/root/.cache/trivy/db" "$TRIVY" \
+            image --quiet --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 \
+            --ignorefile /src/.trivyignore.yaml "tribo-${{ matrix.image }}:ci"
+    env:
       TRIVY: aquasec/trivy:0.75.0@sha256:af6acf9a6b85dfe389a1941505c0ce9efef52a4719635e1a962f022a3d855daa
+
+  images:
+    name: Build and scan
+    if: always()
+    needs: [lockfile, image]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require the lockfile scan and both image jobs
+        env:
+          RESULTS: ${{ needs.lockfile.result }} ${{ needs.image.result }}
+        run: |
+          echo "lockfile, images: $RESULTS"
+          [ "$RESULTS" = "success success" ]
 
   # Release tags only: push both images to GHCR under the tag that deploy/compose.yml pulls
   # through TRIBO_VERSION, once every other job has passed.

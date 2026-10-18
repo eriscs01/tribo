@@ -16,9 +16,12 @@ FROM ${NODE_IMAGE} AS web
 RUN npm install -g pnpm@12.14.0 && rm -rf /root/.npm
 ENV CI=true
 WORKDIR /repo
+# Download every locked package into the store first, in a layer of its own: it is rebuilt
+# only when the lockfile changes, so a code change reinstalls offline from the cached store.
+COPY pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN pnpm fetch
 COPY . .
-RUN --mount=type=cache,id=tribo-pnpm-store,target=/root/.local/share/pnpm/store \
-    pnpm install --frozen-lockfile && pnpm exec tsc -b apps/web && pnpm build:web
+RUN pnpm install --frozen-lockfile --offline && pnpm exec tsc -b apps/web && pnpm build:web
 
 FROM ${CADDY_IMAGE}
 COPY --from=caddy /usr/bin/caddy /usr/bin/caddy

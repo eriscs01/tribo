@@ -9,14 +9,16 @@ FROM ${NODE_IMAGE} AS build
 RUN npm install -g pnpm@12.14.0 && rm -rf /root/.npm
 ENV CI=true
 WORKDIR /repo
+# Download every locked package into the store first, in a layer of its own: it is rebuilt
+# only when the lockfile changes, so a code change reinstalls offline from the cached store.
+COPY pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN pnpm fetch
 COPY . .
-RUN --mount=type=cache,id=tribo-pnpm-store,target=/root/.local/share/pnpm/store \
-    pnpm install --frozen-lockfile && pnpm build
+RUN pnpm install --frozen-lockfile --offline && pnpm build
 # Reinstall with production dependencies only, then copy out the server and every workspace
 # package it depends on at run time (dist, manifest, node_modules), plus the migrations the
 # runner reads from packages/db.
-RUN --mount=type=cache,id=tribo-pnpm-store,target=/root/.local/share/pnpm/store \
-    rm -rf node_modules apps/*/node_modules packages/*/node_modules \
+RUN rm -rf node_modules apps/*/node_modules packages/*/node_modules \
     && pnpm install --frozen-lockfile --prod --offline --filter-prod '@tribo/server...' \
     && mkdir /out \
     && cp -a --parents package.json node_modules packages/db/migrations packages/db/bootstrap /out \
