@@ -1,0 +1,10 @@
+{
+  "name": "@tribo/story-kit",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@tribo/contract": "workspace:*",
+    "@tribo/db": "workspace:*"
+  }
+}

@@ -12,9 +12,7 @@ import {
 import { AppKey, keyring } from '@tribo/crypto';
 import { createTestDatabase, totpFor, type TestDatabase } from '@tribo/testkit';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { authHandlers } from '../handlers/auth.js';
-import { itemHandlers } from '../handlers/items.js';
-import { tripHandlers } from '../handlers/trips.js';
+import { operationHandlers } from '../handlers/index.js';
 import { buildServer } from '../server.js';
 import { adminCreate } from './admin-create.js';
 import { CliError, type CliIo } from './io.js';
@@ -69,11 +67,12 @@ describe('tribo admin create', () => {
       trustedProxies: ['loopback'],
       csrfSecret: csrf,
       authenticate: (token) => identity.authenticate(token),
-      handlers: {
-        ...authHandlers(identity, csrf),
-        ...tripHandlers(createTripsService(tdb.db, writePath(tdb.db))),
-        ...itemHandlers(createItemsService(tdb.db, writePath(tdb.db))),
-      },
+      handlers: operationHandlers({
+        identity,
+        csrfSecret: csrf,
+        trips: createTripsService(tdb.db, writePath(tdb.db)),
+        items: createItemsService(tdb.db, writePath(tdb.db)),
+      }),
       ping: () => Promise.resolve(),
       logLevel: 'silent',
     });
