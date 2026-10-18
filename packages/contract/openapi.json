@@ -1515,15 +1515,8 @@
           {}
         ],
         "responses": {
-          "501": {
-            "description": "Registered but not implemented yet (not_implemented)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
+          "204": {
+            "description": "No content"
           },
           "default": {
             "description": "Error",
@@ -1537,7 +1530,7 @@
           }
         },
         "x-tribo": {
-          "status": "planned",
+          "status": "implemented",
           "slice": "1a",
           "drop": "A",
           "roles": "anyone with link",
@@ -1546,6 +1539,16 @@
           "destructive": false,
           "mcpApproval": false,
           "mcpTool": null
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuthPasswordResetInput"
+              }
+            }
+          }
         }
       }
     },
@@ -8324,6 +8327,24 @@
         ],
         "additionalProperties": false
       },
+      "AuthPasswordResetInput": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "newPassword": {
+            "$ref": "#/components/schemas/NewPassword"
+          }
+        },
+        "required": [
+          "token",
+          "newPassword"
+        ],
+        "additionalProperties": false
+      },
       "CurrencyCode": {
         "type": "string",
         "pattern": "^[A-Z]{3}$"
@@ -8639,6 +8660,11 @@
           "uri"
         ],
         "additionalProperties": false
+      },
+      "NewPassword": {
+        "type": "string",
+        "minLength": 12,
+        "maxLength": 128
       },
       "Problem": {
         "type": "object",

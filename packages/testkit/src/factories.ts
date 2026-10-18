@@ -1,6 +1,7 @@
 // Test factories: write rows straight into tribo tables with sensible defaults. They skip
 // the services (no audit rows, no snapshots), so use them to set up a world, never to
 // test a write path.
+import { createHash, randomBytes } from 'node:crypto';
 import { hash } from '@node-rs/argon2';
 import type { DB, ValueOf } from '@tribo/db';
 import type { Kysely } from 'kysely';
@@ -49,6 +50,27 @@ export async function createUser(
     .returning('id')
     .executeTakeFirstOrThrow();
   return { userId, personId };
+}
+
+/**
+ * An admin's reset link for `userId`, as the admin console would issue it; returns the
+ * token the link carries (the database keeps only its SHA-256).
+ */
+export async function createResetLink(
+  db: Db,
+  init: { userId: string; createdBy: string; expiresAt?: Date },
+): Promise<string> {
+  const token = randomBytes(32).toString('base64url');
+  await db
+    .insertInto('tribo.password_reset_links')
+    .values({
+      user_id: init.userId,
+      token_hash: createHash('sha256').update(token).digest(),
+      created_by: init.createdBy,
+      ...(init.expiresAt ? { expires_at: init.expiresAt } : {}),
+    })
+    .execute();
+  return token;
 }
 
 /** A traveller without an account, created by `createdBy`. */

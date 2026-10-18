@@ -242,3 +242,70 @@ export async function markSessionMfaVerified(db: IdentityDb, sessionId: string):
     .where('id', '=', sessionId)
     .execute();
 }
+
+/**
+ * Uses a reset link: marks it used if it is live (unused, unrevoked, unexpired, its account
+ * not deleted) and returns its account. A concurrent second use waits on the row and finds
+ * it used, so a link works exactly once.
+ */
+export function useResetLink(db: IdentityDb, tokenHash: Buffer) {
+  return db
+    .updateTable('tribo.password_reset_links as l')
+    .from('tribo.users as u')
+    .set({ used_at: sql`now()` })
+    .whereRef('u.id', '=', 'l.user_id')
+    .where('l.token_hash', '=', tokenHash)
+    .where('l.used_at', 'is', null)
+    .where('l.revoked_at', 'is', null)
+    .where('l.expires_at', '>', sql<Date>`now()`)
+    .where('u.deleted_at', 'is', null)
+    .returning('l.user_id')
+    .executeTakeFirst();
+}
+
+/** Revokes the account's reset links that are still unused. */
+export async function revokeResetLinks(db: IdentityDb, userId: string): Promise<void> {
+  await db
+    .updateTable('tribo.password_reset_links')
+    .set({ revoked_at: sql`now()` })
+    .where('user_id', '=', userId)
+    .where('used_at', 'is', null)
+    .where('revoked_at', 'is', null)
+    .execute();
+}
+
+/**
+ * Sets a new password hash and lifts any lockout. The hash is a credential, never in the
+ * snapshot, so it bumps no version; the audit event records the act.
+ */
+export async function setPassword(
+  db: IdentityDb,
+  userId: string,
+  passwordHash: string,
+): Promise<void> {
+  await db
+    .updateTable('tribo.users')
+    .set({
+      password_hash: passwordHash,
+      password_changed_at: sql`now()`,
+      failed_login_count: 0,
+      locked_until: null,
+    })
+    .where('id', '=', userId)
+    .execute();
+}
+
+/** Revokes the account's live sessions, all of them or all but `keep`. */
+export async function revokeSessions(
+  db: IdentityDb,
+  userId: string,
+  keep: string | null = null,
+): Promise<void> {
+  let query = db
+    .updateTable('tribo.sessions')
+    .set({ revoked_at: sql`now()` })
+    .where('user_id', '=', userId)
+    .where('revoked_at', 'is', null);
+  if (keep !== null) query = query.where('id', '<>', keep);
+  await query.execute();
+}

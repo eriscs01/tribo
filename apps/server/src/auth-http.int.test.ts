@@ -10,7 +10,13 @@ import {
   writePath,
 } from '@tribo/core';
 import { AppKey, keyring } from '@tribo/crypto';
-import { createTestDatabase, createUser, totpFor, type TestDatabase } from '@tribo/testkit';
+import {
+  createResetLink,
+  createTestDatabase,
+  createUser,
+  totpFor,
+  type TestDatabase,
+} from '@tribo/testkit';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { operationHandlers } from './handlers/index.js';
@@ -129,5 +135,24 @@ describe('auth.mfa.confirm over HTTP', () => {
     });
     expect(malformed.statusCode).toBe(400);
     expect(malformed.json()).toMatchObject({ code: 'validation_failed' });
+  });
+});
+
+describe('auth.passwordReset over HTTP', () => {
+  it('needs no session: the link holder resets with 204, and a repeat is 410 reset_link_used', async () => {
+    const { userId } = await signedIn();
+    const { userId: adminId } = await createUser(tdb.db, { platformRole: 'admin' });
+    const token = await createResetLink(tdb.db, { userId, createdBy: adminId });
+    const request = {
+      method: 'POST' as const,
+      url: '/v1/auth/password-reset',
+      payload: { token, newPassword: 'staple paperclip lantern' },
+    };
+
+    const first = await app.inject(request);
+    expect(first.statusCode).toBe(204);
+    const repeat = await app.inject(request);
+    expect(repeat.statusCode).toBe(410);
+    expect(repeat.json()).toMatchObject({ code: 'reset_link_used' });
   });
 });

@@ -47,5 +47,9 @@ export function authHandlers(identity: IdentityService, csrfSecret: Buffer): Han
       reply
         .code(201)
         .send(await identity.confirmMfa(requestContext(request), signedIn(request), request.body)),
+    'auth.passwordReset': async (request, reply) => {
+      await identity.resetPassword(requestContext(request), request.body);
+      return reply.code(204).send();
+    },
   };
 }

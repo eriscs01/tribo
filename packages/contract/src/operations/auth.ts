@@ -1,6 +1,7 @@
 // Generated from operations.csv by src/scripts/import-operations.ts. A story replaces an
 // entry's status with 'implemented' and adds its input and output schemas.
 import { LoginInput, Session } from '../account.js';
+import { AuthPasswordResetInput } from '../auth.js';
 import { MfaConfirm, MfaConfirmInput, MfaSetup } from '../mfa.js';
 import { defineOperation } from '../operation.js';
 
@@ -133,7 +134,8 @@ export const authOperations = [
     mcpTool: null,
     notes:
       'Use admin reset link {token, newPassword}; revokes all sessions and refresh tokens; Token in body, never URL; Single-use token makes it naturally idempotent: a repeat gets reset_link_used (R2)',
-    status: 'planned',
+    status: 'implemented',
+    input: AuthPasswordResetInput,
   }),
   defineOperation({
     id: 'oauth.interaction.get',

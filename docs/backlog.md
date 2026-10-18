@@ -22,7 +22,7 @@
   - Confirm TOTP; returns 10 recovery codes; Codes shown once; Codes never stored for replay; a replay returns 200 with codes omitted and redacted = true (R2)
   - Roles: self. If-Match: `no`. Idempotency: creates (key).
   - Limit: Takes no Idempotency-Key in 1a: only expenses.create and files.upload honour it; this create follows in 1b.
-- [ ] `auth.passwordReset` · Drop A · `POST /v1/auth/password-reset`
+- [x] `auth.passwordReset` · Drop A · `POST /v1/auth/password-reset`
   - Use admin reset link {token, newPassword}; revokes all sessions and refresh tokens; Token in body, never URL; Single-use token makes it naturally idempotent: a repeat gets reset_link_used (R2)
   - Roles: anyone with link. If-Match: `no`. Idempotency: safe to repeat.
 

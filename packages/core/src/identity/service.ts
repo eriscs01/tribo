@@ -1,4 +1,5 @@
 import {
+  AuthPasswordResetInput,
   MfaConfirmInput,
   NewPassword,
   Username,
@@ -86,6 +87,12 @@ export interface IdentityService {
    * codes (returned once, never stored for replay) and marks this session MFA-verified.
    */
   confirmMfa(ctx: RequestContext, caller: SignedIn, body: unknown): Promise<MfaConfirm>;
+  /**
+   * auth.passwordReset: an admin's reset link sets a new password, once. It revokes every
+   * session and the account's other reset links, and lifts a lockout. Any link that is not
+   * live (used, revoked, expired or unknown) is reset_link_used.
+   */
+  resetPassword(ctx: RequestContext, body: unknown): Promise<void>;
 }
 
 const mfaConfirm = writeOperation('auth.mfa.confirm', MfaConfirmInput);
@@ -302,6 +309,24 @@ export function createIdentityService(
         throw new ApiError('invalid_transition', { detail: 'MFA is already on' });
       }
       return { key: enrolment.key, uri: enrolment.uri };
+    },
+
+    async resetPassword(ctx, body) {
+      const input = validate(AuthPasswordResetInput, body);
+      const passwordHash = await hashSecret(input.newPassword);
+      await db.transaction().execute(async (tx) => {
+        const txIdentity = forModule(tx, 'identity');
+        const link = await repo.useResetLink(txIdentity, tokenHash(input.token));
+        if (!link) throw new ApiError('reset_link_used');
+        await repo.setPassword(txIdentity, link.user_id, passwordHash);
+        await repo.revokeSessions(txIdentity, link.user_id);
+        await repo.revokeResetLinks(txIdentity, link.user_id);
+        await recordEvent(
+          tx,
+          { ...ctx, userId: link.user_id },
+          { action: 'password_reset', entityType: 'user', entityId: link.user_id, tripId: null },
+        );
+      });
     },
 
     confirmMfa: (ctx, caller, body) =>
