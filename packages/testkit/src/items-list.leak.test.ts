@@ -8,6 +8,7 @@ import fc from 'fast-check';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { connectAs, createTestDatabase, type TestDatabase } from './database.js';
 import { leakRunOptions, listProperty, oracle, type ListRead } from './leak.js';
+import { testKeys } from './keys.js';
 
 const options = leakRunOptions();
 
@@ -16,7 +17,7 @@ const options = leakRunOptions();
  * any generated trip; a trip the caller is not in answers not_found and lists nothing.
  */
 const read: ListRead = async (db, userId) => {
-  const items = createItemsService(db, writePath(db));
+  const items = createItemsService(db, writePath(db), testKeys());
   const trips = await db.selectFrom('tribo.trips').select('id').execute();
   const listed: string[] = [];
   for (const trip of trips) {

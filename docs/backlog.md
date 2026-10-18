@@ -111,7 +111,7 @@
 - [x] `items.get` · Drop A · `GET /v1/items/{itemId}`
   - Item detail (?view=summary|full); bookingRef, cardLast4 masked for all; restrictedFields
   - Roles: owner, organizer, member, viewer. If-Match: `no`. Idempotency: safe to repeat.
-- [ ] `items.update` · Drop A · `PATCH /v1/items/{itemId}`
+- [x] `items.update` · Drop A · `PATCH /v1/items/{itemId}`
   - Merge-patch item, visibility, sharedWith; masked_field_write; going private: item owner or organizer; If-Match = item version; board saves and RSVPs never conflict; trip_archived on archived trips (R29); sharedWith = membership ids of the trip; owner = callers membership (rule 3)
   - Roles: owner, organizer, member (own/assigned). If-Match: `version`. Idempotency: safe to repeat.
 - [ ] `items.delete` · Drop A · `DELETE /v1/items/{itemId}`

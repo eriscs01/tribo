@@ -15,3 +15,27 @@ const ITEMS_LIST_ROLES: ReadonlySet<TripRole> = new Set(['owner', 'organizer', '
 export function canListItems(role: TripRole): boolean {
   return ITEMS_LIST_ROLES.has(role);
 }
+
+/** Where the caller stands on one item: their trip role, and whether they own it or are its assignee. */
+export interface ItemEditor {
+  role: TripRole;
+  owns: boolean;
+  assigned: boolean;
+}
+
+/** Owners and organizers edit every item they can see. */
+const ITEM_EDITORS: ReadonlySet<TripRole> = new Set(['owner', 'organizer']);
+
+/** items.update: owners and organizers edit any item; members only their own or assigned ones. */
+export function canUpdateItem(editor: ItemEditor): boolean {
+  if (ITEM_EDITORS.has(editor.role)) return true;
+  return editor.role === 'member' && (editor.owns || editor.assigned);
+}
+
+/**
+ * Taking an item away from the group (private, or selected members only) is for its owner
+ * or an organizer; anyone who may edit it may share it with everyone again.
+ */
+export function canNarrowVisibility(editor: ItemEditor): boolean {
+  return editor.owns || ITEM_EDITORS.has(editor.role);
+}

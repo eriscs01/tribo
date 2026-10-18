@@ -108,6 +108,92 @@ function selectItem(db: ItemsDb) {
 
 export type ItemRow = NonNullable<Awaited<ReturnType<typeof findItem>>>;
 
+/** The live item, locked FOR UPDATE until the write commits. */
+export function lockItem(db: ItemsDb, itemId: string) {
+  return selectItem(db).where('i.id', '=', itemId).forUpdate().executeTakeFirst();
+}
+
+/** What an items.update changes; an absent key keeps its column. */
+export interface ItemChanges {
+  title?: string;
+  status?: ValueOf<'tribo.items.status'>;
+  start?: StoredTime | null;
+  end?: StoredTime | null;
+  visibility?: ValueOf<'tribo.items.visibility'>;
+  tags?: readonly string[];
+  cost?: { amountMinor: number; currency: string } | null;
+  bookingRefEnc?: Buffer | null;
+  cardLast4Enc?: Buffer | null;
+}
+
+/** Applies the changes and bumps the item's version, never its board_version (R26). */
+export async function updateItem(
+  db: ItemsDb,
+  itemId: string,
+  changes: ItemChanges,
+  updatedBy: string,
+): Promise<void> {
+  const { start, end, cost } = changes;
+  await db
+    .updateTable('tribo.items')
+    .set((eb) => ({
+      ...(changes.title === undefined ? {} : { title: changes.title }),
+      ...(changes.status === undefined ? {} : { status: changes.status }),
+      ...(start === undefined
+        ? {}
+        : { start_at: instant(start), start_tz: zone(start), start_date: day(start) }),
+      ...(end === undefined ? {} : { end_at: instant(end), end_tz: zone(end), end_date: day(end) }),
+      ...(changes.visibility === undefined ? {} : { visibility: changes.visibility }),
+      ...(changes.tags === undefined ? {} : { tags: [...changes.tags] }),
+      ...(cost === undefined
+        ? {}
+        : { cost_minor: cost?.amountMinor ?? null, cost_currency: cost?.currency ?? null }),
+      ...(changes.bookingRefEnc === undefined ? {} : { booking_ref_enc: changes.bookingRefEnc }),
+      ...(changes.cardLast4Enc === undefined ? {} : { card_last4_enc: changes.cardLast4Enc }),
+      version: eb('version', '+', 1),
+      updated_at: sql<Date>`now()`,
+      updated_by: updatedBy,
+    }))
+    .where('id', '=', itemId)
+    .execute();
+}
+
+/** The memberships an item is shared with, in id order. */
+export async function listShares(db: ItemsDb, itemId: string): Promise<string[]> {
+  const rows = await db
+    .selectFrom('tribo.item_shares')
+    .select('membership_id')
+    .where('item_id', '=', itemId)
+    .orderBy('membership_id')
+    .execute();
+  return rows.map((r) => r.membership_id);
+}
+
+/** Replaces an item's shares whole (they are owned rows of the item). */
+export async function replaceShares(
+  db: ItemsDb,
+  share: { itemId: string; tripId: string; membershipIds: readonly string[]; createdBy: string },
+): Promise<void> {
+  await db.deleteFrom('tribo.item_shares').where('item_id', '=', share.itemId).execute();
+  await insertShares(db, share);
+}
+
+/** Whether this membership is an assignee on the item's board. */
+export async function isAssignee(
+  db: ItemsDb,
+  itemId: string,
+  membershipId: string,
+): Promise<boolean> {
+  const row = await db
+    .selectFrom('tribo.allocations')
+    .select('id')
+    .where('item_id', '=', itemId)
+    .where('membership_id', '=', membershipId)
+    .where('role', '=', 'assignee')
+    .executeTakeFirst();
+  return row !== undefined;
+}
+
 /** For the writer that just created it, inside its transaction. */
 export function findItem(db: ItemsDb, itemId: string) {
   return selectItem(db).where('i.id', '=', itemId).executeTakeFirst();

@@ -42,7 +42,7 @@ beforeAll(async () => {
       identity,
       csrfSecret: csrf,
       trips: createTripsService(tdb.db, write),
-      items: createItemsService(tdb.db, write),
+      items: createItemsService(tdb.db, write, keys),
       library: createLibraryService(tdb.db, write, keys),
     }),
     ping: () => Promise.resolve(),
@@ -147,5 +147,31 @@ describe('items.list over HTTP', () => {
       ...stranger.auth,
     });
     expect(hidden.statusCode).toBe(404);
+  });
+});
+
+describe('items.update over HTTP', () => {
+  it('takes If-Match as an entity tag: 428 without, 412 stale, 200 with the item', async () => {
+    const w = await world();
+    const patch = (ifMatchHeader?: string) =>
+      app.inject({
+        method: 'PATCH',
+        url: `/v1/items/${w.itemPath}`,
+        cookies: w.owner.auth.cookies,
+        headers: {
+          ...w.owner.auth.headers,
+          ...(ifMatchHeader === undefined ? {} : { 'if-match': ifMatchHeader }),
+        },
+        payload: { title: 'Beach house, sea view', bookingRef: 'BH-2026-11' },
+      });
+    expect((await patch()).statusCode).toBe(428);
+    expect((await patch('"2"')).statusCode).toBe(412);
+    const ok = await patch('"1"');
+    expect(ok.statusCode).toBe(200);
+    expect(ok.json()).toMatchObject({
+      title: 'Beach house, sea view',
+      bookingRef: { masked: true },
+      version: 2,
+    });
   });
 });

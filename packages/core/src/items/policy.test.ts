@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canCreateItem, canListItems } from './policy.js';
+import { canCreateItem, canListItems, canNarrowVisibility, canUpdateItem } from './policy.js';
 
 describe('canCreateItem', () => {
   it('lets owners, organizers and members add items, never viewers', () => {
@@ -15,5 +15,35 @@ describe('canListItems', () => {
     for (const role of ['owner', 'organizer', 'member', 'viewer'] as const) {
       expect(canListItems(role)).toBe(true);
     }
+  });
+});
+
+const editor = (
+  role: 'owner' | 'organizer' | 'member' | 'viewer',
+  owns = false,
+  assigned = false,
+) => ({
+  role,
+  owns,
+  assigned,
+});
+
+describe('canUpdateItem', () => {
+  it('lets owners and organizers edit any item, members their own or assigned, never viewers', () => {
+    expect(canUpdateItem(editor('owner'))).toBe(true);
+    expect(canUpdateItem(editor('organizer'))).toBe(true);
+    expect(canUpdateItem(editor('member'))).toBe(false);
+    expect(canUpdateItem(editor('member', true))).toBe(true);
+    expect(canUpdateItem(editor('member', false, true))).toBe(true);
+    expect(canUpdateItem(editor('viewer', false, true))).toBe(false);
+  });
+});
+
+describe('canNarrowVisibility', () => {
+  it('is for the item owner or an organizer, not an assignee', () => {
+    expect(canNarrowVisibility(editor('member', true))).toBe(true);
+    expect(canNarrowVisibility(editor('organizer'))).toBe(true);
+    expect(canNarrowVisibility(editor('owner'))).toBe(true);
+    expect(canNarrowVisibility(editor('member', false, true))).toBe(false);
   });
 });

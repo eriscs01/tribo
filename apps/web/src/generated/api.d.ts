@@ -1998,6 +1998,21 @@ export interface components {
             items: components["schemas"]["Item"][];
             nextCursor: string | null;
         };
+        ItemPatch: {
+            title?: string;
+            status?: components["schemas"]["ItemStatus"];
+            start?: components["schemas"]["TimeInput"] | null;
+            end?: components["schemas"]["TimeInput"] | null;
+            visibility?: components["schemas"]["ItemVisibility"];
+            sharedWith?: string[];
+            tags?: string[];
+            cost?: (components["schemas"]["MaskedValue"] | {
+                amountMinor: number;
+                currency: components["schemas"]["CurrencyCode"];
+            }) | null;
+            bookingRef?: (components["schemas"]["MaskedValue"] | string) | null;
+            cardLast4?: (components["schemas"]["MaskedValue"] | string) | null;
+        };
         /** @enum {string} */
         ItemStatus: "draft" | "planned" | "booked" | "confirmed" | "open" | "done" | "cancelled";
         ItemTime: {
@@ -3755,15 +3770,19 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ItemPatch"];
+            };
+        };
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["Item"];
                 };
             };
             /** @description Error */

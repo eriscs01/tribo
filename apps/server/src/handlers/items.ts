@@ -8,7 +8,7 @@ import {
   type ItemTime,
 } from '@tribo/contract';
 import type { ItemRecord, ItemsService, ItemTimeRecord } from '@tribo/core';
-import { pathId, requestContext, signedIn } from '../context.js';
+import { ifMatch, pathId, requestContext, signedIn } from '../context.js';
 import { parsedQuery, type Handlers } from '../routes.js';
 
 function timeView(time: ItemTimeRecord | null): ItemTime | null {
@@ -61,5 +61,15 @@ export function itemHandlers(items: ItemsService): Handlers {
       );
       return { items: page.items.map(itemView), nextCursor: page.nextCursor };
     },
+
+    'items.update': async (request) =>
+      itemView(
+        await items.update(
+          requestContext(request),
+          pathId(request, 'itemId'),
+          request.body,
+          ifMatch(request),
+        ),
+      ),
   };
 }

@@ -1,7 +1,7 @@
 import * as z from 'zod';
 import { ID_PREFIX, typeId } from './ids.js';
 import { MaskedValue } from './masked.js';
-import { Money } from './money.js';
+import { CurrencyCode, Money } from './money.js';
 import { page, PageQuery } from './page.js';
 import { AllDay, Instant, TimeInput, TimeZone } from './time.js';
 
@@ -18,7 +18,27 @@ export const ItemVisibility = z
   .enum(['shared', 'private', 'selected'])
   .meta({ id: 'ItemVisibility' });
 
-const isAllDay = (t: TimeInput) => 'date' in t;
+/** Either kind of time as a rule sees it: wall-clock plus zone, or an all-day date. */
+type ItemTimeShape = { local: string; tz: string } | { date: string };
+
+/**
+ * The time rules one row can't fully state before the server resolves zones: an end needs
+ * a start, both are timed or both all-day, and all-day dates run forwards. items.create
+ * checks its body with it, items.update the merged result. A timed end before its start is
+ * only known once PostgreSQL has resolved both zones (items_time_order).
+ */
+export function itemTimeProblem(
+  start: ItemTimeShape | null | undefined,
+  end: ItemTimeShape | null | undefined,
+): string | null {
+  if (end == null) return null;
+  if (start == null) return 'an end needs a start';
+  if ('date' in start !== 'date' in end) return 'start and end are both timed or both all-day';
+  if ('date' in start && 'date' in end && end.date < start.date) {
+    return 'the item ends before it starts';
+  }
+  return null;
+}
 
 /**
  * items.create. Times are wall-clock plus zone, or all-day dates, never mixed; the server
@@ -41,14 +61,8 @@ export const ItemInput = z
     const { start, end, visibility, sharedWith } = ctx.value;
     const issue = (path: string, message: string) =>
       ctx.issues.push({ code: 'custom', input: ctx.value, path: [path], message });
-    if (end !== undefined && start === undefined) issue('end', 'an end needs a start');
-    if (start !== undefined && end !== undefined) {
-      if (isAllDay(start) !== isAllDay(end)) {
-        issue('end', 'start and end are both timed or both all-day');
-      } else if ('date' in start && 'date' in end && end.date < start.date) {
-        issue('end', 'the item ends before it starts');
-      }
-    }
+    const timeProblem = itemTimeProblem(start, end);
+    if (timeProblem !== null) issue('end', timeProblem);
     if (sharedWith !== undefined && visibility !== 'selected') {
       issue('sharedWith', 'sharedWith needs visibility selected');
     }
@@ -110,3 +124,36 @@ export type ItemListQuery = z.infer<typeof ItemListQuery>;
 export const ItemPage = page(Item, 'ItemPage');
 
 export type ItemPage = z.infer<typeof ItemPage>;
+
+/** A booked price as written: never negative. */
+const CostInput = z.strictObject({ amountMinor: z.int().min(0), currency: CurrencyCode });
+
+/**
+ * items.update: JSON Merge Patch of an item; absent keys stay, null clears. The type and
+ * owner never change. Sending back a masked value is refused with masked_field_write, so
+ * echoing a read never overwrites the real one. sharedWith replaces the shares whole and
+ * needs the resulting visibility to be `selected`; leaving `selected` drops them.
+ */
+export const ItemPatch = z
+  .strictObject({
+    title: z.string().trim().min(1).max(300).optional(),
+    status: ItemStatus.optional(),
+    start: TimeInput.nullable().optional(),
+    end: TimeInput.nullable().optional(),
+    visibility: ItemVisibility.optional(),
+    /** Membership ids of this trip. */
+    sharedWith: z.array(typeId(ID_PREFIX.membership)).max(200).optional(),
+    tags: z.array(z.string().trim().min(1).max(40)).max(20).optional(),
+    cost: z.union([MaskedValue, CostInput]).nullable().optional(),
+    bookingRef: z
+      .union([MaskedValue, z.string().trim().min(1).max(100)])
+      .nullable()
+      .optional(),
+    cardLast4: z
+      .union([MaskedValue, z.string().regex(/^\d{4}$/, 'expected four digits')])
+      .nullable()
+      .optional(),
+  })
+  .meta({ id: 'ItemPatch' });
+
+export type ItemPatch = z.infer<typeof ItemPatch>;

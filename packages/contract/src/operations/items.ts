@@ -1,6 +1,6 @@
 // Generated from operations.csv by src/scripts/import-operations.ts. A story replaces an
 // entry's status with 'implemented' and adds its input and output schemas.
-import { Item, ItemInput, ItemListQuery, ItemPage } from '../item.js';
+import { Item, ItemInput, ItemListQuery, ItemPage, ItemPatch } from '../item.js';
 import { defineOperation } from '../operation.js';
 
 export const itemsOperations = [
@@ -79,7 +79,9 @@ export const itemsOperations = [
     mcpTool: 'update_item',
     notes:
       'Merge-patch item, visibility, sharedWith; masked_field_write; going private: item owner or organizer; If-Match = item version; board saves and RSVPs never conflict; trip_archived on archived trips (R29); sharedWith = membership ids of the trip; owner = callers membership (rule 3)',
-    status: 'planned',
+    status: 'implemented',
+    input: ItemPatch,
+    output: Item,
   }),
   defineOperation({
     id: 'items.delete',

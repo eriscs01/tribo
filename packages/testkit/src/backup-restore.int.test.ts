@@ -17,6 +17,7 @@ import type { ExecResult, StartedTestContainer } from 'testcontainers';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createUser } from './factories.js';
 import { startPostgres, type PostgresInfo } from './postgres.js';
+import { testKeys } from './keys.js';
 
 const RESTORE_SCRIPT = fileURLToPath(
   new URL('../../../deploy/backup/restore-db.sh', import.meta.url),
@@ -64,7 +65,7 @@ async function tripActivity(db: Kysely<DB>): Promise<void> {
       timezone: 'Asia/Manila',
     },
   );
-  await createItemsService(db, write).create(ctx, trip.id, {
+  await createItemsService(db, write, testKeys()).create(ctx, trip.id, {
     type: 'transport',
     title: 'Morning ferry',
     start: { local: '2026-11-11T07:40', tz: 'Asia/Manila' },

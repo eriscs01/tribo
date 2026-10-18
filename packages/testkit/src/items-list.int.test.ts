@@ -14,13 +14,14 @@ import {
   softDelete,
   type TripRole,
 } from './factories.js';
+import { testKeys } from './keys.js';
 
 let tdb: TestDatabase;
 let items: ItemsService;
 
 beforeAll(async () => {
   tdb = await createTestDatabase();
-  items = createItemsService(tdb.db, writePath(tdb.db));
+  items = createItemsService(tdb.db, writePath(tdb.db), testKeys());
 });
 afterAll(() => tdb.destroy());
 
