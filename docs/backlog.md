@@ -237,7 +237,7 @@
 - [x] `library.people.update` · Drop A · `PATCH /v1/library/people/{personId}`
   - Edit person; masked_field_write; Placeholders only (account persons use me.update); ID/passport fields join in 1b and need recorded consent; Emergency contact stored encrypted (emergency_contact_enc, R5)
   - Roles: creator (placeholders only); own person via me.update. If-Match: `version`. Idempotency: safe to repeat.
-- [ ] `library.places.create` · Drop A · `POST /v1/library/places`
+- [x] `library.places.create` · Drop A · `POST /v1/library/places`
   - Add place (kind, lat/lng, hours, links); Audited on platform chain (G11)
   - Roles: any signed-in user. If-Match: `no`. Idempotency: creates (key).
   - Limit: Takes no Idempotency-Key in 1a: only expenses.create and files.upload honour it; this create follows in 1b.

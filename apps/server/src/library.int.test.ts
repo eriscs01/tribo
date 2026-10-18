@@ -180,3 +180,28 @@ describe('library.people.update over HTTP', () => {
     expect(ok.json()).toMatchObject({ id, dietary: 'Vegan', version: 2 });
   });
 });
+
+describe('library.places.create over HTTP', () => {
+  it('answers 201 with the place', async () => {
+    const ana = await signedInUser();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/v1/library/places',
+      ...ana.auth,
+      payload: {
+        name: 'Cambugahay Falls',
+        kind: 'landmark',
+        location: { lat: 9.1405, lng: 123.6227 },
+      },
+    });
+    expect(res.statusCode).toBe(201);
+    expect(res.json()).toMatchObject({
+      id: expect.stringMatching(/^plc_/) as unknown,
+      name: 'Cambugahay Falls',
+      kind: 'landmark',
+      location: { lat: 9.1405, lng: 123.6227 },
+      links: [],
+      version: 1,
+    });
+  });
+});

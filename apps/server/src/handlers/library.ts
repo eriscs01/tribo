@@ -1,5 +1,5 @@
-import { encodeTypeId, ID_PREFIX, MASKED, type Person } from '@tribo/contract';
-import type { LibraryService, PersonRecord } from '@tribo/core';
+import { encodeTypeId, ID_PREFIX, MASKED, type Person, type Place } from '@tribo/contract';
+import type { LibraryService, PersonRecord, PlaceRecord } from '@tribo/core';
 import { ifMatch, pathId, requestContext, signedIn } from '../context.js';
 import type { Handlers } from '../routes.js';
 
@@ -15,6 +15,15 @@ export function personView(person: PersonRecord): Person {
     version: person.version,
     createdAt: person.createdAt.toISOString(),
     updatedAt: person.updatedAt.toISOString(),
+  };
+}
+
+export function placeView(place: PlaceRecord): Place {
+  return {
+    ...place,
+    id: encodeTypeId(ID_PREFIX.place, place.id),
+    createdAt: place.createdAt.toISOString(),
+    updatedAt: place.updatedAt.toISOString(),
   };
 }
 
@@ -37,5 +46,10 @@ export function libraryHandlers(library: LibraryService): Handlers {
           ifMatch(request),
         ),
       ),
+
+    'library.places.create': async (request, reply) => {
+      const place = await library.createPlace(requestContext(request), request.body);
+      return reply.code(201).send(placeView(place));
+    },
   };
 }

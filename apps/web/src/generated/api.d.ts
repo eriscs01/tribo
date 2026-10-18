@@ -2002,6 +2002,11 @@ export interface components {
         ItemType: "transport" | "lodging" | "ground" | "activity" | "meal" | "task" | "note" | "document";
         /** @enum {string} */
         ItemVisibility: "shared" | "private" | "selected";
+        LatLng: {
+            lat: number;
+            lng: number;
+        };
+        Links: string[];
         LoginInput: {
             username: string;
             password: string;
@@ -2038,6 +2043,12 @@ export interface components {
             uri: string;
         };
         NewPassword: string;
+        OpeningHours: {
+            /** @enum {string} */
+            day: "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
+            opens: string;
+            closes: string;
+        }[];
         PasswordChangeInput: {
             currentPassword: string;
             newPassword: components["schemas"]["NewPassword"];
@@ -2068,6 +2079,30 @@ export interface components {
             drivingLicence?: boolean;
             emergencyContact?: (components["schemas"]["EmergencyContact"] | components["schemas"]["MaskedValue"]) | null;
         };
+        Place: {
+            id: string;
+            name: string;
+            kind: components["schemas"]["PlaceKind"];
+            location: components["schemas"]["LatLng"] | null;
+            address: string | null;
+            hours: components["schemas"]["OpeningHours"] | null;
+            links: string[];
+            notes: string | null;
+            version: number;
+            createdAt: components["schemas"]["Instant"];
+            updatedAt: components["schemas"]["Instant"];
+        };
+        PlaceInput: {
+            name: string;
+            kind?: components["schemas"]["PlaceKind"];
+            location?: components["schemas"]["LatLng"];
+            address?: string;
+            hours?: components["schemas"]["OpeningHours"];
+            links?: components["schemas"]["Links"];
+            notes?: string;
+        };
+        /** @enum {string} */
+        PlaceKind: "destination" | "beach" | "landmark" | "port" | "airport" | "lodging" | "restaurant" | "other";
         Problem: {
             type: string;
             title: string;
@@ -4391,15 +4426,19 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlaceInput"];
+            };
+        };
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["Place"];
                 };
             };
             /** @description Error */

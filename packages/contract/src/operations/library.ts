@@ -2,6 +2,7 @@
 // entry's status with 'implemented' and adds its input and output schemas.
 import { defineOperation } from '../operation.js';
 import { Person, PersonInput, PersonPatch } from '../person.js';
+import { Place, PlaceInput } from '../place.js';
 
 export const libraryOperations = [
   defineOperation({
@@ -164,7 +165,9 @@ export const libraryOperations = [
     mcpApproval: false,
     mcpTool: null,
     notes: 'Add place (kind, lat/lng, hours, links); Audited on platform chain (G11)',
-    status: 'planned',
+    status: 'implemented',
+    input: PlaceInput,
+    output: Place,
   }),
   defineOperation({
     id: 'library.places.get',

@@ -1,5 +1,5 @@
-import type { Contacts } from '@tribo/contract';
-import type { Json, ModuleDb } from '@tribo/db';
+import type { Contacts, Links, OpeningHours } from '@tribo/contract';
+import type { Json, ModuleDb, ValueOf } from '@tribo/db';
 import { sql } from 'kysely';
 
 /** The library module's database handle: only the tables it owns compile. Other modules call service.ts. */
@@ -139,3 +139,48 @@ export function findVisiblePerson(db: LibraryDb, userId: string, personId: strin
     .where(sql<boolean>`tribo.person_visible(${userId}, p.id)`)
     .executeTakeFirst();
 }
+
+export interface NewPlace {
+  name: string;
+  kind: ValueOf<'tribo.places.kind'>;
+  location: { lat: number; lng: number } | null;
+  address: string | null;
+  hours: OpeningHours | null;
+  links: Links;
+  notes: string | null;
+  createdBy: string;
+}
+
+export function insertPlace(db: LibraryDb, place: NewPlace) {
+  return db
+    .insertInto('tribo.places')
+    .values({
+      name: place.name,
+      kind: place.kind,
+      lat: place.location?.lat ?? null,
+      lng: place.location?.lng ?? null,
+      address: place.address,
+      hours: place.hours === null ? null : jsonb(place.hours),
+      links: jsonb(place.links),
+      notes: place.notes,
+      created_by: place.createdBy,
+      updated_by: place.createdBy,
+    })
+    .returning([
+      'id',
+      'name',
+      'kind',
+      'lat',
+      'lng',
+      'address',
+      'hours',
+      'links',
+      'notes',
+      'version',
+      'created_at',
+      'updated_at',
+    ])
+    .executeTakeFirstOrThrow();
+}
+
+export type PlaceRow = Awaited<ReturnType<typeof insertPlace>>;

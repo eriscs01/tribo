@@ -22,5 +22,10 @@ export {
   type ItemsService,
   type ItemTimeRecord,
 } from './items/service.js';
-export { createLibraryService, type LibraryService, type PersonRecord } from './library/service.js';
+export {
+  createLibraryService,
+  type LibraryService,
+  type PersonRecord,
+  type PlaceRecord,
+} from './library/service.js';
 export { verifyChains, type ChainReport } from './audit/service.js';

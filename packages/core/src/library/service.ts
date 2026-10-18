@@ -1,6 +1,13 @@
-import { PersonInput, PersonPatch, type Contacts, type EmergencyContact } from '@tribo/contract';
+import {
+  PersonInput,
+  PersonPatch,
+  PlaceInput,
+  type Contacts,
+  type EmergencyContact,
+  type OpeningHours,
+} from '@tribo/contract';
 import { sealJson, type FieldRef, type Keyring } from '@tribo/crypto';
-import { forModule, type DB } from '@tribo/db';
+import { forModule, type DB, type ValueOf } from '@tribo/db';
 import {
   ApiError,
   type Change,
@@ -16,12 +23,14 @@ import {
   findPerson,
   findVisiblePerson,
   insertAccountPerson,
+  insertPlace,
   insertPlaceholder,
   lockPerson,
   newRowId,
   updatePerson,
   type PersonFields,
   type PersonRow,
+  type PlaceRow,
 } from './repo.js';
 
 /** A person as the library hands it out; sensitive values stay inside the module. */
@@ -39,6 +48,20 @@ export interface PersonRecord {
   updatedAt: Date;
 }
 
+export interface PlaceRecord {
+  id: string;
+  name: string;
+  kind: ValueOf<'tribo.places.kind'>;
+  location: { lat: number; lng: number } | null;
+  address: string | null;
+  hours: OpeningHours | null;
+  links: string[];
+  notes: string | null;
+  version: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface LibraryService {
   /** library.people.create: a placeholder traveller the caller creates and alone edits. */
   createPerson(ctx: RequestContext, body: unknown): Promise<PersonRecord>;
@@ -51,10 +74,13 @@ export interface LibraryService {
     body: unknown,
     ifMatch: number | undefined,
   ): Promise<PersonRecord>;
+  /** library.places.create: any signed-in user adds to the one shared library (G11). */
+  createPlace(ctx: RequestContext, body: unknown): Promise<PlaceRecord>;
 }
 
 const peopleCreate = writeOperation('library.people.create', PersonInput);
 const peopleUpdate = writeOperation('library.people.update', PersonPatch);
+const placesCreate = writeOperation('library.places.create', PlaceInput);
 
 const EMERGENCY_CONTACT = (personId: string): FieldRef => ({
   table: 'persons',
@@ -124,8 +150,7 @@ export function createLibraryService(
         target: null,
         body,
         ifMatch: undefined,
-        authorize: (_tx, c) =>
-          c.userId === null ? Promise.reject(new ApiError('unauthenticated')) : Promise.resolve(),
+        authorize: signedInOnly,
         load: () => Promise.resolve({ tripId: null }),
         mutate: async (tx, c, _loaded, input) => {
           const library = forModule(tx, 'library');
@@ -159,6 +184,57 @@ export function createLibraryService(
           return row.id;
         },
       }),
+
+    createPlace: (ctx, body) =>
+      write(ctx, {
+        operation: placesCreate,
+        target: null,
+        body,
+        ifMatch: undefined,
+        authorize: signedInOnly,
+        load: () => Promise.resolve({ tripId: null }),
+        mutate: async (tx, c, _loaded, input) => {
+          const row = await insertPlace(forModule(tx, 'library'), {
+            name: input.name,
+            kind: input.kind ?? 'other',
+            location: input.location ?? null,
+            address: input.address ?? null,
+            hours: input.hours ?? null,
+            links: input.links ?? [],
+            notes: input.notes ?? null,
+            createdBy: actingUser(c),
+          });
+          const place = placeRecord(row);
+          const { id, version, createdAt: _c, updatedAt: _u, ...snapshot } = place;
+          return {
+            action: 'create',
+            aggregate: 'place',
+            entityId: id,
+            tripId: null,
+            version,
+            snapshot,
+            result: place,
+          };
+        },
+      }),
+  };
+}
+
+function placeRecord(row: PlaceRow): PlaceRecord {
+  return {
+    id: row.id,
+    name: row.name,
+    kind: row.kind as PlaceRecord['kind'],
+    // numeric comes back as text; the CHECK keeps lat and lng set together.
+    location:
+      row.lat === null || row.lng === null ? null : { lat: Number(row.lat), lng: Number(row.lng) },
+    address: row.address,
+    hours: row.hours as OpeningHours | null,
+    links: row.links as string[],
+    notes: row.notes,
+    version: row.version,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
   };
 }
 
@@ -241,6 +317,11 @@ function personRecord(row: PersonRow): PersonRecord {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+}
+
+/** Library creates: any signed-in user (operations.csv). */
+function signedInOnly(_tx: Tx, ctx: RequestContext): Promise<void> {
+  return ctx.userId === null ? Promise.reject(new ApiError('unauthenticated')) : Promise.resolve();
 }
 
 /** Writes need an account behind them; only system work runs without one. */
