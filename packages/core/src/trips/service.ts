@@ -1,4 +1,4 @@
-import { TripInput, type PageQuery } from '@tribo/contract';
+import { TripCursorKey, TripInput, type PageQuery } from '@tribo/contract';
 import { forModule, type DB, type ValueOf } from '@tribo/db';
 import {
   ApiError,
@@ -178,13 +178,11 @@ function actingUser(ctx: RequestContext): string {
   return ctx.userId;
 }
 
-const DATE = /^\d{4}-\d{2}-\d{2}$/;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-
 /** A trips.list cursor's sort key; anything else is refused before it reaches SQL. */
 function tripCursor(cursor: string): { startDate: string; id: string } {
-  const [startDate = '', id = ''] = decodeCursor(cursor, 2);
-  if (!DATE.test(startDate) || !UUID.test(id)) throw invalidCursor();
+  const key = TripCursorKey.safeParse(decodeCursor(cursor, 2));
+  if (!key.success) throw invalidCursor();
+  const [startDate, id] = key.data;
   return { startDate, id };
 }
 

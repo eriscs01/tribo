@@ -1,6 +1,12 @@
 import type { Operation } from '@tribo/contract';
-import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import { ApiError } from '@tribo/platform';
+import type {
+  FastifyInstance,
+  FastifyReply,
+  FastifyRequest,
+  HookHandlerDoneFunction,
+} from 'fastify';
+import type * as z from 'zod';
+import { ApiError, validate } from '@tribo/platform';
 
 export type Handler = (request: FastifyRequest, reply: FastifyReply) => Promise<unknown>;
 export type Handlers = Readonly<Record<string, Handler>>;
@@ -9,12 +15,31 @@ declare module 'fastify' {
   interface FastifyContextConfig {
     operation?: Operation;
   }
+  interface FastifyRequest {
+    /** The operation's declared query, parsed before the handler runs; read it with parsedQuery. */
+    parsedQuery?: unknown;
+  }
+}
+
+/**
+ * The query the route's hook already validated against `schema`. Naming the schema types
+ * the result; a schema other than the operation's own is a programmer error.
+ */
+export function parsedQuery<S extends z.ZodObject>(
+  request: FastifyRequest,
+  schema: S,
+): z.output<S> {
+  if (request.routeOptions.config.operation?.query !== schema) {
+    throw new Error(`${request.routeOptions.url ?? request.url} does not declare this query`);
+  }
+  return request.parsedQuery as z.output<S>;
 }
 
 /**
  * Mounts every registry operation as a route. An implemented operation runs its handler;
- * a planned one answers 501 not_implemented. A handler without an implemented operation,
- * or the reverse, stops the server at start rather than drifting silently.
+ * a planned one answers 501 not_implemented. An implemented operation that declares a query
+ * has it validated before its handler runs. A handler without an implemented operation, or
+ * the reverse, stops the server at start rather than drifting silently.
  */
 export function mountRegistry(
   app: FastifyInstance,
@@ -30,6 +55,7 @@ export function mountRegistry(
   }
   for (const op of registry) {
     const handler = handlers[op.id];
+    const { query } = op;
     if (op.status === 'implemented' && !handler) {
       throw new Error(`implemented operation ${op.id} has no handler`);
     }
@@ -37,6 +63,19 @@ export function mountRegistry(
       method: op.method,
       url: op.path.replace(/\{(\w+)\}/g, ':$1'),
       config: { operation: op },
+      ...(handler && query
+        ? {
+            preValidation: (
+              request: FastifyRequest,
+              _reply: FastifyReply,
+              done: HookHandlerDoneFunction,
+            ) => {
+              // A refusal throws here; Fastify routes it to the error handler.
+              request.parsedQuery = validate(query, request.query);
+              done();
+            },
+          }
+        : {}),
       handler:
         handler ??
         (() => {
