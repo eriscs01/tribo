@@ -28,10 +28,10 @@
 
 ## Me
 
-- [ ] `me.get` · Drop A · `GET /v1/me`
+- [x] `me.get` · Drop A · `GET /v1/me`
   - Caller account + own person profile; Own sensitive fields masked; reveal via library.people.reveal
   - Roles: self. If-Match: `no`. Idempotency: safe to repeat.
-- [ ] `me.update` · Drop A · `PATCH /v1/me`
+- [x] `me.update` · Drop A · `PATCH /v1/me`
   - Edit own profile (name, contacts, dietary, emergency contact, licence); masked_field_write on masked fields
   - Roles: self. If-Match: `version`. Idempotency: safe to repeat.
 - [x] `me.password.change` · Drop A · `POST /v1/me/password`
@@ -224,24 +224,24 @@
 
 ## Library
 
-- [ ] `library.search` · Drop A · `GET /v1/library/search`
+- [x] `library.search` · Drop A · `GET /v1/library/search`
   - Search people, places, vendors (trigram); People limited by person_visible
   - Roles: any signed-in user. If-Match: `no`. Idempotency: safe to repeat.
-- [ ] `library.people.create` · Drop A · `POST /v1/library/people`
+- [x] `library.people.create` · Drop A · `POST /v1/library/people`
   - Create placeholder person
   - Roles: any signed-in user. If-Match: `no`. Idempotency: creates (key).
   - Limit: Takes no Idempotency-Key in 1a: only expenses.create and files.upload honour it; this create follows in 1b.
-- [ ] `library.people.get` · Drop A · `GET /v1/library/people/{personId}`
+- [x] `library.people.get` · Drop A · `GET /v1/library/people/{personId}`
   - Person detail; person_visible; emergency contact masked; Merged id resolves to the survivor
   - Roles: any signed-in user. If-Match: `no`. Idempotency: safe to repeat.
-- [ ] `library.people.update` · Drop A · `PATCH /v1/library/people/{personId}`
+- [x] `library.people.update` · Drop A · `PATCH /v1/library/people/{personId}`
   - Edit person; masked_field_write; Placeholders only (account persons use me.update); ID/passport fields join in 1b and need recorded consent; Emergency contact stored encrypted (emergency_contact_enc, R5)
   - Roles: creator (placeholders only); own person via me.update. If-Match: `version`. Idempotency: safe to repeat.
-- [ ] `library.places.create` · Drop A · `POST /v1/library/places`
+- [x] `library.places.create` · Drop A · `POST /v1/library/places`
   - Add place (kind, lat/lng, hours, links); Audited on platform chain (G11)
   - Roles: any signed-in user. If-Match: `no`. Idempotency: creates (key).
   - Limit: Takes no Idempotency-Key in 1a: only expenses.create and files.upload honour it; this create follows in 1b.
-- [ ] `library.vendors.create` · Drop A · `POST /v1/library/vendors`
+- [x] `library.vendors.create` · Drop A · `POST /v1/library/vendors`
   - Add vendor (kind, contacts, links); Audited on platform chain (G11)
   - Roles: any signed-in user. If-Match: `no`. Idempotency: creates (key).
   - Limit: Takes no Idempotency-Key in 1a: only expenses.create and files.upload honour it; this create follows in 1b.

@@ -4007,12 +4007,12 @@
           }
         ],
         "responses": {
-          "501": {
-            "description": "Registered but not implemented yet (not_implemented)",
+          "201": {
+            "description": "OK",
             "content": {
-              "application/problem+json": {
+              "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Problem"
+                  "$ref": "#/components/schemas/Person"
                 }
               }
             }
@@ -4029,7 +4029,7 @@
           }
         },
         "x-tribo": {
-          "status": "planned",
+          "status": "implemented",
           "slice": "1a",
           "drop": "A",
           "roles": "any signed-in user",
@@ -4050,7 +4050,17 @@
               "maxLength": 255
             }
           }
-        ]
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PersonInput"
+              }
+            }
+          }
+        }
       }
     },
     "/v1/library/people/{personId}": {
@@ -4072,12 +4082,12 @@
           }
         ],
         "responses": {
-          "501": {
-            "description": "Registered but not implemented yet (not_implemented)",
+          "200": {
+            "description": "OK",
             "content": {
-              "application/problem+json": {
+              "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Problem"
+                  "$ref": "#/components/schemas/Person"
                 }
               }
             }
@@ -4094,7 +4104,7 @@
           }
         },
         "x-tribo": {
-          "status": "planned",
+          "status": "implemented",
           "slice": "1a",
           "drop": "A",
           "roles": "any signed-in user",
@@ -4134,12 +4144,12 @@
           }
         ],
         "responses": {
-          "501": {
-            "description": "Registered but not implemented yet (not_implemented)",
+          "200": {
+            "description": "OK",
             "content": {
-              "application/problem+json": {
+              "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Problem"
+                  "$ref": "#/components/schemas/Person"
                 }
               }
             }
@@ -4156,7 +4166,7 @@
           }
         },
         "x-tribo": {
-          "status": "planned",
+          "status": "implemented",
           "slice": "1a",
           "drop": "A",
           "roles": "creator (placeholders only); own person via me.update",
@@ -4185,7 +4195,17 @@
               "type": "string"
             }
           }
-        ]
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PersonPatch"
+              }
+            }
+          }
+        }
       }
     },
     "/v1/library/people/{personId}/consent": {
@@ -4395,12 +4415,12 @@
           }
         ],
         "responses": {
-          "501": {
-            "description": "Registered but not implemented yet (not_implemented)",
+          "201": {
+            "description": "OK",
             "content": {
-              "application/problem+json": {
+              "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Problem"
+                  "$ref": "#/components/schemas/Place"
                 }
               }
             }
@@ -4417,7 +4437,7 @@
           }
         },
         "x-tribo": {
-          "status": "planned",
+          "status": "implemented",
           "slice": "1a",
           "drop": "A",
           "roles": "any signed-in user",
@@ -4438,7 +4458,17 @@
               "maxLength": 255
             }
           }
-        ]
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlaceInput"
+              }
+            }
+          }
+        }
       }
     },
     "/v1/library/places/{placeId}": {
@@ -4663,12 +4693,12 @@
           }
         ],
         "responses": {
-          "501": {
-            "description": "Registered but not implemented yet (not_implemented)",
+          "200": {
+            "description": "OK",
             "content": {
-              "application/problem+json": {
+              "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Problem"
+                  "$ref": "#/components/schemas/LibrarySearchResult"
                 }
               }
             }
@@ -4685,7 +4715,7 @@
           }
         },
         "x-tribo": {
-          "status": "planned",
+          "status": "implemented",
           "slice": "1a",
           "drop": "A",
           "roles": "any signed-in user",
@@ -4694,7 +4724,30 @@
           "destructive": false,
           "mcpApproval": false,
           "mcpTool": "search_library"
-        }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          }
+        ]
       }
     },
     "/v1/library/templates": {
@@ -5163,12 +5216,12 @@
           }
         ],
         "responses": {
-          "501": {
-            "description": "Registered but not implemented yet (not_implemented)",
+          "201": {
+            "description": "OK",
             "content": {
-              "application/problem+json": {
+              "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Problem"
+                  "$ref": "#/components/schemas/Vendor"
                 }
               }
             }
@@ -5185,7 +5238,7 @@
           }
         },
         "x-tribo": {
-          "status": "planned",
+          "status": "implemented",
           "slice": "1a",
           "drop": "A",
           "roles": "any signed-in user",
@@ -5206,7 +5259,17 @@
               "maxLength": 255
             }
           }
-        ]
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VendorInput"
+              }
+            }
+          }
+        }
       }
     },
     "/v1/library/vendors/{vendorId}": {
@@ -5431,12 +5494,12 @@
           }
         ],
         "responses": {
-          "501": {
-            "description": "Registered but not implemented yet (not_implemented)",
+          "200": {
+            "description": "OK",
             "content": {
-              "application/problem+json": {
+              "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Problem"
+                  "$ref": "#/components/schemas/Me"
                 }
               }
             }
@@ -5453,7 +5516,7 @@
           }
         },
         "x-tribo": {
-          "status": "planned",
+          "status": "implemented",
           "slice": "1a",
           "drop": "A",
           "roles": "self",
@@ -5482,12 +5545,12 @@
           }
         ],
         "responses": {
-          "501": {
-            "description": "Registered but not implemented yet (not_implemented)",
+          "200": {
+            "description": "OK",
             "content": {
-              "application/problem+json": {
+              "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Problem"
+                  "$ref": "#/components/schemas/Me"
                 }
               }
             }
@@ -5504,7 +5567,7 @@
           }
         },
         "x-tribo": {
-          "status": "planned",
+          "status": "implemented",
           "slice": "1a",
           "drop": "A",
           "roles": "self",
@@ -5524,7 +5587,17 @@
               "type": "string"
             }
           }
-        ]
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PersonPatch"
+              }
+            }
+          }
+        }
       }
     },
     "/v1/me/connections": {
@@ -8348,9 +8421,99 @@
         ],
         "additionalProperties": false
       },
+      "Contacts": {
+        "type": "object",
+        "properties": {
+          "phone": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 40
+          },
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "format": "email",
+            "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+          },
+          "messenger": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        "additionalProperties": false
+      },
+      "ContactsPatch": {
+        "type": "object",
+        "properties": {
+          "phone": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 3,
+                "maxLength": 40
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 254,
+                "format": "email",
+                "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "messenger": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
       "CurrencyCode": {
         "type": "string",
         "pattern": "^[A-Z]{3}$"
+      },
+      "EmergencyContact": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "relation": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 60
+          },
+          "phone": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 40
+          }
+        },
+        "required": [
+          "name",
+          "phone"
+        ],
+        "additionalProperties": false
       },
       "ErrorCode": {
         "type": "string",
@@ -8588,6 +8751,128 @@
           "selected"
         ]
       },
+      "LatLng": {
+        "type": "object",
+        "properties": {
+          "lat": {
+            "type": "number",
+            "minimum": -90,
+            "maximum": 90
+          },
+          "lng": {
+            "type": "number",
+            "minimum": -180,
+            "maximum": 180
+          }
+        },
+        "required": [
+          "lat",
+          "lng"
+        ],
+        "additionalProperties": false
+      },
+      "LibraryHit": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "person"
+              },
+              "id": {
+                "type": "string",
+                "pattern": "^per_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "id",
+              "name"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "place"
+              },
+              "id": {
+                "type": "string",
+                "pattern": "^plc_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+              },
+              "name": {
+                "type": "string"
+              },
+              "placeKind": {
+                "$ref": "#/components/schemas/PlaceKind"
+              }
+            },
+            "required": [
+              "kind",
+              "id",
+              "name",
+              "placeKind"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "vendor"
+              },
+              "id": {
+                "type": "string",
+                "pattern": "^vnd_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+              },
+              "name": {
+                "type": "string"
+              },
+              "vendorKind": {
+                "$ref": "#/components/schemas/VendorKind"
+              }
+            },
+            "required": [
+              "kind",
+              "id",
+              "name",
+              "vendorKind"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      },
+      "LibrarySearchResult": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LibraryHit"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": false
+      },
+      "Links": {
+        "maxItems": 20,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "maxLength": 2000,
+          "format": "uri"
+        }
+      },
       "LoginInput": {
         "type": "object",
         "properties": {
@@ -8613,6 +8898,57 @@
         "required": [
           "username",
           "password"
+        ],
+        "additionalProperties": false
+      },
+      "MaskedValue": {
+        "type": "object",
+        "properties": {
+          "masked": {
+            "type": "boolean",
+            "const": true
+          }
+        },
+        "required": [
+          "masked"
+        ],
+        "additionalProperties": false
+      },
+      "Me": {
+        "type": "object",
+        "properties": {
+          "account": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^usr_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+              },
+              "username": {
+                "$ref": "#/components/schemas/Username"
+              },
+              "platformRole": {
+                "type": "string",
+                "enum": [
+                  "admin",
+                  "user"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "username",
+              "platformRole"
+            ],
+            "additionalProperties": false
+          },
+          "person": {
+            "$ref": "#/components/schemas/Person"
+          }
+        },
+        "required": [
+          "account",
+          "person"
         ],
         "additionalProperties": false
       },
@@ -8706,6 +9042,41 @@
         "minLength": 12,
         "maxLength": 128
       },
+      "OpeningHours": {
+        "maxItems": 50,
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "day": {
+              "type": "string",
+              "enum": [
+                "mon",
+                "tue",
+                "wed",
+                "thu",
+                "fri",
+                "sat",
+                "sun"
+              ]
+            },
+            "opens": {
+              "type": "string",
+              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+            },
+            "closes": {
+              "type": "string",
+              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+            }
+          },
+          "required": [
+            "day",
+            "opens",
+            "closes"
+          ],
+          "additionalProperties": false
+        }
+      },
       "PasswordChangeInput": {
         "type": "object",
         "properties": {
@@ -8723,6 +9094,268 @@
           "newPassword"
         ],
         "additionalProperties": false
+      },
+      "Person": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^per_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "hasAccount": {
+            "type": "boolean"
+          },
+          "contacts": {
+            "$ref": "#/components/schemas/Contacts"
+          },
+          "dietary": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "drivingLicence": {
+            "type": "boolean"
+          },
+          "emergencyContact": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MaskedValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "createdAt": {
+            "$ref": "#/components/schemas/Instant"
+          },
+          "updatedAt": {
+            "$ref": "#/components/schemas/Instant"
+          }
+        },
+        "required": [
+          "id",
+          "displayName",
+          "hasAccount",
+          "contacts",
+          "dietary",
+          "drivingLicence",
+          "emergencyContact",
+          "version",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "PersonInput": {
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "contacts": {
+            "$ref": "#/components/schemas/Contacts"
+          },
+          "dietary": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "drivingLicence": {
+            "type": "boolean"
+          },
+          "emergencyContact": {
+            "$ref": "#/components/schemas/EmergencyContact"
+          }
+        },
+        "required": [
+          "displayName"
+        ],
+        "additionalProperties": false
+      },
+      "PersonPatch": {
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "contacts": {
+            "$ref": "#/components/schemas/ContactsPatch"
+          },
+          "dietary": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "drivingLicence": {
+            "type": "boolean"
+          },
+          "emergencyContact": {
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/EmergencyContact"
+                  },
+                  {
+                    "$ref": "#/components/schemas/MaskedValue"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "Place": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^plc_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/PlaceKind"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LatLng"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "address": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "hours": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OpeningHours"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "links": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "createdAt": {
+            "$ref": "#/components/schemas/Instant"
+          },
+          "updatedAt": {
+            "$ref": "#/components/schemas/Instant"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "kind",
+          "location",
+          "address",
+          "hours",
+          "links",
+          "notes",
+          "version",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "PlaceInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "kind": {
+            "$ref": "#/components/schemas/PlaceKind"
+          },
+          "location": {
+            "$ref": "#/components/schemas/LatLng"
+          },
+          "address": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "hours": {
+            "$ref": "#/components/schemas/OpeningHours"
+          },
+          "links": {
+            "$ref": "#/components/schemas/Links"
+          },
+          "notes": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false
+      },
+      "PlaceKind": {
+        "type": "string",
+        "enum": [
+          "destination",
+          "beach",
+          "landmark",
+          "port",
+          "airport",
+          "lodging",
+          "restaurant",
+          "other"
+        ]
       },
       "Problem": {
         "type": "object",
@@ -8967,6 +9600,116 @@
       "Username": {
         "type": "string",
         "pattern": "^[A-Za-z0-9._-]{3,32}$"
+      },
+      "Vendor": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^vnd_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/VendorKind"
+          },
+          "placeId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^plc_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "contacts": {
+            "$ref": "#/components/schemas/Contacts"
+          },
+          "links": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "createdAt": {
+            "$ref": "#/components/schemas/Instant"
+          },
+          "updatedAt": {
+            "$ref": "#/components/schemas/Instant"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "kind",
+          "placeId",
+          "contacts",
+          "links",
+          "notes",
+          "version",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "VendorInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "kind": {
+            "$ref": "#/components/schemas/VendorKind"
+          },
+          "placeId": {
+            "type": "string",
+            "pattern": "^plc_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+          },
+          "contacts": {
+            "$ref": "#/components/schemas/Contacts"
+          },
+          "links": {
+            "$ref": "#/components/schemas/Links"
+          },
+          "notes": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false
+      },
+      "VendorKind": {
+        "type": "string",
+        "enum": [
+          "airline",
+          "lodging",
+          "tour_operator",
+          "rental",
+          "ferry_line",
+          "bus_line",
+          "restaurant",
+          "other"
+        ]
       },
       "WallClockTime": {
         "type": "object",

@@ -1944,7 +1944,23 @@ export interface components {
             token: string;
             newPassword: components["schemas"]["NewPassword"];
         };
+        Contacts: {
+            phone?: string;
+            /** Format: email */
+            email?: string;
+            messenger?: string;
+        };
+        ContactsPatch: {
+            phone?: string | null;
+            email?: string | null;
+            messenger?: string | null;
+        };
         CurrencyCode: string;
+        EmergencyContact: {
+            name: string;
+            relation?: string;
+            phone: string;
+        };
         /** @enum {string} */
         ErrorCode: "unauthenticated" | "mfa_required" | "forbidden" | "not_found" | "validation_failed" | "if_match_required" | "version_conflict" | "idempotency_key_reused" | "capacity_exceeded" | "room_double_booked" | "driver_taken" | "invalid_transition" | "masked_field_write" | "rate_limited" | "file_too_large" | "file_type_not_allowed" | "file_purged" | "username_taken" | "invite_invalid" | "already_member" | "claim_conflict" | "person_has_account" | "owner_transfer_required" | "reset_link_used" | "currency_locked" | "trip_archived" | "trip_retired" | "approval_required" | "approval_not_pending" | "internal_error" | "not_implemented";
         /** Format: date-time */
@@ -1986,11 +2002,50 @@ export interface components {
         ItemType: "transport" | "lodging" | "ground" | "activity" | "meal" | "task" | "note" | "document";
         /** @enum {string} */
         ItemVisibility: "shared" | "private" | "selected";
+        LatLng: {
+            lat: number;
+            lng: number;
+        };
+        LibraryHit: {
+            /** @constant */
+            kind: "person";
+            id: string;
+            name: string;
+        } | {
+            /** @constant */
+            kind: "place";
+            id: string;
+            name: string;
+            placeKind: components["schemas"]["PlaceKind"];
+        } | {
+            /** @constant */
+            kind: "vendor";
+            id: string;
+            name: string;
+            vendorKind: components["schemas"]["VendorKind"];
+        };
+        LibrarySearchResult: {
+            items: components["schemas"]["LibraryHit"][];
+        };
+        Links: string[];
         LoginInput: {
             username: string;
             password: string;
             totp?: components["schemas"]["TotpCode"];
             recoveryCode?: string;
+        };
+        MaskedValue: {
+            /** @constant */
+            masked: true;
+        };
+        Me: {
+            account: {
+                id: string;
+                username: components["schemas"]["Username"];
+                /** @enum {string} */
+                platformRole: "admin" | "user";
+            };
+            person: components["schemas"]["Person"];
         };
         MetaOpenapi: {
             openapi: string;
@@ -2018,10 +2073,66 @@ export interface components {
             uri: string;
         };
         NewPassword: string;
+        OpeningHours: {
+            /** @enum {string} */
+            day: "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
+            opens: string;
+            closes: string;
+        }[];
         PasswordChangeInput: {
             currentPassword: string;
             newPassword: components["schemas"]["NewPassword"];
         };
+        Person: {
+            id: string;
+            displayName: string;
+            hasAccount: boolean;
+            contacts: components["schemas"]["Contacts"];
+            dietary: string | null;
+            drivingLicence: boolean;
+            emergencyContact: components["schemas"]["MaskedValue"] | null;
+            version: number;
+            createdAt: components["schemas"]["Instant"];
+            updatedAt: components["schemas"]["Instant"];
+        };
+        PersonInput: {
+            displayName: string;
+            contacts?: components["schemas"]["Contacts"];
+            dietary?: string;
+            drivingLicence?: boolean;
+            emergencyContact?: components["schemas"]["EmergencyContact"];
+        };
+        PersonPatch: {
+            displayName?: string;
+            contacts?: components["schemas"]["ContactsPatch"];
+            dietary?: string | null;
+            drivingLicence?: boolean;
+            emergencyContact?: (components["schemas"]["EmergencyContact"] | components["schemas"]["MaskedValue"]) | null;
+        };
+        Place: {
+            id: string;
+            name: string;
+            kind: components["schemas"]["PlaceKind"];
+            location: components["schemas"]["LatLng"] | null;
+            address: string | null;
+            hours: components["schemas"]["OpeningHours"] | null;
+            links: string[];
+            notes: string | null;
+            version: number;
+            createdAt: components["schemas"]["Instant"];
+            updatedAt: components["schemas"]["Instant"];
+        };
+        PlaceInput: {
+            name: string;
+            kind?: components["schemas"]["PlaceKind"];
+            location?: components["schemas"]["LatLng"];
+            address?: string;
+            hours?: components["schemas"]["OpeningHours"];
+            links?: components["schemas"]["Links"];
+            notes?: string;
+        };
+        /** @enum {string} */
+        PlaceKind: "destination" | "beach" | "landmark" | "port" | "airport" | "lodging" | "restaurant" | "other";
         Problem: {
             type: string;
             title: string;
@@ -2079,6 +2190,28 @@ export interface components {
         /** @enum {string} */
         TripStatus: "draft" | "planning" | "active" | "completed" | "archived";
         Username: string;
+        Vendor: {
+            id: string;
+            name: string;
+            kind: components["schemas"]["VendorKind"];
+            placeId: string | null;
+            contacts: components["schemas"]["Contacts"];
+            links: string[];
+            notes: string | null;
+            version: number;
+            createdAt: components["schemas"]["Instant"];
+            updatedAt: components["schemas"]["Instant"];
+        };
+        VendorInput: {
+            name: string;
+            kind?: components["schemas"]["VendorKind"];
+            placeId?: string;
+            contacts?: components["schemas"]["Contacts"];
+            links?: components["schemas"]["Links"];
+            notes?: string;
+        };
+        /** @enum {string} */
+        VendorKind: "airline" | "lodging" | "tour_operator" | "rental" | "ferry_line" | "bus_line" | "restaurant" | "other";
         WallClockTime: {
             local: string;
             tz: components["schemas"]["TimeZone"];
@@ -4146,15 +4279,19 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PersonInput"];
+            };
+        };
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["Person"];
                 };
             };
             /** @description Error */
@@ -4179,13 +4316,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["Person"];
                 };
             };
             /** @description Error */
@@ -4211,15 +4348,19 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PersonPatch"];
+            };
+        };
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["Person"];
                 };
             };
             /** @description Error */
@@ -4337,15 +4478,19 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlaceInput"];
+            };
+        };
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["Place"];
                 };
             };
             /** @description Error */
@@ -4460,20 +4605,23 @@ export interface operations {
     };
     "library.search": {
         parameters: {
-            query?: never;
+            query: {
+                q: string;
+                limit?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["LibrarySearchResult"];
                 };
             };
             /** @description Error */
@@ -4720,15 +4868,19 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VendorInput"];
+            };
+        };
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["Vendor"];
                 };
             };
             /** @description Error */
@@ -4850,13 +5002,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["Me"];
                 };
             };
             /** @description Error */
@@ -4880,15 +5032,19 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PersonPatch"];
+            };
+        };
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["Me"];
                 };
             };
             /** @description Error */

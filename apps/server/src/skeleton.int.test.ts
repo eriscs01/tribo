@@ -6,6 +6,7 @@ import { CSRF_HEADER, decodeTypeId, ID_PREFIX, SESSION_COOKIE } from '@tribo/con
 import {
   createIdentityService,
   createItemsService,
+  createLibraryService,
   createTripsService,
   startTotpEnrolment,
   verifyChains,
@@ -30,11 +31,8 @@ let adminKey = '';
 
 beforeAll(async () => {
   tdb = await createTestDatabase();
-  const identity = createIdentityService(
-    tdb.db,
-    keyring(new AppKey(randomBytes(32))),
-    'Tribo (tribo.test)',
-  );
+  const keys = keyring(new AppKey(randomBytes(32)));
+  const identity = createIdentityService(tdb.db, keys, 'Tribo (tribo.test)');
   const write = writePath(tdb.db);
   app = await buildServer({
     trustedProxies: ['loopback'],
@@ -45,6 +43,7 @@ beforeAll(async () => {
       csrfSecret: csrf,
       trips: createTripsService(tdb.db, write),
       items: createItemsService(tdb.db, write),
+      library: createLibraryService(tdb.db, write, keys),
     }),
     ping: () => Promise.resolve(),
     logLevel: 'silent',

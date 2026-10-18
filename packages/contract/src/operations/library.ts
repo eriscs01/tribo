@@ -1,6 +1,10 @@
 // Generated from operations.csv by src/scripts/import-operations.ts. A story replaces an
 // entry's status with 'implemented' and adds its input and output schemas.
 import { defineOperation } from '../operation.js';
+import { Person, PersonInput, PersonPatch } from '../person.js';
+import { Place, PlaceInput } from '../place.js';
+import { Vendor, VendorInput } from '../vendor.js';
+import { LibrarySearchQuery, LibrarySearchResult } from '../library.js';
 
 export const libraryOperations = [
   defineOperation({
@@ -18,7 +22,9 @@ export const libraryOperations = [
     mcpApproval: false,
     mcpTool: 'search_library',
     notes: 'Search people, places, vendors (trigram); People limited by person_visible',
-    status: 'planned',
+    status: 'implemented',
+    query: LibrarySearchQuery,
+    output: LibrarySearchResult,
   }),
   defineOperation({
     id: 'library.people.list',
@@ -53,7 +59,9 @@ export const libraryOperations = [
     mcpApproval: false,
     mcpTool: null,
     notes: 'Create placeholder person',
-    status: 'planned',
+    status: 'implemented',
+    input: PersonInput,
+    output: Person,
   }),
   defineOperation({
     id: 'library.people.get',
@@ -71,7 +79,8 @@ export const libraryOperations = [
     mcpTool: null,
     notes:
       'Person detail; person_visible; emergency contact masked; Merged id resolves to the survivor',
-    status: 'planned',
+    status: 'implemented',
+    output: Person,
   }),
   defineOperation({
     id: 'library.people.update',
@@ -89,7 +98,9 @@ export const libraryOperations = [
     mcpTool: null,
     notes:
       'Edit person; masked_field_write; Placeholders only (account persons use me.update); ID/passport fields join in 1b and need recorded consent; Emergency contact stored encrypted (emergency_contact_enc, R5)',
-    status: 'planned',
+    status: 'implemented',
+    input: PersonPatch,
+    output: Person,
   }),
   defineOperation({
     id: 'library.people.reveal',
@@ -158,7 +169,9 @@ export const libraryOperations = [
     mcpApproval: false,
     mcpTool: null,
     notes: 'Add place (kind, lat/lng, hours, links); Audited on platform chain (G11)',
-    status: 'planned',
+    status: 'implemented',
+    input: PlaceInput,
+    output: Place,
   }),
   defineOperation({
     id: 'library.places.get',
@@ -243,7 +256,9 @@ export const libraryOperations = [
     mcpApproval: false,
     mcpTool: null,
     notes: 'Add vendor (kind, contacts, links); Audited on platform chain (G11)',
-    status: 'planned',
+    status: 'implemented',
+    input: VendorInput,
+    output: Vendor,
   }),
   defineOperation({
     id: 'library.vendors.get',

@@ -120,7 +120,14 @@ describe('tribo admin create', () => {
       {
         entity_type: 'person',
         version: 1,
-        snapshot: { userId: a.userId, displayName: 'Ana Admin' },
+        snapshot: {
+          userId: a.userId,
+          displayName: 'Ana Admin',
+          contacts: {},
+          dietary: null,
+          drivingLicence: false,
+          emergencyContactEnc: null,
+        },
       },
     ]);
     expect(JSON.stringify(snapshots)).not.toMatch(/argon2|mfa_secret/);

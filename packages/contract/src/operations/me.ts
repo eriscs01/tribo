@@ -1,7 +1,9 @@
 // Generated from operations.csv by src/scripts/import-operations.ts. A story replaces an
 // entry's status with 'implemented' and adds its input and output schemas.
 import { defineOperation } from '../operation.js';
+import { Me } from '../me.js';
 import { PasswordChangeInput } from '../password.js';
+import { PersonPatch } from '../person.js';
 
 export const meOperations = [
   defineOperation({
@@ -20,7 +22,8 @@ export const meOperations = [
     mcpTool: null,
     notes:
       'Caller account + own person profile; Own sensitive fields masked; reveal via library.people.reveal',
-    status: 'planned',
+    status: 'implemented',
+    output: Me,
   }),
   defineOperation({
     id: 'me.update',
@@ -38,7 +41,9 @@ export const meOperations = [
     mcpTool: null,
     notes:
       'Edit own profile (name, contacts, dietary, emergency contact, licence); masked_field_write on masked fields',
-    status: 'planned',
+    status: 'implemented',
+    input: PersonPatch,
+    output: Me,
   }),
   defineOperation({
     id: 'me.password.change',
