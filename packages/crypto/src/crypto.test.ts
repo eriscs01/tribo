@@ -1,3 +1,4 @@
+/* eslint-disable no-bitwise -- flips single bits to tamper with envelopes */
 import { createHash, randomBytes } from 'node:crypto';
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';

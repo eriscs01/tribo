@@ -1,11 +1,11 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { ApiProblem } from '../api/client.js';
-import { tripQuery } from '../api/queries.js';
-import { formatDateRange } from '../format.js';
-import { m } from '../messages.js';
-import { ErrorNotice } from '../ui/Notice.js';
-import { AddItemForm } from './AddItem.js';
+import { ApiProblem } from '../api/client';
+import { tripQuery } from '../api/queries';
+import { formatDateRange } from '../format';
+import { m } from '../messages';
+import { ErrorNotice } from '../ui/Notice';
+import { AddItemForm } from './AddItem';
 
 const ZONES = Intl.supportedValuesOf('timeZone');
 

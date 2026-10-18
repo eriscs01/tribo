@@ -1,6 +1,6 @@
 import { CSRF_HEADER } from '@tribo/contract';
 import createClient, { type Middleware } from 'openapi-fetch';
-import type { components, paths } from '../generated/api.js';
+import type { components, paths } from '../generated/api';
 
 export type Schemas = components['schemas'];
 export type Problem = Schemas['Problem'];

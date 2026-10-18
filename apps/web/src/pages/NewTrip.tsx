@@ -1,13 +1,13 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useState, type SubmitEvent } from 'react';
-import { api, ApiProblem, unwrap, type Schemas } from '../api/client.js';
-import { keys } from '../api/queries.js';
-import { localTimeZone } from '../format.js';
-import { m } from '../messages.js';
-import { Field } from '../ui/Field.js';
-import { ErrorNotice } from '../ui/Notice.js';
-import { fieldErrorsOf } from '../ui/problem.js';
+import { api, ApiProblem, unwrap, type Schemas } from '../api/client';
+import { keys } from '../api/queries';
+import { localTimeZone } from '../format';
+import { m } from '../messages';
+import { Field } from '../ui/Field';
+import { ErrorNotice } from '../ui/Notice';
+import { fieldErrorsOf } from '../ui/problem';
 
 /** Zone names the browser knows, offered as suggestions; the server decides what is valid. */
 const ZONES = Intl.supportedValuesOf('timeZone');

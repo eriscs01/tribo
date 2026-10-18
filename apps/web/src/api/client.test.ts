@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ApiProblem, createApi, setCsrfToken, unwrap } from './client.js';
+import { ApiProblem, createApi, setCsrfToken, unwrap } from './client';
 
 const json = (status: number, body: unknown, type = 'application/json') =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': type } });

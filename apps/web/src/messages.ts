@@ -1,6 +1,6 @@
 // Every user-facing string, in one plain map (technical design, "Localisation"). An ICU
 // library comes in only with a second locale.
-import type { ErrorCode, Schemas } from './api/client.js';
+import type { ErrorCode, Schemas } from './api/client';
 
 export const LOCALE = 'en';
 

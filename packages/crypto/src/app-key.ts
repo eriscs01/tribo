@@ -1,3 +1,4 @@
+/* eslint-disable max-classes-per-file -- the key and the one error it throws belong together */
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { inspect } from 'node:util';
@@ -16,6 +17,7 @@ export class AppKeyError extends Error {
  */
 export class AppKey {
   readonly #bytes: Buffer;
+
   /** First 8 hex characters of the key's SHA-256: safe to log, enough to tell keys apart. */
   readonly fingerprint: string;
 

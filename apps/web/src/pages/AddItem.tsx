@@ -1,12 +1,12 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useState, type SubmitEvent } from 'react';
-import { api, unwrap, type Schemas } from '../api/client.js';
-import { keys, type Trip } from '../api/queries.js';
-import { m, optionsOf } from '../messages.js';
-import { Field } from '../ui/Field.js';
-import { ErrorNotice } from '../ui/Notice.js';
-import { fieldErrorsOf } from '../ui/problem.js';
+import { api, unwrap, type Schemas } from '../api/client';
+import { keys, type Trip } from '../api/queries';
+import { m, optionsOf } from '../messages';
+import { Field } from '../ui/Field';
+import { ErrorNotice } from '../ui/Notice';
+import { fieldErrorsOf } from '../ui/problem';
 
 type Timing = 'none' | 'timed' | 'allDay';
 type Visibility = Exclude<Schemas['ItemVisibility'], 'selected'>;

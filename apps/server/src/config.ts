@@ -42,6 +42,7 @@ export interface Config {
 export function readSecret(dir: string, name: string): string {
   let value: string;
   try {
+    // eslint-disable-next-line n/no-sync -- config is read once, before the server starts
     value = readFileSync(join(dir, name), 'utf8').trim();
   } catch (error) {
     const code = (error as NodeJS.ErrnoException).code ?? 'unknown error';

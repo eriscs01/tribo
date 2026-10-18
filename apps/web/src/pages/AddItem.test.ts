@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { itemInput, type ItemForm } from './AddItem.js';
-import { safeRedirect } from './SignIn.js';
+import { itemInput, type ItemForm } from './AddItem';
+import { safeRedirect } from './SignIn';
 
 const base: ItemForm = {
   type: 'transport',

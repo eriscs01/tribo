@@ -1,9 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
 import { useEffect, useRef } from 'react';
-import { api, setCsrfToken, unwrap } from '../api/client.js';
-import { sessionQuery } from '../api/queries.js';
-import { m } from '../messages.js';
+import { api, setCsrfToken, unwrap } from '../api/client';
+import { sessionQuery } from '../api/queries';
+import { m } from '../messages';
 
 export function Layout() {
   const client = useQueryClient();

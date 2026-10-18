@@ -4,7 +4,7 @@ import {
   type InfiniteData,
   type QueryClient,
 } from '@tanstack/react-query';
-import { api, ApiProblem, setCsrfToken, unwrap, type Schemas } from './client.js';
+import { api, ApiProblem, setCsrfToken, unwrap, type Schemas } from './client';
 
 export type Session = Schemas['Session'];
 export type Trip = Schemas['Trip'];
@@ -72,6 +72,8 @@ export function tripQuery(client: QueryClient, id: string) {
       do {
         const query: { limit: number; cursor?: string } =
           cursor === null ? { limit: 200 } : { limit: 200, cursor };
+        // Pages follow one another: each cursor comes from the page before.
+        // eslint-disable-next-line no-await-in-loop
         const page = await unwrap(api.GET('/v1/trips', { params: { query } }));
         const trip = page.items.find((t) => t.id === id);
         if (trip) return trip;

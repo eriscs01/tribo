@@ -36,7 +36,8 @@ export async function adminCreate(
   io.say(`  ${enrolment.uri}`);
   io.say(`  key: ${enrolment.key}`);
   let code: string | undefined;
-  for (let attempt = 1; attempt <= TOTP_ATTEMPTS && code === undefined; attempt++) {
+  for (let attempt = 1; attempt <= TOTP_ATTEMPTS && code === undefined; attempt += 1) {
+    // eslint-disable-next-line no-await-in-loop -- one prompt at a time, until a code matches
     const typed = (await io.ask('Six-digit code from the app: ')).trim();
     if (totpMatches(enrolment.secret, typed)) code = typed;
     else io.say('That code does not match; check the app and the host clock.');

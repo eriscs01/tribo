@@ -1,5 +1,5 @@
-import type { Schemas } from './api/client.js';
-import { LOCALE } from './messages.js';
+import type { Schemas } from './api/client';
+import { LOCALE } from './messages';
 
 /** A calendar date (YYYY-MM-DD) has no zone: format it as the same day everywhere. */
 function day(date: string): Date {

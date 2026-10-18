@@ -1,10 +1,10 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { ApiProblem } from '../api/client.js';
-import { itemQuery, tripQuery } from '../api/queries.js';
-import { formatItemTime } from '../format.js';
-import { m } from '../messages.js';
-import { ErrorNotice } from '../ui/Notice.js';
+import { ApiProblem } from '../api/client';
+import { itemQuery, tripQuery } from '../api/queries';
+import { formatItemTime } from '../format';
+import { m } from '../messages';
+import { ErrorNotice } from '../ui/Notice';
 
 export function ItemPage({ itemId }: { itemId: string }) {
   const client = useQueryClient();

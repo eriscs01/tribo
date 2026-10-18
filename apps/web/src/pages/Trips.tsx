@@ -1,9 +1,9 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { tripsQuery } from '../api/queries.js';
-import { formatDateRange } from '../format.js';
-import { m } from '../messages.js';
-import { ErrorNotice } from '../ui/Notice.js';
+import { tripsQuery } from '../api/queries';
+import { formatDateRange } from '../format';
+import { m } from '../messages';
+import { ErrorNotice } from '../ui/Notice';
 
 export function TripsPage() {
   const trips = useInfiniteQuery(tripsQuery);
@@ -41,7 +41,8 @@ export function TripsPage() {
           className="button-secondary"
           disabled={trips.isFetchingNextPage}
           onClick={() => {
-            void trips.fetchNextPage();
+            // Failures land in the query's error state, shown above.
+            trips.fetchNextPage().catch(() => undefined);
           }}
         >
           {trips.isFetchingNextPage ? m.loading : m.trips.more}

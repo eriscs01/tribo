@@ -1,12 +1,12 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useRef, useState, type SubmitEvent } from 'react';
-import { api, ApiProblem, setCsrfToken, unwrap, type Schemas } from '../api/client.js';
-import { sessionQuery } from '../api/queries.js';
-import { m } from '../messages.js';
-import { Field } from '../ui/Field.js';
-import { ErrorNotice } from '../ui/Notice.js';
-import { fieldErrorsOf } from '../ui/problem.js';
+import { api, ApiProblem, setCsrfToken, unwrap, type ErrorCode, type Schemas } from '../api/client';
+import { sessionQuery } from '../api/queries';
+import { m } from '../messages';
+import { Field } from '../ui/Field';
+import { ErrorNotice } from '../ui/Notice';
+import { fieldErrorsOf } from '../ui/problem';
 
 /** Where to go after sign-in: a path on this origin only, never another site. */
 export function safeRedirect(target: string | undefined): string {
@@ -14,6 +14,12 @@ export function safeRedirect(target: string | undefined): string {
     ? target
     : '/trips';
 }
+
+/** Sign-in failures that get their own sentence; the rest use the generic text. */
+const SIGN_IN_NOTICES: Partial<Record<ErrorCode, string>> = {
+  mfa_required: m.signIn.needCode,
+  unauthenticated: m.signIn.wrong,
+};
 
 export function SignInPage({ redirect }: { redirect?: string | undefined }) {
   const client = useQueryClient();
@@ -39,22 +45,14 @@ export function SignInPage({ redirect }: { redirect?: string | undefined }) {
   const onSubmit = (event: SubmitEvent) => {
     event.preventDefault();
     const second = code.trim();
-    signIn.mutate({
-      username: username.trim(),
-      password,
-      ...(second === '' ? {} : useRecovery ? { recoveryCode: second } : { totp: second }),
-    });
+    const factor = useRecovery ? { recoveryCode: second } : { totp: second };
+    signIn.mutate({ username: username.trim(), password, ...(second === '' ? {} : factor) });
   };
 
-  const error = signIn.error;
+  const { error } = signIn;
   const failure = error instanceof ApiProblem ? error.code : null;
   const fields = fieldErrorsOf(error);
-  const notice =
-    failure === 'mfa_required'
-      ? m.signIn.needCode
-      : failure === 'unauthenticated'
-        ? m.signIn.wrong
-        : undefined;
+  const notice = failure === null ? undefined : SIGN_IN_NOTICES[failure];
 
   return (
     <section className="narrow">

@@ -7,13 +7,13 @@ import {
   type RouterHistory,
   redirect,
 } from '@tanstack/react-router';
-import { sessionQuery } from './api/queries.js';
-import { ItemPage } from './pages/Item.js';
-import { NewTripPage } from './pages/NewTrip.js';
-import { SignInPage } from './pages/SignIn.js';
-import { TripPage } from './pages/Trip.js';
-import { TripsPage } from './pages/Trips.js';
-import { Layout } from './ui/Layout.js';
+import { sessionQuery } from './api/queries';
+import { ItemPage } from './pages/Item';
+import { NewTripPage } from './pages/NewTrip';
+import { SignInPage } from './pages/SignIn';
+import { TripPage } from './pages/Trip';
+import { TripsPage } from './pages/Trips';
+import { Layout } from './ui/Layout';
 
 interface RouterContext {
   queryClient: QueryClient;

@@ -2,8 +2,7 @@ import * as z from 'zod';
 
 function isTimeZone(tz: string): boolean {
   try {
-    new Intl.DateTimeFormat('en', { timeZone: tz });
-    return true;
+    return new Intl.DateTimeFormat('en', { timeZone: tz }).resolvedOptions().timeZone !== '';
   } catch {
     return false;
   }

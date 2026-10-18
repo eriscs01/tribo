@@ -1,5 +1,5 @@
-import { ApiProblem } from '../api/client.js';
-import { m } from '../messages.js';
+import { ApiProblem } from '../api/client';
+import { m } from '../messages';
 
 /** One sentence for a failed request; field errors are shown by their fields instead. */
 export function problemMessage(error: unknown): string {

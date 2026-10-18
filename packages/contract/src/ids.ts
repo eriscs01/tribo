@@ -1,3 +1,4 @@
+/* eslint-disable no-bitwise -- Crockford base32 packs 5 bits per character */
 import * as z from 'zod';
 
 /**
@@ -66,7 +67,7 @@ export function encodeTypeId(prefix: IdPrefix, uuid: string): string {
   if (!UUID.test(uuid)) throw new TypeIdError('not a UUID');
   let n = BigInt(`0x${uuid.replaceAll('-', '')}`);
   const out: string[] = [];
-  for (let i = 0; i < 26; i++) {
+  for (let i = 0; i < 26; i += 1) {
     out.push(ALPHABET.charAt(Number(n & 31n)));
     n >>= 5n;
   }

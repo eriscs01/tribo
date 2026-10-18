@@ -158,8 +158,10 @@ function itemRecord(row: ItemRow): ItemRecord {
 
 /** The item's fields and its owned shares; ciphertext columns join as ciphertext later. */
 function itemSnapshot(item: ItemRecord, sharedWith: readonly string[]) {
-  const stored = (t: ItemTimeRecord | null) =>
-    t === null ? null : 'date' in t ? { date: t.date } : { at: t.at.toISOString(), tz: t.tz };
+  const stored = (t: ItemTimeRecord | null) => {
+    if (t === null) return null;
+    return 'date' in t ? { date: t.date } : { at: t.at.toISOString(), tz: t.tz };
+  };
   return {
     type: item.type,
     title: item.title,

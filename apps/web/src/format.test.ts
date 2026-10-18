@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatDate, formatDateRange, formatItemTime } from './format.js';
+import { formatDate, formatDateRange, formatItemTime } from './format';
 
 describe('formatting', () => {
   it('shows a calendar date as the same day in any zone', () => {

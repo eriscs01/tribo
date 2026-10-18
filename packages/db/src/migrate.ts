@@ -108,6 +108,8 @@ export async function migrate(
       'SELECT name, sha256 FROM public.schema_migrations ORDER BY name',
     );
     const pending = pendingMigrations(rows, migrations);
+    // Migrations apply in order, each in its own transaction on this one connection.
+    /* eslint-disable no-await-in-loop */
     for (const migration of pending) {
       await client.query('BEGIN');
       try {
@@ -122,6 +124,7 @@ export async function migrate(
         throw new MigrationError(`${migration.name} failed`, { cause: error });
       }
     }
+    /* eslint-enable no-await-in-loop */
     return pending.map((m) => m.name);
   } finally {
     // A dropped connection releases the lock anyway; don't mask the original error.

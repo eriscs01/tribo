@@ -18,9 +18,13 @@ let tdb: TestDatabase;
 let trips: TripsService;
 let items: ItemsService;
 let n = 0;
+const seq = () => {
+  n += 1;
+  return String(n);
+};
 
 const as = (userId: string): RequestContext => ({
-  requestId: `req-${String(++n)}`,
+  requestId: `req-${seq()}`,
   surface: 'web',
   userId,
 });
@@ -154,11 +158,10 @@ describe('trips.create', () => {
       { ...trip, currency: 'php' },
       { ...trip, extra: true },
     ];
-    for (const body of bad) {
-      expect((await refusal(trips.create(as(owner.userId), mfa, body))).code).toBe(
-        'validation_failed',
-      );
-    }
+    const errors = await Promise.all(
+      bad.map((body) => refusal(trips.create(as(owner.userId), mfa, body))),
+    );
+    for (const error of errors) expect(error.code).toBe('validation_failed');
   });
 });
 
@@ -285,10 +288,12 @@ describe('items.create', () => {
       },
       { type: 'meal', title: 'Breakfast', end: { date: '2026-11-12' } },
     ];
-    for (const body of bad) {
-      const error = await refusal(items.create(as(w.owner.userId), w.tripId, body));
-      expect(error.code, JSON.stringify(body)).toBe('validation_failed');
-    }
+    const errors = await Promise.all(
+      bad.map((body) => refusal(items.create(as(w.owner.userId), w.tripId, body))),
+    );
+    errors.forEach((error, i) => {
+      expect(error.code, JSON.stringify(bad[i])).toBe('validation_failed');
+    });
     expect(await events(w.tripId)).toHaveLength(before);
   });
 });
@@ -309,9 +314,12 @@ describe('items.get', () => {
 
     expect(await items.get(w.viewer.userId, shared.id)).toEqual(shared);
     expect(await items.get(w.owner.userId, secret.id)).toEqual(secret);
-    for (const userId of [w.member.userId, w.viewer.userId, outsider.userId]) {
-      expect((await refusal(items.get(userId, secret.id))).code).toBe('not_found');
-    }
+    const hidden = await Promise.all(
+      [w.member.userId, w.viewer.userId, outsider.userId].map((userId) =>
+        refusal(items.get(userId, secret.id)),
+      ),
+    );
+    for (const error of hidden) expect(error.code).toBe('not_found');
     expect((await refusal(items.get(outsider.userId, shared.id))).code).toBe('not_found');
   });
 

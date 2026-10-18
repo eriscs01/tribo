@@ -6,10 +6,10 @@ import { createMemoryHistory, RouterProvider } from '@tanstack/react-router';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Schemas } from './api/client.js';
-import { setCsrfToken } from './api/client.js';
-import { m } from './messages.js';
-import { createAppRouter } from './router.js';
+import type { Schemas } from './api/client';
+import { setCsrfToken } from './api/client';
+import { m } from './messages';
+import { createAppRouter } from './router';
 
 const CSRF = 'csrf-token-1';
 const TRIP_ID = 'trp_01h455vb4pex5vsknk084sn02q';

@@ -1,3 +1,4 @@
+/* eslint-disable no-bitwise -- RFC 4226 dynamic truncation and base32 are defined on bits */
 import { createHmac } from 'node:crypto';
 
 const BASE32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';

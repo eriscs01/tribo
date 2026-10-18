@@ -1,5 +1,5 @@
 import { useId, type ReactNode } from 'react';
-import { m } from '../messages.js';
+import { m } from '../messages';
 
 interface FieldProps {
   label: string;
