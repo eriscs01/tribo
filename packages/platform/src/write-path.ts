@@ -93,6 +93,7 @@ export function createWritePath(db: Kysely<DB>, ports: WritePorts): WritePath {
         );
       }
       await ports.record(tx, ctx, { ...change, versionBefore });
+      // eslint-disable-next-line no-await-in-loop -- audit events chain, so they append in order
       for (const record of related) await ports.record(tx, ctx, record);
       return result;
     });

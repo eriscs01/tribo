@@ -170,10 +170,13 @@ describe('walking skeleton over HTTP', () => {
 
   it('answers not_found for a malformed or unknown id and needs a session', async () => {
     const admin = await signIn({ username: 'ana', password: PASSWORD, totp: totpFor(adminKey) });
-    for (const url of ['/v1/items/itm_nope', '/v1/items/itm_01h455vb4pex5vsknk084sn02q']) {
-      const res = await app.inject({ method: 'GET', url, ...admin });
-      expect(res.json(), url).toMatchObject({ code: 'not_found' });
-    }
+    const urls = ['/v1/items/itm_nope', '/v1/items/itm_01h455vb4pex5vsknk084sn02q'];
+    const responses = await Promise.all(
+      urls.map((url) => app.inject({ method: 'GET', url, ...admin })),
+    );
+    responses.forEach((res, i) => {
+      expect(res.json(), urls[i]).toMatchObject({ code: 'not_found' });
+    });
     const anonymous = await app.inject({
       method: 'GET',
       url: '/v1/items/itm_01h455vb4pex5vsknk084sn02q',
@@ -183,11 +186,14 @@ describe('walking skeleton over HTTP', () => {
 
   it('checks trips.list query parameters and needs a session', async () => {
     const admin = await signIn({ username: 'ana', password: PASSWORD, totp: totpFor(adminKey) });
-    for (const query of ['limit=0', 'limit=201', 'limit=two', 'sort=name']) {
-      const res = await app.inject({ method: 'GET', url: `/v1/trips?${query}`, ...admin });
-      expect(res.statusCode, query).toBe(400);
-      expect(res.json(), query).toMatchObject({ code: 'validation_failed' });
-    }
+    const queries = ['limit=0', 'limit=201', 'limit=two', 'sort=name'];
+    const responses = await Promise.all(
+      queries.map((query) => app.inject({ method: 'GET', url: `/v1/trips?${query}`, ...admin })),
+    );
+    responses.forEach((res, i) => {
+      expect(res.statusCode, queries[i]).toBe(400);
+      expect(res.json(), queries[i]).toMatchObject({ code: 'validation_failed' });
+    });
     const anonymous = await app.inject({ method: 'GET', url: '/v1/trips' });
     expect(anonymous.json()).toMatchObject({ code: 'unauthenticated' });
   });

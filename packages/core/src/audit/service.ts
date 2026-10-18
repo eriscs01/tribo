@@ -62,6 +62,7 @@ export async function verifyChains(db: Kysely<DB>, chainKey?: string): Promise<C
       chainKey: chain.chain_key,
       events: Number(chain.events),
       headSeq: Number(chain.head_seq),
+      // eslint-disable-next-line no-await-in-loop -- one chain at a time bounds the load a full audit puts on the database
       brokenAt: await verifyChain(audit, chain.chain_key),
     });
   }

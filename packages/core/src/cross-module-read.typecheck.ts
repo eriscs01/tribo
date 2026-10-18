@@ -1,6 +1,7 @@
 // Typecheck fixture for the boundary rule: never imported, only compiled. Every line
 // marked expect-error below must stay a type error; if a cross-module read starts to
 // compile, the unused directive itself fails `pnpm typecheck`.
+/* eslint-disable no-void -- `void` marks each expression as compiled only, never used */
 import type { ItemsDb } from './items/repo.js';
 import type { ItineraryDb } from './itinerary/repo.js';
 import type { TripsDb } from './trips/repo.js';

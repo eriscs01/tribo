@@ -178,7 +178,8 @@ export function toOpenApi(
   jsonSchema(ErrorCode, 'output', components);
   const paths: Record<string, Json> = {};
   for (const op of registry) {
-    const item = (paths[op.path] ??= {});
+    const item = paths[op.path] ?? {};
+    paths[op.path] = item;
     item[op.method.toLowerCase()] = operationObject(op, components);
   }
   const sorted = Object.fromEntries(Object.entries(paths).sort(([a], [b]) => a.localeCompare(b)));

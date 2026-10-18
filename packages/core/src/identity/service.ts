@@ -114,6 +114,7 @@ export function createIdentityService(db: Kysely<DB>, keys: Keyring): IdentitySe
   async function matchRecoveryCode(userId: string, code: string): Promise<string | null> {
     const typed = normalizeRecoveryCode(code);
     for (const row of await repo.unusedRecoveryCodes(identity, userId)) {
+      // eslint-disable-next-line no-await-in-loop -- each Argon2id check is costly; stop at the first match
       if (await verifySecret(row.code_hash, typed)) return row.id;
     }
     return null;

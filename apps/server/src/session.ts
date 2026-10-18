@@ -20,6 +20,7 @@ export function sessionTokenOf(request: FastifyRequest): string | undefined {
 
 /** The CSRF key, derived from the app key so it needs no secret of its own. */
 export function csrfSecret(appKey: AppKey): Buffer {
+  // eslint-disable-next-line n/no-sync -- derived once at start-up, not per request
   return Buffer.from(hkdfSync('sha256', appKey.bytes(), Buffer.alloc(0), 'tribo csrf v1', 32));
 }
 

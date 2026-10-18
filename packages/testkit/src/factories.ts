@@ -10,7 +10,10 @@ export type TripRole = ValueOf<'tribo.memberships.trip_role'>;
 export type Visibility = ValueOf<'tribo.items.visibility'>;
 
 let counter = 0;
-const next = () => (++counter).toString(36);
+const next = () => {
+  counter += 1;
+  return counter.toString(36);
+};
 
 export interface UserFixture {
   userId: string;

@@ -14,8 +14,8 @@ import type { FastifyInstance } from 'fastify';
 import * as z from 'zod';
 import type { IdentityService, ItemsService, SignedIn, TripsService } from '@tribo/core';
 import { afterEach, describe, expect, it } from 'vitest';
-import { ConfigError, loadConfig } from './config.js';
 import { ApiError } from '@tribo/platform';
+import { ConfigError, loadConfig } from './config.js';
 import { authHandlers } from './handlers/auth.js';
 import { itemHandlers } from './handlers/items.js';
 import { tripHandlers } from './handlers/trips.js';
@@ -305,8 +305,12 @@ describe('authentication', () => {
 
   it('answers 401 unauthenticated without a cookie or with a dead session', async () => {
     const s = await server();
-    for (const cookies of [{}, { [SESSION_COOKIE]: 'revoked-token' }]) {
-      const res = await s.inject({ method: 'GET', url: '/v1/test/me', cookies });
+    const responses = await Promise.all(
+      [{}, { [SESSION_COOKIE]: 'revoked-token' }].map((cookies) =>
+        s.inject({ method: 'GET', url: '/v1/test/me', cookies }),
+      ),
+    );
+    for (const res of responses) {
       expect(res.statusCode).toBe(401);
       expect(res.json()).toMatchObject({ code: 'unauthenticated' });
     }

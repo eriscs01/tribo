@@ -20,12 +20,14 @@ export function terminalIo(): CliIo & { close(): void } {
   const rl = createInterface({ input: process.stdin, output: process.stdout, terminal: tty });
   const lines = rl[Symbol.asyncIterator]();
   // readline has no hidden input; muting its echo while a secret is typed is the usual way.
+  /* eslint-disable no-underscore-dangle -- _writeToOutput is readline's own (private) hook */
   const echo = rl as unknown as { _writeToOutput(text: string): void };
   const write = echo._writeToOutput.bind(rl);
   let muted = false;
   echo._writeToOutput = (text) => {
     if (!muted) write(text);
   };
+  /* eslint-enable no-underscore-dangle */
 
   return {
     say: (text) => {

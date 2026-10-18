@@ -132,16 +132,17 @@ export const oracle: Oracle = {
     const me = personOf(w, userId);
     for (const trip of w.trips) {
       const item = trip.items.find((i) => i.id === itemId);
-      if (!item) continue;
-      if (item.deleted || trip.deleted || !me) return false;
-      // The caller's active membership in the item's trip.
-      const mine = trip.members.find((m) => m.personId === me.id && !m.deleted);
-      if (!mine) return false;
-      return (
-        item.visibility === 'shared' ||
-        item.ownerMembershipId === mine.id ||
-        (item.visibility === 'selected' && item.shares.includes(mine.id))
-      );
+      if (item) {
+        if (item.deleted || trip.deleted || !me) return false;
+        // The caller's active membership in the item's trip.
+        const mine = trip.members.find((m) => m.personId === me.id && !m.deleted);
+        if (!mine) return false;
+        return (
+          item.visibility === 'shared' ||
+          item.ownerMembershipId === mine.id ||
+          (item.visibility === 'selected' && item.shares.includes(mine.id))
+        );
+      }
     }
     return false;
   },
@@ -173,6 +174,7 @@ export const oracle: Oracle = {
 // Building a world in the database and checking it
 // ---------------------------------------------------------------------------
 
+/* eslint-disable no-await-in-loop -- rows go in one by one, each after the parents it references */
 export async function buildWorld(db: Kysely<DB>, spec: WorldSpec): Promise<BuiltWorld> {
   const users = [];
   for (const _ of spec.users) users.push(await createUser(db));
@@ -208,15 +210,21 @@ export async function buildWorld(db: Kysely<DB>, spec: WorldSpec): Promise<Built
     }
     const items: BuiltWorld['trips'][number]['items'] = [];
     for (const it of t.items) {
-      const ownerMembershipId = members[it.owner]?.id ?? '';
+      const itemOwnerId = members[it.owner]?.id ?? '';
       const shares = it.shares.map((s) => members[s]?.id ?? '');
       const id = await createItem(db, {
         tripId,
-        ownerMembershipId,
+        ownerMembershipId: itemOwnerId,
         visibility: it.visibility,
         sharedWith: shares,
       });
-      items.push({ id, ownerMembershipId, visibility: it.visibility, shares, deleted: it.deleted });
+      items.push({
+        id,
+        ownerMembershipId: itemOwnerId,
+        visibility: it.visibility,
+        shares,
+        deleted: it.deleted,
+      });
     }
     trips.push({ id: tripId, deleted: t.deleted, members, items });
   }
@@ -230,6 +238,7 @@ export async function buildWorld(db: Kysely<DB>, spec: WorldSpec): Promise<Built
   }
   return { userIds: users.map((u) => u.userId), persons, trips };
 }
+/* eslint-enable no-await-in-loop */
 
 export interface Mismatch {
   fn: 'item_visible' | 'person_visible';
@@ -333,6 +342,7 @@ export function listProperty(
     const mismatches = await inWorld(db, spec, async (trx, world) => {
       const out: { userId: string; listed: string[]; expected: string[] }[] = [];
       for (const userId of world.userIds) {
+        // eslint-disable-next-line no-await-in-loop -- one transaction, so one query at a time
         const listed = (await read(trx, userId)).sort();
         const expected = candidates(world)
           .filter((id) => visible(world, userId, id))

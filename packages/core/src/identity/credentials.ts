@@ -1,3 +1,4 @@
+/* eslint-disable no-bitwise -- RFC 4226 dynamic truncation and base32 are defined on bits */
 import { createHash, createHmac, randomBytes, randomInt, timingSafeEqual } from 'node:crypto';
 import { hash, verify } from '@node-rs/argon2';
 
@@ -101,7 +102,7 @@ export function totpValid(secret: Buffer, code: string, now = Date.now()): boole
   if (!/^\d{6}$/.test(code)) return false;
   const given = Buffer.from(code);
   let ok = false;
-  for (let step = -DRIFT_STEPS; step <= DRIFT_STEPS; step++) {
+  for (let step = -DRIFT_STEPS; step <= DRIFT_STEPS; step += 1) {
     const expected = Buffer.from(totpAt(secret, now / 1000 + step * STEP_SECONDS));
     // No early exit: every candidate is compared, in constant time.
     ok = timingSafeEqual(given, expected) || ok;

@@ -4,12 +4,12 @@ export function parseCsv(text: string): Record<string, string>[] {
   let row: string[] = [];
   let field = '';
   let quoted = false;
-  for (let i = 0; i < text.length; i++) {
+  for (let i = 0; i < text.length; i += 1) {
     const c = text.charAt(i);
     if (quoted) {
       if (c === '"' && text.charAt(i + 1) === '"') {
         field += '"';
-        i++;
+        i += 1;
       } else if (c === '"') quoted = false;
       else field += c;
     } else if (c === '"') quoted = true;
@@ -17,7 +17,7 @@ export function parseCsv(text: string): Record<string, string>[] {
       row.push(field);
       field = '';
     } else if (c === '\n' || c === '\r') {
-      if (c === '\r' && text.charAt(i + 1) === '\n') i++;
+      if (c === '\r' && text.charAt(i + 1) === '\n') i += 1;
       row.push(field);
       rows.push(row);
       row = [];
