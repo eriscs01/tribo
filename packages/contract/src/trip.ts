@@ -9,13 +9,16 @@ export const TripStatus = z
   .enum(['draft', 'planning', 'active', 'completed', 'archived'])
   .meta({ id: 'TripStatus' });
 
+/** A trip's name, as create and update both take it. */
+const TripName = z.string().trim().min(1).max(200);
+
 /**
  * trips.create. The caller becomes the owner. Destinations join when the places library
  * lands (a Drop A story); a new trip starts in draft.
  */
 export const TripInput = z
   .strictObject({
-    name: z.string().trim().min(1).max(200),
+    name: TripName,
     startDate: z.iso.date(),
     endDate: z.iso.date(),
     currency: CurrencyCode,
@@ -58,3 +61,29 @@ export type TripPage = z.infer<typeof TripPage>;
  * only the opaque cursor, so this stays out of the OpenAPI document.
  */
 export const TripCursorKey = z.tuple([z.iso.date(), Uuid]);
+
+/** Places from the library in travel order, each at most once. */
+const Destinations = z
+  .array(typeId(ID_PREFIX.place))
+  .max(50)
+  .refine((ids) => new Set(ids).size === ids.length, { message: 'a place is listed twice' });
+
+/**
+ * trips.update, as JSON Merge Patch: each field sent replaces the stored one, and
+ * `destinations` replaces the whole list. Status moves forward only (draft → planning →
+ * active → completed); `archived` is trips.archive's alone. The currency is locked once the
+ * trip has any expense or budget line (R9).
+ */
+export const TripPatch = z
+  .strictObject({
+    name: TripName.optional(),
+    startDate: z.iso.date().optional(),
+    endDate: z.iso.date().optional(),
+    currency: CurrencyCode.optional(),
+    timezone: TimeZone.optional(),
+    status: TripStatus.optional(),
+    destinations: Destinations.optional(),
+  })
+  .meta({ id: 'TripPatch' });
+
+export type TripPatch = z.infer<typeof TripPatch>;

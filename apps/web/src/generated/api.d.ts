@@ -2188,6 +2188,17 @@ export interface components {
             items: components["schemas"]["Trip"][];
             nextCursor: string | null;
         };
+        TripPatch: {
+            name?: string;
+            /** Format: date */
+            startDate?: string;
+            /** Format: date */
+            endDate?: string;
+            currency?: components["schemas"]["CurrencyCode"];
+            timezone?: components["schemas"]["TimeZone"];
+            status?: components["schemas"]["TripStatus"];
+            destinations?: string[];
+        };
         /** @enum {string} */
         TripStatus: "draft" | "planning" | "active" | "completed" | "archived";
         Username: string;
@@ -5606,15 +5617,19 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TripPatch"];
+            };
+        };
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["Trip"];
                 };
             };
             /** @description Error */

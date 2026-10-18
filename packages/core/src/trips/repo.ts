@@ -72,6 +72,60 @@ export function findTrip(db: TripsDb, tripId: string): Promise<TripRow | undefin
     .executeTakeFirst();
 }
 
+/** Locks a trip that is not deleted FOR UPDATE until commit, or undefined. */
+export function lockTrip(db: TripsDb, tripId: string): Promise<TripRow | undefined> {
+  return db
+    .selectFrom('tribo.trips')
+    .select(TRIP_COLUMNS)
+    .where('id', '=', tripId)
+    .where('deleted_at', 'is', null)
+    .forUpdate()
+    .executeTakeFirst();
+}
+
+export interface TripFields {
+  name: string;
+  startDate: string;
+  endDate: string;
+  currency: string;
+  timezone: string;
+  status: ValueOf<'tribo.trips.status'>;
+}
+
+/** Writes the trip's fields and bumps its version. */
+export function updateTrip(db: TripsDb, tripId: string, fields: TripFields, updatedBy: string) {
+  return db
+    .updateTable('tribo.trips')
+    .set((eb) => ({
+      name: fields.name,
+      start_date: fields.startDate,
+      end_date: fields.endDate,
+      currency: fields.currency,
+      timezone: fields.timezone,
+      status: fields.status,
+      version: eb('version', '+', 1),
+      updated_at: sql<Date>`now()`,
+      updated_by: updatedBy,
+    }))
+    .where('id', '=', tripId)
+    .returning(TRIP_COLUMNS)
+    .executeTakeFirstOrThrow();
+}
+
+/** Replaces the trip's destinations (owned rows) with these places, in this order. */
+export async function replaceDestinations(
+  db: TripsDb,
+  tripId: string,
+  placeIds: readonly string[],
+): Promise<void> {
+  await db.deleteFrom('tribo.trip_destinations').where('trip_id', '=', tripId).execute();
+  if (placeIds.length === 0) return;
+  await db
+    .insertInto('tribo.trip_destinations')
+    .values(placeIds.map((placeId, position) => ({ trip_id: tripId, place_id: placeId, position })))
+    .execute();
+}
+
 /** Each trip's destination place ids, in travel order; trips without any are absent. */
 export async function listDestinations(
   db: TripsDb,

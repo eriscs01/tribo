@@ -53,7 +53,7 @@
 - [x] `trips.get` · Drop A · `GET /v1/trips/{tripId}`
   - Trip detail incl. destinations; Members only; ETag = SHA-256 of the representation (rule 4)
   - Roles: owner, organizer, member, viewer. If-Match: `no`. Idempotency: safe to repeat.
-- [ ] `trips.update` · Drop A · `PATCH /v1/trips/{tripId}`
+- [x] `trips.update` · Drop A · `PATCH /v1/trips/{tripId}`
   - Edit fields, destinations, status transition; invalid_transition on bad status move; Status archived only via trips.archive; currency_locked once any expense or budget line exists (R9, write-path rule); trip_archived on archived trips (R29)
   - Roles: owner, organizer. If-Match: `version`. Idempotency: safe to repeat.
 - [ ] `trips.delete` · Drop A · `DELETE /v1/trips/{tripId}`

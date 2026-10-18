@@ -1,4 +1,11 @@
-import { TripCursorKey, TripInput, type PageQuery } from '@tribo/contract';
+import {
+  decodeTypeId,
+  ID_PREFIX,
+  TripCursorKey,
+  TripInput,
+  TripPatch,
+  type PageQuery,
+} from '@tribo/contract';
 import { forModule, type DB, type ValueOf } from '@tribo/db';
 import {
   ApiError,
@@ -10,9 +17,16 @@ import {
   type WritePath,
 } from '@tribo/platform';
 import type { Kysely } from 'kysely';
+import { moneyRecorded } from '../expenses/service.js';
 import { accountPersonId } from '../library/service.js';
 import { writeOperation } from '../write-operation.js';
-import { canGetTrip, tripCreateRefusal, tripWriteRefusal } from './policy.js';
+import {
+  canGetTrip,
+  canUpdateTrip,
+  statusMoveRefusal,
+  tripCreateRefusal,
+  tripWriteRefusal,
+} from './policy.js';
 import {
   countActiveMemberships,
   findActiveMembership,
@@ -21,7 +35,11 @@ import {
   insertTrip,
   listDestinations,
   listMemberTrips,
+  lockTrip,
   lockTripForWrite,
+  replaceDestinations,
+  updateTrip,
+  type TripFields,
   type TripRole,
   type TripRow,
 } from './repo.js';
@@ -61,9 +79,17 @@ export interface TripsService {
   ): Promise<{ items: TripRecord[]; nextCursor: string | null }>;
   /** trips.get: any member of the trip; not_found to everyone else. */
   get(userId: string, tripId: string): Promise<TripRecord>;
+  /** trips.update: owner or organizer, under If-Match on the trip's version. */
+  update(
+    ctx: RequestContext,
+    tripId: string,
+    body: unknown,
+    ifMatch: number | undefined,
+  ): Promise<TripRecord>;
 }
 
 const tripsCreate = writeOperation('trips.create', TripInput);
+const tripsUpdate = writeOperation('trips.update', TripPatch);
 
 /** `write` is core's write path (writePath in write-path.ts), passed in to keep imports acyclic. */
 export function createTripsService(db: Kysely<DB>, write: WritePath): TripsService {
@@ -90,16 +116,47 @@ export function createTripsService(db: Kysely<DB>, write: WritePath): TripsServi
     },
 
     async get(userId, tripId) {
-      const membership = await callerMembership(db, userId, tripId);
-      // A trip the caller is not in does not exist for them.
-      if (membership === null) throw new ApiError('not_found');
-      if (!canGetTrip(membership.role)) throw new ApiError('forbidden');
+      await requireRole(db, userId, tripId, canGetTrip);
       const trips = forModule(db, 'trips');
       const row = await findTrip(trips, tripId);
       if (!row) throw new ApiError('not_found');
       const destinations = await listDestinations(trips, [tripId]);
       return tripRecord(row, destinations.get(tripId) ?? []);
     },
+
+    update: (ctx, tripId, body, ifMatch) =>
+      write(ctx, {
+        operation: tripsUpdate,
+        target: { tripId },
+        body,
+        ifMatch,
+        authorize: (tx, c, target) => requireRole(tx, actingUser(c), target.tripId, canUpdateTrip),
+        load: async (tx, target) => {
+          const row = await lockTrip(forModule(tx, 'trips'), target.tripId);
+          if (!row) throw new ApiError('not_found');
+          return { tripId: row.id, counter: row.version, row };
+        },
+        mutate: async (tx, c, loaded, patch) => {
+          const fields = await patchedFields(tx, loaded.row, patch);
+          const trips = forModule(tx, 'trips');
+          const row = await updateTrip(trips, loaded.tripId, fields, actingUser(c));
+          if (patch.destinations) {
+            const placeIds = patch.destinations.map((id) => decodeTypeId(ID_PREFIX.place, id));
+            await placesChecked(() => replaceDestinations(trips, loaded.tripId, placeIds));
+          }
+          const destinations = await listDestinations(trips, [loaded.tripId]);
+          const record = tripRecord(row, destinations.get(loaded.tripId) ?? []);
+          return {
+            action: 'update',
+            aggregate: 'trip',
+            entityId: record.id,
+            tripId: record.id,
+            version: record.version,
+            snapshot: tripSnapshot(record),
+            result: record,
+          };
+        },
+      }),
 
     create: (ctx, caller, body) =>
       write(ctx, {
@@ -186,6 +243,70 @@ export async function allActiveMemberships(
 ): Promise<boolean> {
   const unique = [...new Set(membershipIds)];
   return (await countActiveMemberships(forModule(db, 'trips'), tripId, unique)) === unique.length;
+}
+
+/**
+ * The caller's membership must allow the operation. A trip the caller is not in does not
+ * exist for them.
+ */
+async function requireRole(
+  db: Kysely<DB>,
+  userId: string,
+  tripId: string,
+  allowed: (role: TripRole) => boolean,
+): Promise<void> {
+  const membership = await callerMembership(db, userId, tripId);
+  if (membership === null) throw new ApiError('not_found');
+  if (!allowed(membership.role)) throw new ApiError('forbidden');
+}
+
+/**
+ * The trip's fields with the patch merged in, refused when the merge breaks a rule that
+ * needs more than the patch: a backward status move, dates out of order, or a currency
+ * change once money is recorded in the old one (R9).
+ */
+async function patchedFields(tx: Tx, row: TripRow, patch: TripPatch): Promise<TripFields> {
+  const current = row.status as TripFields['status'];
+  const status = patch.status ?? current;
+  const moveRefusal = statusMoveRefusal(current, status);
+  if (moveRefusal) {
+    throw new ApiError(moveRefusal, { detail: `a ${current} trip cannot become ${status}` });
+  }
+  const fields: TripFields = {
+    name: patch.name ?? row.name,
+    startDate: patch.startDate ?? row.start_date,
+    endDate: patch.endDate ?? row.end_date,
+    currency: patch.currency ?? row.currency,
+    timezone: patch.timezone ?? row.timezone,
+    status: status as TripFields['status'],
+  };
+  if (fields.endDate < fields.startDate) {
+    throw new ApiError('validation_failed', {
+      errors: [{ path: '/endDate', message: 'the trip ends before it starts' }],
+    });
+  }
+  if (fields.currency !== row.currency && (await moneyRecorded(tx, row.id))) {
+    throw new ApiError('currency_locked');
+  }
+  return fields;
+}
+
+/** A destination must name a place in the library; the foreign key is what knows. */
+async function placesChecked(write: () => Promise<void>): Promise<void> {
+  try {
+    await write();
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      'constraint' in error &&
+      error.constraint === 'trip_destinations_place_id_fkey'
+    ) {
+      throw new ApiError('validation_failed', {
+        errors: [{ path: '/destinations', message: 'not a place in the library' }],
+      });
+    }
+    throw error;
+  }
 }
 
 /** Writes need an account behind them; only system work runs without one. */

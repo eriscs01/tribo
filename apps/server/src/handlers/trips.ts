@@ -1,6 +1,6 @@
 import { encodeTypeId, ID_PREFIX, PageQuery, type Trip, type TripPage } from '@tribo/contract';
 import type { TripRecord, TripsService } from '@tribo/core';
-import { pathId, requestContext, signedIn } from '../context.js';
+import { ifMatch, pathId, requestContext, signedIn } from '../context.js';
 import { sendRepresentation } from '../representation.js';
 import { parsedQuery, type Handlers } from '../routes.js';
 
@@ -36,5 +36,15 @@ export function tripHandlers(trips: TripsService): Handlers {
       const trip = await trips.get(signedIn(request).userId, pathId(request, 'tripId'));
       return sendRepresentation(request, reply, tripView(trip));
     },
+
+    'trips.update': async (request) =>
+      tripView(
+        await trips.update(
+          requestContext(request),
+          pathId(request, 'tripId'),
+          request.body,
+          ifMatch(request),
+        ),
+      ),
   };
 }

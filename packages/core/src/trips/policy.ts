@@ -29,3 +29,31 @@ const TRIP_READERS: ReadonlySet<TripRole> = new Set(['owner', 'organizer', 'memb
 export function canGetTrip(role: TripRole): boolean {
   return TRIP_READERS.has(role);
 }
+
+/** trips.update: the owner and organizers edit the trip. */
+const TRIP_EDITORS: ReadonlySet<TripRole> = new Set(['owner', 'organizer']);
+
+export function canUpdateTrip(role: TripRole): boolean {
+  return TRIP_EDITORS.has(role);
+}
+
+/**
+ * The stored statuses in lifecycle order; `archived` is derived from archived_at (R40).
+ * policy.test.ts checks this holds exactly the statuses the database allows.
+ */
+export const LIFECYCLE = [
+  'draft',
+  'planning',
+  'active',
+  'completed',
+] as const satisfies readonly ValueOf<'tribo.trips.status'>[];
+
+/**
+ * trips.update moves a trip's status forward only, skipping steps if it likes; staying put
+ * is no move. `archived` is set by trips.archive alone, so asking for it here is refused.
+ */
+export function statusMoveRefusal(from: string, to: string): ErrorCode | null {
+  const at = (s: string) => LIFECYCLE.findIndex((step) => step === s);
+  const target = at(to);
+  return target !== -1 && target >= at(from) ? null : 'invalid_transition';
+}

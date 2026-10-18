@@ -111,3 +111,39 @@ describe('trips.get over HTTP', () => {
     expect(res.json()).toMatchObject({ code: 'not_found' });
   });
 });
+
+describe('trips.update over HTTP', () => {
+  it('answers 428 if_match_required without If-Match', async () => {
+    const owner = await ownerWithTrip();
+    const { cookies, headers, url } = owner;
+    const res = await app.inject({ method: 'PATCH', url, cookies, headers, payload: {} });
+    expect(res.statusCode).toBe(428);
+    expect(res.json()).toMatchObject({ code: 'if_match_required' });
+  });
+
+  it('answers 200 with the edited trip when If-Match names its version', async () => {
+    const owner = await ownerWithTrip();
+    const res = await app.inject({
+      method: 'PATCH',
+      url: owner.url,
+      cookies: owner.cookies,
+      headers: { ...owner.headers, 'if-match': '"1"' },
+      payload: { name: 'Bohol and Panglao' },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ name: 'Bohol and Panglao', version: 2 });
+  });
+
+  it('answers 412 version_conflict when If-Match is stale', async () => {
+    const owner = await ownerWithTrip();
+    const res = await app.inject({
+      method: 'PATCH',
+      url: owner.url,
+      cookies: owner.cookies,
+      headers: { ...owner.headers, 'if-match': 'W/"7"' },
+      payload: { name: 'Too late' },
+    });
+    expect(res.statusCode).toBe(412);
+    expect(res.json()).toMatchObject({ code: 'version_conflict' });
+  });
+});
