@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { tripWriteRefusal } from './policy.js';
+import { tripCreateRefusal, tripWriteRefusal } from './policy.js';
 
 const open = { archived: false, deleted: false };
 const archived = { archived: true, deleted: false };
@@ -21,5 +21,12 @@ describe('tripWriteRefusal', () => {
     expect(tripWriteRefusal(deleted, 'items.create')).toBe('not_found');
     expect(tripWriteRefusal(deleted, 'trips.delete')).toBe('not_found');
     expect(tripWriteRefusal(deleted, 'trips.restore')).toBeNull();
+  });
+});
+
+describe('tripCreateRefusal', () => {
+  it('needs a session that passed a second factor', () => {
+    expect(tripCreateRefusal({ mfaVerified: true })).toBeNull();
+    expect(tripCreateRefusal({ mfaVerified: false })).toBe('mfa_required');
   });
 });

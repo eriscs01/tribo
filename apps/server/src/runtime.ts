@@ -1,4 +1,10 @@
-import { createIdentityService } from '@tribo/core';
+import {
+  createIdentityService,
+  createItemsService,
+  createTripsService,
+  verifyChains,
+  writePath,
+} from '@tribo/core';
 import { keyring, loadAppKey } from '@tribo/crypto';
 import type { DB } from '@tribo/db';
 import { Kysely, PostgresDialect } from 'kysely';
@@ -18,10 +24,14 @@ export async function openRuntime(config: Config, applicationName: string) {
     max: 10,
   });
   const db = new Kysely<DB>({ dialect: new PostgresDialect({ pool }) });
+  const write = writePath(db);
   return {
     appKey,
     pool,
     identity: createIdentityService(db, keyring(appKey)),
+    trips: createTripsService(write),
+    items: createItemsService(db, write),
+    verifyAudit: (chainKey?: string) => verifyChains(db, chainKey),
     /** Ends the pool. */
     close: () => db.destroy(),
   };

@@ -1,7 +1,9 @@
-import type { ModuleDb } from '@tribo/db';
+import type { ModuleDb, ValueOf } from '@tribo/db';
+import { sql } from 'kysely';
 
 /** The trips module's database handle: only the tables it owns compile. Other modules call service.ts. */
 export type TripsDb = ModuleDb<'trips'>;
+export type TripRole = ValueOf<'tribo.memberships.trip_role'>;
 
 /**
  * Locks the trip FOR SHARE until commit: concurrent writes under the trip proceed, while
@@ -15,4 +17,90 @@ export function lockTripForWrite(db: TripsDb, tripId: string) {
     .where('id', '=', tripId)
     .forShare()
     .executeTakeFirst();
+}
+
+/** A trip as the API renders it: dates as text, so no driver turns them into local midnights. */
+export function insertTrip(
+  db: TripsDb,
+  trip: {
+    name: string;
+    startDate: string;
+    endDate: string;
+    currency: string;
+    timezone: string;
+    createdBy: string;
+  },
+) {
+  return db
+    .insertInto('tribo.trips')
+    .values({
+      name: trip.name,
+      start_date: trip.startDate,
+      end_date: trip.endDate,
+      currency: trip.currency,
+      timezone: trip.timezone,
+      created_by: trip.createdBy,
+      updated_by: trip.createdBy,
+    })
+    .returning([
+      'id',
+      'name',
+      sql<string>`start_date::text`.as('start_date'),
+      sql<string>`end_date::text`.as('end_date'),
+      'currency',
+      'timezone',
+      'status',
+      'archived_at',
+      'version',
+      'created_at',
+      'updated_at',
+    ])
+    .executeTakeFirstOrThrow();
+}
+
+export function insertMembership(
+  db: TripsDb,
+  membership: { tripId: string; personId: string; role: TripRole; createdBy: string },
+) {
+  return db
+    .insertInto('tribo.memberships')
+    .values({
+      trip_id: membership.tripId,
+      person_id: membership.personId,
+      trip_role: membership.role,
+      created_by: membership.createdBy,
+      updated_by: membership.createdBy,
+    })
+    .returning(['id', 'trip_id', 'person_id', 'trip_role', 'can_view_costs', 'version'])
+    .executeTakeFirstOrThrow();
+}
+
+/** The person's active membership in a trip that is not deleted (R18), or undefined. */
+export function findActiveMembership(db: TripsDb, tripId: string, personId: string) {
+  return db
+    .selectFrom('tribo.memberships as m')
+    .innerJoin('tribo.trips as t', 't.id', 'm.trip_id')
+    .select(['m.id', 'm.trip_role'])
+    .where('m.trip_id', '=', tripId)
+    .where('m.person_id', '=', personId)
+    .where('m.deleted_at', 'is', null)
+    .where('t.deleted_at', 'is', null)
+    .executeTakeFirst();
+}
+
+/** How many of these memberships are active in the trip; the caller compares with its count. */
+export async function countActiveMemberships(
+  db: TripsDb,
+  tripId: string,
+  membershipIds: readonly string[],
+): Promise<number> {
+  if (membershipIds.length === 0) return 0;
+  const row = await db
+    .selectFrom('tribo.memberships')
+    .select((eb) => eb.fn.countAll<string>().as('n'))
+    .where('trip_id', '=', tripId)
+    .where('id', 'in', membershipIds)
+    .where('deleted_at', 'is', null)
+    .executeTakeFirstOrThrow();
+  return Number(row.n);
 }

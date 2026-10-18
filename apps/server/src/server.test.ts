@@ -12,11 +12,13 @@ import {
 } from '@tribo/contract';
 import type { FastifyInstance } from 'fastify';
 import * as z from 'zod';
-import type { IdentityService, SignedIn } from '@tribo/core';
+import type { IdentityService, ItemsService, SignedIn, TripsService } from '@tribo/core';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ConfigError, loadConfig } from './config.js';
 import { ApiError } from '@tribo/platform';
 import { authHandlers } from './handlers/auth.js';
+import { itemHandlers } from './handlers/items.js';
+import { tripHandlers } from './handlers/trips.js';
 import { buildServer, type ServerDeps } from './server.js';
 import { csrfTokenFor, setSessionCookie } from './session.js';
 
@@ -61,6 +63,10 @@ const identity: IdentityService = {
   },
   createAdmin: () => Promise.reject(new Error('not used here')),
 };
+/** Trips and items are proven against the database in skeleton.int.test.ts. */
+const unused = () => Promise.reject(new Error('not used here'));
+const trips: TripsService = { create: unused };
+const items: ItemsService = { create: unused, get: unused };
 
 let app: FastifyInstance | undefined;
 let lines: Record<string, unknown>[] = [];
@@ -82,6 +88,8 @@ async function server(overrides: Partial<ServerDeps> = {}) {
     registry: testRegistry,
     handlers: {
       ...authHandlers(identity, secret),
+      ...tripHandlers(trips),
+      ...itemHandlers(items),
       'test.ip': (request) => {
         request.log.info('handler ran');
         return Promise.resolve({ ip: request.ip });

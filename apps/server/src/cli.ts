@@ -1,15 +1,17 @@
 #!/usr/bin/env node
 // tribo <command>: operator commands, run in the app container (`docker compose exec app tribo …`).
 import { randomUUID } from 'node:crypto';
-import type { IdentityService } from '@tribo/core';
+import type { ChainReport, IdentityService } from '@tribo/core';
 import type { RequestContext } from '@tribo/platform';
 import { adminCreate } from './cli/admin-create.js';
+import { auditVerify } from './cli/audit-verify.js';
 import { CliError, terminalIo, type CliIo } from './cli/io.js';
 import { loadConfig } from './config.js';
 import { openRuntime } from './runtime.js';
 
 interface CommandDeps {
   identity: IdentityService;
+  verifyAudit: (chainKey?: string) => Promise<ChainReport[]>;
   io: CliIo;
   issuer: string;
   ctx: RequestContext;
@@ -18,6 +20,7 @@ interface CommandDeps {
 /** Commands by their two-word name; a new command is a new entry. */
 const COMMANDS: Record<string, (deps: CommandDeps, args: readonly string[]) => Promise<void>> = {
   'admin create': adminCreate,
+  'audit verify': auditVerify,
 };
 
 const [group = '', verb = '', ...args] = process.argv.slice(2);
@@ -38,6 +41,7 @@ try {
   await command(
     {
       identity: runtime.identity,
+      verifyAudit: runtime.verifyAudit,
       io,
       issuer: `Tribo (${config.publicUrl.host})`,
       ctx: { requestId: `cli-${randomUUID()}`, surface: 'system', userId: null },

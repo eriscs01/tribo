@@ -71,6 +71,9 @@ describe('money and time', () => {
       { local: '2026-02-30T07:40', tz: 'Asia/Manila' },
       { local: '2026-11-11T24:00', tz: 'Asia/Manila' },
       { local: '2026-11-11T07:40', tz: 'Mars/Olympus' },
+      // R17: abbreviations and POSIX specs resolve in Intl but are refused by tribo.iana_tz.
+      { local: '2026-11-11T07:40', tz: 'EST' },
+      { local: '2026-11-11T07:40', tz: 'EST5EDT' },
       { local: '2026-11-11T07:40' },
     ];
     for (const v of ok) expect(TimeInput.safeParse(v).success, JSON.stringify(v)).toBe(true);

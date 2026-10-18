@@ -30,10 +30,15 @@ export interface Change<R = unknown> {
   restoredFrom?: number;
   /** What the operation answers with. */
   result: R;
+  /**
+   * Other aggregates the same write changed (trips.create makes the owner membership),
+   * recorded after this one, each with its own snapshot and event.
+   */
+  related?: readonly WriteRecord[];
 }
 
 /** What the audit module stores for each write: the snapshot and the metadata-only event. */
-export type WriteRecord = Omit<Change, 'result'> & { versionBefore: number | null };
+export type WriteRecord = Omit<Change, 'result' | 'related'> & { versionBefore: number | null };
 
 /**
  * The steps owned outside the platform, plugged in by core: the trips module decides
@@ -80,7 +85,7 @@ export function createWritePath(db: Kysely<DB>, ports: WritePorts): WritePath {
       if (loaded.tripId !== null) await ports.guardTrip(tx, loaded.tripId, spec.operation.id);
       checkIfMatch(spec.operation.ifMatch, spec.ifMatch, loaded.counter);
 
-      const { result, ...change } = await spec.mutate(tx, ctx, loaded, input);
+      const { result, related = [], ...change } = await spec.mutate(tx, ctx, loaded, input);
       const versionBefore = loaded.counter ?? null;
       if (change.version !== (versionBefore ?? 0) + 1) {
         throw new Error(
@@ -88,6 +93,7 @@ export function createWritePath(db: Kysely<DB>, ports: WritePorts): WritePath {
         );
       }
       await ports.record(tx, ctx, { ...change, versionBefore });
+      for (const record of related) await ports.record(tx, ctx, record);
       return result;
     });
 }

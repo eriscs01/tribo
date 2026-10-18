@@ -1,6 +1,7 @@
-import { forModule } from '@tribo/db';
+import { forModule, type DB } from '@tribo/db';
 import { ApiError, type RequestContext, type Tx, type WriteRecord } from '@tribo/platform';
-import { insertEvent, insertSnapshot, type EventRecord } from './repo.js';
+import type { Kysely } from 'kysely';
+import { insertEvent, insertSnapshot, listChains, verifyChain, type EventRecord } from './repo.js';
 
 export type { EventRecord } from './repo.js';
 
@@ -38,4 +39,31 @@ function isConstraint(error: unknown, name: string): boolean {
  */
 export async function recordEvent(tx: Tx, ctx: RequestContext, event: EventRecord): Promise<void> {
   await insertEvent(forModule(tx, 'audit'), ctx, event);
+}
+
+export interface ChainReport {
+  chainKey: string;
+  events: number;
+  headSeq: number;
+  /** The first seq whose link or hash does not hold; null when the chain is intact. */
+  brokenAt: number | null;
+}
+
+/**
+ * `tribo audit verify`: walks every chain (or one) through audit.verify_chain, which
+ * recomputes each hash from the canonical row, so a changed, removed or reordered event
+ * shows as the first seq that no longer links.
+ */
+export async function verifyChains(db: Kysely<DB>, chainKey?: string): Promise<ChainReport[]> {
+  const audit = forModule(db, 'audit');
+  const reports: ChainReport[] = [];
+  for (const chain of await listChains(audit, chainKey)) {
+    reports.push({
+      chainKey: chain.chain_key,
+      events: Number(chain.events),
+      headSeq: Number(chain.head_seq),
+      brokenAt: await verifyChain(audit, chain.chain_key),
+    });
+  }
+  return reports;
 }

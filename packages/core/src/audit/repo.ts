@@ -1,5 +1,5 @@
-import type { ModuleDb } from '@tribo/db';
-import type { ValueOf } from '@tribo/db';
+import type { ModuleDb, ValueOf } from '@tribo/db';
+import { sql } from 'kysely';
 import type { RequestContext, WriteRecord } from '@tribo/platform';
 
 /** The audit module's database handle: only the tables it owns compile. Other modules call service.ts. */
@@ -60,4 +60,24 @@ export async function insertEvent(
       hash: Buffer.alloc(0),
     })
     .execute();
+}
+
+/** Every chain with its length and head seq, in key order; or just the one asked for. */
+export function listChains(db: AuditDb, chainKey?: string) {
+  let query = db
+    .selectFrom('audit.audit_events')
+    .select(['chain_key'])
+    .select((eb) => [eb.fn.countAll<string>().as('events'), eb.fn.max('seq').as('head_seq')])
+    .groupBy('chain_key')
+    .orderBy('chain_key');
+  if (chainKey !== undefined) query = query.where('chain_key', '=', chainKey);
+  return query.execute();
+}
+
+/** audit.verify_chain: the first seq whose link or hash does not hold, or null when intact. */
+export async function verifyChain(db: AuditDb, chainKey: string): Promise<number | null> {
+  const { rows } = await sql<{ broken: string | null }>`
+    SELECT audit.verify_chain(${chainKey}) AS broken`.execute(db);
+  const broken = rows[0]?.broken ?? null;
+  return broken === null ? null : Number(broken);
 }

@@ -1,0 +1,46 @@
+import * as z from 'zod';
+import { ID_PREFIX, typeId } from './ids.js';
+import { CurrencyCode } from './money.js';
+import { Instant, TimeZone } from './time.js';
+
+/** A trip's lifecycle as the API shows it; `archived` is rendered from archived_at. */
+export const TripStatus = z
+  .enum(['draft', 'planning', 'active', 'completed', 'archived'])
+  .meta({ id: 'TripStatus' });
+
+/**
+ * trips.create. The caller becomes the owner. Destinations join when the places library
+ * lands (a Drop A story); a new trip starts in draft.
+ */
+export const TripInput = z
+  .strictObject({
+    name: z.string().trim().min(1).max(200),
+    startDate: z.iso.date(),
+    endDate: z.iso.date(),
+    currency: CurrencyCode,
+    timezone: TimeZone,
+  })
+  .refine((t) => t.endDate >= t.startDate, {
+    message: 'the trip ends before it starts',
+    path: ['endDate'],
+  })
+  .meta({ id: 'TripInput' });
+
+export type TripInput = z.infer<typeof TripInput>;
+
+export const Trip = z
+  .strictObject({
+    id: typeId(ID_PREFIX.trip),
+    name: z.string(),
+    startDate: z.iso.date(),
+    endDate: z.iso.date(),
+    currency: CurrencyCode,
+    timezone: TimeZone,
+    status: TripStatus,
+    version: z.int().min(1),
+    createdAt: Instant,
+    updatedAt: Instant,
+  })
+  .meta({ id: 'Trip' });
+
+export type Trip = z.infer<typeof Trip>;

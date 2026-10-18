@@ -2723,12 +2723,12 @@
           }
         ],
         "responses": {
-          "501": {
-            "description": "Registered but not implemented yet (not_implemented)",
+          "200": {
+            "description": "OK",
             "content": {
-              "application/problem+json": {
+              "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Problem"
+                  "$ref": "#/components/schemas/Item"
                 }
               }
             }
@@ -2745,7 +2745,7 @@
           }
         },
         "x-tribo": {
-          "status": "planned",
+          "status": "implemented",
           "slice": "1a",
           "drop": "A",
           "roles": "owner, organizer, member, viewer",
@@ -6332,12 +6332,12 @@
           }
         ],
         "responses": {
-          "501": {
-            "description": "Registered but not implemented yet (not_implemented)",
+          "201": {
+            "description": "OK",
             "content": {
-              "application/problem+json": {
+              "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Problem"
+                  "$ref": "#/components/schemas/Trip"
                 }
               }
             }
@@ -6354,7 +6354,7 @@
           }
         },
         "x-tribo": {
-          "status": "planned",
+          "status": "implemented",
           "slice": "1a",
           "drop": "A",
           "roles": "self (MFA on; becomes owner)",
@@ -6375,7 +6375,17 @@
               "maxLength": 255
             }
           }
-        ]
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TripInput"
+              }
+            }
+          }
+        }
       }
     },
     "/v1/trips/{tripId}": {
@@ -7556,12 +7566,12 @@
           }
         ],
         "responses": {
-          "501": {
-            "description": "Registered but not implemented yet (not_implemented)",
+          "201": {
+            "description": "OK",
             "content": {
-              "application/problem+json": {
+              "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Problem"
+                  "$ref": "#/components/schemas/Item"
                 }
               }
             }
@@ -7578,7 +7588,7 @@
           }
         },
         "x-tribo": {
-          "status": "planned",
+          "status": "implemented",
           "slice": "1a",
           "drop": "A",
           "roles": "owner, organizer, member (owns it)",
@@ -7608,7 +7618,17 @@
               "maxLength": 255
             }
           }
-        ]
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ItemInput"
+              }
+            }
+          }
+        }
       }
     },
     "/v1/trips/{tripId}/itinerary": {
@@ -8257,6 +8277,24 @@
   },
   "components": {
     "schemas": {
+      "AllDay": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          }
+        },
+        "required": [
+          "date"
+        ],
+        "additionalProperties": false
+      },
+      "CurrencyCode": {
+        "type": "string",
+        "pattern": "^[A-Z]{3}$"
+      },
       "ErrorCode": {
         "type": "string",
         "enum": [
@@ -8297,6 +8335,201 @@
         "type": "string",
         "format": "date-time",
         "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+      },
+      "Item": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^itm_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+          },
+          "tripId": {
+            "type": "string",
+            "pattern": "^trp_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+          },
+          "type": {
+            "$ref": "#/components/schemas/ItemType"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ItemStatus"
+          },
+          "start": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ItemTime"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "end": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ItemTime"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "visibility": {
+            "$ref": "#/components/schemas/ItemVisibility"
+          },
+          "ownerMembershipId": {
+            "type": "string",
+            "pattern": "^mem_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "boardVersion": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "createdAt": {
+            "$ref": "#/components/schemas/Instant"
+          },
+          "updatedAt": {
+            "$ref": "#/components/schemas/Instant"
+          }
+        },
+        "required": [
+          "id",
+          "tripId",
+          "type",
+          "title",
+          "status",
+          "start",
+          "end",
+          "visibility",
+          "ownerMembershipId",
+          "tags",
+          "version",
+          "boardVersion",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "ItemInput": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "$ref": "#/components/schemas/ItemType"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "status": {
+            "$ref": "#/components/schemas/ItemStatus"
+          },
+          "start": {
+            "$ref": "#/components/schemas/TimeInput"
+          },
+          "end": {
+            "$ref": "#/components/schemas/TimeInput"
+          },
+          "visibility": {
+            "$ref": "#/components/schemas/ItemVisibility"
+          },
+          "sharedWith": {
+            "maxItems": 200,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^mem_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+            }
+          },
+          "tags": {
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 40
+            }
+          }
+        },
+        "required": [
+          "type",
+          "title"
+        ],
+        "additionalProperties": false
+      },
+      "ItemStatus": {
+        "type": "string",
+        "enum": [
+          "draft",
+          "planned",
+          "booked",
+          "confirmed",
+          "open",
+          "done",
+          "cancelled"
+        ]
+      },
+      "ItemTime": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "local": {
+                "type": "string"
+              },
+              "tz": {
+                "$ref": "#/components/schemas/TimeZone"
+              },
+              "at": {
+                "$ref": "#/components/schemas/Instant"
+              }
+            },
+            "required": [
+              "local",
+              "tz",
+              "at"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "$ref": "#/components/schemas/AllDay"
+          }
+        ]
+      },
+      "ItemType": {
+        "type": "string",
+        "enum": [
+          "transport",
+          "lodging",
+          "ground",
+          "activity",
+          "meal",
+          "task",
+          "note",
+          "document"
+        ]
+      },
+      "ItemVisibility": {
+        "type": "string",
+        "enum": [
+          "shared",
+          "private",
+          "selected"
+        ]
       },
       "LoginInput": {
         "type": "object",
@@ -8427,13 +8660,143 @@
         ],
         "additionalProperties": false
       },
+      "TimeInput": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/WallClockTime"
+          },
+          {
+            "$ref": "#/components/schemas/AllDay"
+          }
+        ]
+      },
+      "TimeZone": {
+        "type": "string",
+        "pattern": "^(UTC|[A-Za-z]+(\\/[A-Za-z0-9_+-]+)+)$"
+      },
       "TotpCode": {
         "type": "string",
         "pattern": "^\\d{6}$"
       },
+      "Trip": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^trp_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "currency": {
+            "$ref": "#/components/schemas/CurrencyCode"
+          },
+          "timezone": {
+            "$ref": "#/components/schemas/TimeZone"
+          },
+          "status": {
+            "$ref": "#/components/schemas/TripStatus"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "createdAt": {
+            "$ref": "#/components/schemas/Instant"
+          },
+          "updatedAt": {
+            "$ref": "#/components/schemas/Instant"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "startDate",
+          "endDate",
+          "currency",
+          "timezone",
+          "status",
+          "version",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "TripInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "currency": {
+            "$ref": "#/components/schemas/CurrencyCode"
+          },
+          "timezone": {
+            "$ref": "#/components/schemas/TimeZone"
+          }
+        },
+        "required": [
+          "name",
+          "startDate",
+          "endDate",
+          "currency",
+          "timezone"
+        ],
+        "additionalProperties": false
+      },
+      "TripStatus": {
+        "type": "string",
+        "enum": [
+          "draft",
+          "planning",
+          "active",
+          "completed",
+          "archived"
+        ]
+      },
       "Username": {
         "type": "string",
         "pattern": "^[A-Za-z0-9._-]{3,32}$"
+      },
+      "WallClockTime": {
+        "type": "object",
+        "properties": {
+          "local": {
+            "type": "string",
+            "pattern": "^(\\d{4})-(\\d{2})-(\\d{2})T([01]\\d|2[0-3]):([0-5]\\d)$"
+          },
+          "tz": {
+            "$ref": "#/components/schemas/TimeZone"
+          }
+        },
+        "required": [
+          "local",
+          "tz"
+        ],
+        "additionalProperties": false
       }
     },
     "securitySchemes": {
