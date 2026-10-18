@@ -5,6 +5,8 @@ on:
     branches: [main]
   push:
     branches: [main]
+    # A release tag also publishes both images (job "publish").
+    tags: ['v*']
 
 permissions:
   contents: read
@@ -79,3 +81,121 @@ jobs:
       - run: pnpm build
       # Fixed seed (the testkit default) so pushes are reproducible; random seeds belong to the nightly job.
       - run: pnpm test:leak
+
+  # Both images build, and neither the lockfile nor the images carry a high or critical
+  # vulnerability without a recorded exception (osv-scanner.toml, .trivyignore.yaml).
+  images:
+    name: Build and scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # osv-scanner fails on any finding; only those of CVSS 7 or more (or unscored) fail the job.
+      - name: Scan the lockfile (osv-scanner)
+        run: |
+          set +e
+          docker run --rm -v "$PWD:/src:ro" "$OSV_SCANNER" scan source \
+            --config /src/osv-scanner.toml --lockfile /src/pnpm-lock.yaml --format json >osv.json
+          rc=$?
+          set -e
+          if [ "$rc" -gt 1 ]; then exit "$rc"; fi
+          jq -r '.results[]?.packages[]? | .package as $p | .groups[]
+            | select((.max_severity // "") == "" or (.max_severity | tonumber) >= 7)
+            | "\($p.name)@\($p.version): \(.ids | join(", ")) (CVSS \(if (.max_severity // "") == "" then "unscored" else .max_severity end))"' \
+            osv.json >blocking.txt
+          if [ -s blocking.txt ]; then
+            echo "High or critical findings without a recorded exception in osv-scanner.toml:"
+            cat blocking.txt
+            exit 1
+          fi
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Build the app image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: deploy/app/Dockerfile
+          tags: tribo-app:ci
+          load: true
+          cache-from: type=gha,scope=tribo-app
+          cache-to: type=gha,scope=tribo-app,mode=max
+      - name: Build the proxy image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: deploy/caddy/Dockerfile
+          tags: tribo-proxy:ci
+          load: true
+          cache-from: type=gha,scope=tribo-proxy
+          cache-to: type=gha,scope=tribo-proxy,mode=max
+      # Findings with no fixed version are left out: no image change could clear them.
+      - name: Scan both images (Trivy)
+        # Both images are scanned before the step fails, so one run reports every finding.
+        run: |
+          failed=0
+          for image in tribo-app:ci tribo-proxy:ci; do
+            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD:/src:ro" "$TRIVY" \
+              image --quiet --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 \
+              --ignorefile /src/.trivyignore.yaml "$image" || failed=1
+          done
+          exit "$failed"
+    env:
+      OSV_SCANNER: ghcr.io/google/osv-scanner:v2.6.0@sha256:afd838850ac1a0fcc15ff4a041dc9ba11123c3f0d2666217a5f0fcf9222b55fa
+      TRIVY: aquasec/trivy:0.75.0@sha256:af6acf9a6b85dfe389a1941505c0ce9efef52a4719635e1a962f022a3d855daa
+
+  # Release tags only: push both images to GHCR under the tag that deploy/compose.yml pulls
+  # through TRIBO_VERSION, once every other job has passed.
+  publish:
+    name: Publish
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [lint, typecheck, unit, integration, leak, images]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    env:
+      # The image names in deploy/compose.yml.
+      REGISTRY: ghcr.io/eriscs01
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Push the app image
+        id: app
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: deploy/app/Dockerfile
+          tags: ${{ env.REGISTRY }}/tribo-app:${{ github.ref_name }}
+          push: true
+          cache-from: type=gha,scope=tribo-app
+      - name: Push the proxy image
+        id: proxy
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: deploy/caddy/Dockerfile
+          tags: ${{ env.REGISTRY }}/tribo-proxy:${{ github.ref_name }}
+          push: true
+          cache-from: type=gha,scope=tribo-proxy
+      # The digests go into the run summary, for the release notes and the runbook's table.
+      - name: Record the digests
+        env:
+          APP_DIGEST: ${{ steps.app.outputs.digest }}
+          PROXY_DIGEST: ${{ steps.proxy.outputs.digest }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          {
+            echo "| Image | Digest |"
+            echo "| --- | --- |"
+            echo "| $REGISTRY/tribo-app:$TAG | \`$APP_DIGEST\` |"
+            echo "| $REGISTRY/tribo-proxy:$TAG | \`$PROXY_DIGEST\` |"
+          } >>"$GITHUB_STEP_SUMMARY"

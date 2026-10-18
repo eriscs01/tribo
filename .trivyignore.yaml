@@ -1,0 +1,4 @@
+# Recorded exceptions for the Trivy step of CI's "Build and scan" job, one entry per finding:
+# id, the reason it cannot reach a running Tribo, and an expiry date (expired_at).
+# https://trivy.dev/latest/docs/configuration/filtering/#trivyignoreyaml
+vulnerabilities: []
