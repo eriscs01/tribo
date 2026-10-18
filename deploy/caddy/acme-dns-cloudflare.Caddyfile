@@ -1,0 +1,13 @@
+# TRIBO_TLS_MODE=acme-dns-cloudflare: Let's Encrypt over DNS-01 through Cloudflare, with an
+# API token scoped to DNS edit on the one zone (Docker secret cloudflare_api_token).
+{
+	email {$TRIBO_ACME_EMAIL}
+	acme_dns cloudflare {file./run/secrets/cloudflare_api_token}
+	servers {
+		import trusted-proxies/{$TRIBO_PROXY_KIND}.caddy
+	}
+}
+
+{$TRIBO_PUBLIC_URL} {
+	import site.caddy
+}

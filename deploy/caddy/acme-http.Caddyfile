@@ -1,0 +1,11 @@
+# TRIBO_TLS_MODE=acme-http: Let's Encrypt over HTTP-01 or TLS-ALPN-01; ports 80 and 443 open.
+{
+	email {$TRIBO_ACME_EMAIL}
+	servers {
+		import trusted-proxies/{$TRIBO_PROXY_KIND}.caddy
+	}
+}
+
+{$TRIBO_PUBLIC_URL} {
+	import site.caddy
+}

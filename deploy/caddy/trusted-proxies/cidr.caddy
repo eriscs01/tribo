@@ -1,0 +1,4 @@
+# TRIBO_TRUSTED_PROXIES=<CIDR list>: the client IP is the right-most X-Forwarded-For address
+# that is not one of these proxies.
+trusted_proxies static {$TRIBO_PROXY_CIDRS}
+trusted_proxies_strict

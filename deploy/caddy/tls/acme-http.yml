@@ -1,0 +1,5 @@
+# TRIBO_TLS_MODE=acme-http: compose.yml's proxy service extends this.
+services:
+  proxy:
+    environment:
+      TRIBO_ACME_EMAIL: ${TRIBO_ACME_EMAIL:?set TRIBO_ACME_EMAIL for acme-http}

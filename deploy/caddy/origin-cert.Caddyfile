@@ -1,0 +1,12 @@
+# TRIBO_TLS_MODE=origin-cert: a Cloudflare Origin CA certificate and key (Docker secrets
+# origin_cert and origin_key); Cloudflare's SSL mode is Full (strict).
+{
+	servers {
+		import trusted-proxies/{$TRIBO_PROXY_KIND}.caddy
+	}
+}
+
+{$TRIBO_PUBLIC_URL} {
+	tls /run/secrets/origin_cert /run/secrets/origin_key
+	import site.caddy
+}

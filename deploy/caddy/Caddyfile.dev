@@ -1,5 +1,5 @@
 # Dev proxy: Caddy's internal CA for https://tribo.localhost (run `pnpm dev:trust` once to
-# trust it). Production Caddyfiles per TLS mode come with task 14.
+# trust it). Production has one Caddyfile per TLS mode beside this one.
 {
 	local_certs
 }
