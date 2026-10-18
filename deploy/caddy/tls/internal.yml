@@ -1,0 +1,3 @@
+# TRIBO_TLS_MODE=internal: compose.yml's proxy service extends this; the mode needs nothing extra.
+services:
+  proxy: {}

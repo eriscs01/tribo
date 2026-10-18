@@ -1,0 +1,45 @@
+# The Tribo site, imported by every TLS mode's Caddyfile: one origin for the SPA and the API,
+# so the __Host- session cookie and the CSRF header need no CORS.
+request_header X-Request-Id {http.request.uuid}
+encode zstd gzip
+
+header {
+	Strict-Transport-Security "max-age=63072000"
+	Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+	X-Content-Type-Options nosniff
+	X-Frame-Options DENY
+	# Invite and reset links carry tokens in the URL; no other origin ever sees one.
+	Referrer-Policy no-referrer
+	Cross-Origin-Opener-Policy same-origin
+	Cross-Origin-Resource-Policy same-origin
+	Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()"
+}
+header -Server
+
+# The API and the liveness probe belong to the app; it sees one client IP, chosen by the
+# trusted_proxies rules of the Caddyfile that imports this.
+@server path /v1/* /healthz
+handle @server {
+	reverse_proxy app:3000 {
+		header_up X-Forwarded-For {client_ip}
+	}
+}
+
+# Everything else is the SPA, built into the image at /srv/tribo.
+handle {
+	root * /srv/tribo
+	# Content-hashed files never change under one name.
+	@hashed path /assets/* /workbox-*.js
+	handle @hashed {
+		# Deferred, so a missing asset's 404 is not cached as immutable.
+		header >Cache-Control "public, max-age=31536000, immutable"
+		file_server
+	}
+	# index.html, sw.js and every client route revalidate on each load, so a release reaches
+	# browsers and the service worker at once. Unknown paths are client routes: index.html.
+	handle {
+		header Cache-Control "no-cache"
+		try_files {path} /index.html
+		file_server
+	}
+}

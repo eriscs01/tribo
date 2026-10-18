@@ -1,0 +1,1 @@
+# TRIBO_TRUSTED_PROXIES=none: the TCP peer is the client; forwarded headers are ignored.
