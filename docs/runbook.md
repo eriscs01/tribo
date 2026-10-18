@@ -15,8 +15,17 @@ Sprint 0 task 15. Steps 1–5 give a hardened Ubuntu host in Singapore with a Di
 
 The provisioning files are in `deploy/provision/`. Both are idempotent and hold no keys, IPs or account IDs:
 
-- `provision.sh` covers steps 2–4 on the droplet: sudo user, SSH hardening, unattended upgrades, ufw and Docker. It works as droplet user data or over SSH.
+- `provision.sh` covers steps 2–4 on the droplet. It creates the sudo user and limits SSH to that user's key, removing root's key. It turns on unattended security upgrades with an automatic reboot at 03:30 Manila time when an update needs one. It sets up ufw with SSH rate-limited, and installs Docker after checking the fingerprint of Docker's signing key. It works as droplet user data or over SSH, and rejects arguments that are not plain names or addresses.
 - `do-firewall.sh` covers step 3 in DigitalOcean. It prints the `doctl` command that creates or updates the Cloud Firewall and runs it only with `--apply`.
+
+### Before you start: account security
+
+This repository is public, so the scripts and this runbook hold nothing secret. What protects the server are the accounts and the key below. Anyone who controls one of them controls the host, its DNS name or the code it runs.
+
+- **Two-factor authentication on DigitalOcean, Cloudflare and GitHub.** Use an authenticator app or a security key, not SMS. Store the recovery codes in your password manager. The DigitalOcean account alone can open a console on the droplet, change the firewall and delete the droplet.
+- **Your SSH key has a passphrase.** Load it with `ssh-add --apple-use-keychain ~/.ssh/id_ed25519` instead of storing it without one. If the key leaks, remove it from the droplet's `authorized_keys` and from DigitalOcean (Settings → Security), then add a new one.
+- **The `doctl` token is scoped and expires.** Create it under API → Tokens with custom scopes (`droplet: read`, `firewall: read, update`, `tag: read`) and an expiry of 90 days or less. Delete it there if your machine is lost. `doctl` keeps it in plain text in its config file (`~/Library/Application Support/doctl/config.yaml` on macOS), so never copy that file into the repository.
+- **No secrets in the repository.** App keys, database passwords and tokens live only on the host under `deploy/secrets/` and in your password manager (steps 6–7).
 
 ### Choices
 
@@ -87,11 +96,19 @@ ssh <login>@<ipv4> sudo sh provision.sh
 
 Keep your current session open until the checks below pass from a second terminal. Check, on your machine:
 
+The first connection asks you to trust the host key. If the Droplet Console works, compare the fingerprint SSH shows with the one the droplet prints there:
+
 ```bash
-ssh tribo@<ipv4> 'sudo sshd -T | grep -E "^(permitrootlogin|passwordauthentication|kbdinteractiveauthentication) "'
+ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub
 ```
 
-Expect `permitrootlogin no`, `passwordauthentication no` and `kbdinteractiveauthentication no`.
+If the console doesn't work, connect for the first time right after creating the droplet, from your own network. After that, a `REMOTE HOST IDENTIFICATION HAS CHANGED` warning is an incident, unless you have just recreated the droplet. In that case, remove the old key with `ssh-keygen -R <host>` and trust the new one.
+
+```bash
+ssh tribo@<ipv4> 'sudo sshd -T | grep -E "^(allowusers|permitrootlogin|authenticationmethods|passwordauthentication|kbdinteractiveauthentication|maxauthtries) "; sudo ls /root/.ssh'
+```
+
+Expect these values: `allowusers tribo`, `permitrootlogin no`, `authenticationmethods publickey`, `passwordauthentication no`, `kbdinteractiveauthentication no` and `maxauthtries 3`. `/root/.ssh` should list no `authorized_keys`.
 
 ```bash
 ssh -o BatchMode=yes root@<ipv4> true
@@ -104,10 +121,10 @@ ssh -o PubkeyAuthentication=no -o PreferredAuthentications=password,keyboard-int
 Both must fail with `Permission denied (publickey)`.
 
 ```bash
-ssh tribo@<ipv4> 'systemctl is-active unattended-upgrades && apt-config dump APT::Periodic::Unattended-Upgrade && sudo unattended-upgrade --dry-run 2>&1 | tail -3'
+ssh tribo@<ipv4> 'systemctl is-active unattended-upgrades && apt-config dump | grep -E "Periodic::Unattended-Upgrade|Automatic-Reboot" && sudo unattended-upgrade --dry-run 2>&1 | tail -3'
 ```
 
-Expect `active`, `APT::Periodic::Unattended-Upgrade "1";` and no errors. If something went wrong on first boot, read `/var/log/cloud-init-output.log`.
+Expect these values: `active`, `APT::Periodic::Unattended-Upgrade "1";`, `Unattended-Upgrade::Automatic-Reboot "true";`, `Automatic-Reboot-Time "19:30";` (the clock is UTC) and no errors. If something went wrong on first boot, read `/var/log/cloud-init-output.log`.
 
 ### Step 3. Firewall
 
@@ -135,7 +152,7 @@ Check that the firewall covers the droplet with exactly these rules:
 doctl compute firewall list-by-droplet "$(doctl compute droplet get tribo-ref --format ID --no-header)" --format Name,Status,Tags,InboundRules
 ```
 
-Check ufw: `Status: active`, default deny incoming, and only 22 (from your IP), 80/tcp, 443/tcp and 443/udp allowed.
+Check ufw: `Status: active`, default deny incoming, 22/tcp `LIMIT` (at most 6 new connections in 30 seconds from one address), and 80/tcp, 443/tcp and 443/udp allowed.
 
 ```bash
 ssh tribo@<ipv4> sudo ufw status verbose
@@ -155,6 +172,14 @@ nc -vz -w 5 <ipv4> 5432
 ssh tribo@<ipv4> 'apt-cache policy docker-ce | grep -m1 download.docker.com && docker version --format "{{.Server.Version}}" && docker compose version && docker run --rm hello-world | grep -m1 Hello'
 ```
 
+Check the trusted signing key and the daemon defaults. Expect fingerprint `9DC858229FC7DD38854AE2D88D81803C0EBFCD88`, then `live-restore=true log=local`. With live restore, containers keep running while the daemon upgrades; the `local` log driver rotates logs so they can't fill the disk.
+
+```bash
+ssh tribo@<ipv4> 'gpg --show-keys --with-colons /etc/apt/keyrings/docker.asc | grep -m1 ^fpr; docker info --format "live-restore={{.LiveRestoreEnabled}} log={{.LoggingDriver}}"'
+```
+
+Docker-published ports bypass ufw. The Cloud Firewall still blocks them, and `compose.yml` publishes only 80 and 443.
+
 ### Step 5. DNS
 
 In the Cloudflare dashboard, open the zone → DNS → Records and add:
@@ -172,6 +197,21 @@ dig +short A <host> @1.1.1.1
 
 ```bash
 dig +short AAAA <host> @1.1.1.1
+```
+
+Limit who may issue certificates for the name, and sign the zone:
+
+- **CAA:** add a record with type `CAA`, name the host part of `<host>`, flags `0`, tag "Only allow specific hostnames" (`issue`) and value `letsencrypt.org`. Another certificate authority then refuses to issue for the name.
+- **DNSSEC:** go to DNS → Settings → Enable DNSSEC. If the domain is not registered through Cloudflare, add the DS record Cloudflare shows at your registrar.
+
+Check: the first command prints `0 issue "letsencrypt.org"`; the second prints `ad`, meaning the answer was validated with DNSSEC.
+
+```bash
+dig +short CAA <host> @1.1.1.1
+```
+
+```bash
+dig +dnssec A <host> @1.1.1.1 | grep -o ' ad'
 ```
 
 Optionally, set reverse DNS by renaming the droplet to `<host>`. DigitalOcean creates the PTR record from a droplet name that is a fully qualified domain name.

@@ -24,6 +24,14 @@ while [ $# -gt 0 ]; do
   esac
 done
 
+# The values are spliced into doctl's key:value rule syntax, where a stray comma
+# or colon would add a rule; accept only plain names and addresses.
+echo "$name" | grep -Eqx '[A-Za-z0-9.-]+' || { echo "invalid --name: $name" >&2; exit 64; }
+echo "$tag" | grep -Eqx '[A-Za-z0-9_.-]+' || { echo "invalid --tag: $tag" >&2; exit 64; }
+for source in $(echo "$ssh_from" | tr ',' ' '); do
+  echo "$source" | grep -Eqx '[0-9a-fA-F:.]+/[0-9]{1,3}' || { echo "invalid --ssh-from entry: $source" >&2; exit 64; }
+done
+
 # Same inbound set as ufw in provision.sh.
 anywhere=0.0.0.0/0,address:::/0
 ssh_sources=$(echo "$ssh_from" | sed 's/,/,address:/g')
