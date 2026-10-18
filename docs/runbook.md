@@ -218,7 +218,7 @@ Optionally, set reverse DNS by renaming the droplet to `<host>`. DigitalOcean cr
 
 ## Deploy with Compose (steps 6–9)
 
-Sprint 0 task 14. `deploy/compose.yml` runs Tribo in any deployment mode from the "Deployment-mode configuration" table in `docs/design/sprint-0.md`. Backups and the restore check (steps 10–11) arrive with task 17.
+Sprint 0 task 14. `deploy/compose.yml` runs Tribo in any deployment mode from the "Deployment-mode configuration" table in `docs/design/sprint-0.md`. Backups and the restore check are steps 10–11 below.
 
 ### What runs
 
@@ -279,3 +279,134 @@ Pushing a tag `vX.Y.Z` on `main` runs CI. Once every job passes, its "Publish" j
 
 | Tag | Date | Notes |
 | --- | ---- | ----- |
+
+## Backups and restore (steps 10–11)
+
+Sprint 0 task 17. Every night your own machine pulls a database dump and the upload volume from the host over SSH, into a dated snapshot on a disk you own, and keeps the newest 7. The host holds no credentials to that disk, and the key your machine uses can only read backups. Every quarter you restore the newest snapshot into a scratch Compose project on your machine and check every audit chain. Up to a day of edits can be lost; there is no point-in-time restore.
+
+The files are in `deploy/backup/`. None holds a key, a password or an address:
+
+| File                                                    | Runs on      | What it does                                                                                                                                         |
+| ------------------------------------------------------- | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `serve.sh`                                              | the host     | The forced command of the backup key: answers `status`, `dump` (`pg_dump -Fc` in the `db` container) and a read-only rsync of the upload volume only |
+| `pull.sh`                                               | your machine | The nightly backup: dump, upload sync with unchanged files hard-linked to the previous snapshot, manifest with the SHA-256, rotation to 7            |
+| `ph.tribo.backup.plist`, `tribo-backup.{service,timer}` | your machine | The nightly timer at 02:00 Asia/Manila: launchd on macOS, systemd on Linux                                                                           |
+| `restore.sh`, `restore-db.sh`, `compose.restore.yml`    | your machine | The restore check in the scratch project `tribo-restore`                                                                                             |
+| `backup.env.example`                                    | your machine | Settings for `pull.sh` and `restore.sh`; copy to `~/.config/tribo/backup.env`                                                                        |
+
+`pull.sh` and `restore.sh` share `snapshots.sh`, which names snapshots. A snapshot is a directory named by its Manila time, such as `2026-10-19T020000`, holding `tribo.dump`, `manifest` and, once the host has an upload volume, `uploads/`. A run that fails leaves a `.partial` directory, which the next run deletes. Snapshots do not contain the app key: that is the copy you made in step 7, and without it the sensitive fields in a restore are unreadable.
+
+### Step 10. Backups
+
+The backup key has no passphrase, so the nightly job can use it unattended. Its `authorized_keys` line forces `serve.sh` and turns off the shell, port forwarding and agent forwarding, so a stolen copy can read backups and nothing else. On your machine:
+
+```bash
+ssh-keygen -t ed25519 -N '' -C tribo-backup -f ~/.ssh/tribo_backup
+```
+
+Put `deploy/backup/` from this repository's `main` in `/opt/tribo/backup/` on the host (releases after `v0.1.0` include it with the rest of `deploy/`), then add the key with its forced command:
+
+```bash
+scp -r deploy/backup tribo@<ipv4>:/opt/tribo/
+```
+
+```bash
+ssh tribo@<ipv4> "echo 'restrict,command=\"/opt/tribo/backup/serve.sh\" $(cat ~/.ssh/tribo_backup.pub)' >>~/.ssh/authorized_keys"
+```
+
+Add a host alias for the key to `~/.ssh/config`:
+
+```plain
+Host tribo-backup
+  HostName <ipv4>
+  User tribo
+  IdentityFile ~/.ssh/tribo_backup
+  IdentitiesOnly yes
+```
+
+Copy the settings and set `TRIBO_BACKUP_DIR` to a directory on the disk you own, such as `/Volumes/Backup/tribo`:
+
+```bash
+mkdir -p ~/.config/tribo && cp deploy/backup/backup.env.example ~/.config/tribo/backup.env
+```
+
+Check that the key can do nothing but serve backups. The first command prints the release tag and `uploads=no` (until the documents module adds the upload volume); the second must fail with `refused 'id'`:
+
+```bash
+ssh tribo-backup status
+```
+
+```bash
+ssh tribo-backup id
+```
+
+Run one backup by hand:
+
+```bash
+sh deploy/backup/pull.sh
+```
+
+Check: it ends with `snapshot … complete`, and the newest snapshot's `manifest` names the running release and a `dump_bytes` above zero. Once the host has an upload volume, `ssh tribo@<ipv4> test -x /usr/bin/rrsync` must succeed; rrsync comes with Ubuntu's rsync package. If the upload sync fails from macOS, install Homebrew's rsync (`brew install rsync`) and set `TRIBO_RSYNC=/opt/homebrew/bin/rsync`.
+
+Install the nightly timer. On macOS, from the root of your checkout (launchd uses the Mac's own time zone, so with the Mac set to another zone, change `Hour` to the hour that is 02:00 in Manila):
+
+```bash
+sed "s#TRIBO_REPO#$PWD#" deploy/backup/ph.tribo.backup.plist >~/Library/LaunchAgents/ph.tribo.backup.plist
+```
+
+```bash
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/ph.tribo.backup.plist && launchctl kickstart gui/$(id -u)/ph.tribo.backup
+```
+
+A run missed while the Mac sleeps happens when it wakes. The log is `~/Library/Logs/tribo-backup.log`. If it shows `Operation not permitted` on the backup disk, allow the disk under System Settings → Privacy & Security → Files and Folders (or Full Disk Access) for `sh`.
+
+On Linux, the timer runs at 02:00 Asia/Manila in any time zone. With the checkout somewhere other than `~/tribo`, edit `ExecStart` first:
+
+```bash
+mkdir -p ~/.config/systemd/user && cp deploy/backup/tribo-backup.service deploy/backup/tribo-backup.timer ~/.config/systemd/user/
+```
+
+```bash
+systemctl --user daemon-reload && systemctl --user enable --now tribo-backup.timer && loginctl enable-linger "$USER"
+```
+
+Check the next morning: `ls "$TRIBO_BACKUP_DIR"` (the directory from `backup.env`) lists a snapshot stamped about `T0200`, and after eight nights it lists exactly 7. The timer's own state:
+
+```bash
+launchctl print gui/$(id -u)/ph.tribo.backup | grep -E 'state|last exit code'
+```
+
+```bash
+systemctl --user list-timers tribo-backup.timer
+```
+
+Until your machine can pull (no disk yet, or the machine is away), keep a dump on a separate DigitalOcean Volume attached to the droplet, and remove this fallback once the pull works. On the host, with the volume mounted at `/mnt/backup`:
+
+```bash
+cd /opt/tribo && docker compose exec -T db pg_dump --username postgres --dbname tribo --format custom >/mnt/backup/tribo-$(date +%F).dump
+```
+
+### Step 11. Restore check
+
+Run it on your own machine with Docker (Docker Desktop, OrbStack or Colima; Engine 28 or later), never on the host: `restore.sh` refuses a Docker engine that runs the production project `tribo`. The scratch project `tribo-restore` has its own volumes and network, fresh random database passwords, and publishes only `127.0.0.1:8443`. Its secrets and a copy of the app key live in `~/.local/state/tribo-restore/`, which only you can open, until `--down`. It runs the release the snapshot's manifest names (the images are linux/amd64, so they run emulated on Apple silicon).
+
+Export the app key from your password manager or offline storage (step 7) to a file only you can read, and set `TRIBO_APP_KEY_FILE` to it in `~/.config/tribo/backup.env`. Then restore the newest snapshot (pass a snapshot directory to restore another):
+
+```bash
+sh deploy/backup/restore.sh
+```
+
+It checks the dump against its manifest checksum, starts the scratch database (whose init script creates the two roles and an empty database), restores the dump as the `postgres` superuser in one transaction with every object owned by `tribo_owner` and `tribo_app`'s grants as they were, copies the uploads in, starts the app (which finds no migration to apply) and the proxy, and runs `tribo audit verify`.
+
+Check: the output ends with `All N chains intact.` and `passed`. Then open https://restore.tribo.localhost:8443 and accept the browser's warning (Caddy's internal CA, new on every run). Sign in as your admin from step 9, open the trip from exit criteria 1–2 and check that its items are there.
+
+Delete the scratch project with its volumes, passwords and copy of the app key, then the file you exported:
+
+```bash
+sh deploy/backup/restore.sh --down
+```
+
+Record the check below, and repeat it every quarter and after any change to the backup scripts.
+
+| Date | Snapshot | Release | Chains | Notes |
+| ---- | -------- | ------- | ------ | ----- |

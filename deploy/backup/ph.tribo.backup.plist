@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Nightly backup on macOS (runbook step 10): runs pull.sh at 02:00 Asia/Manila.
+  launchd uses the Mac's own time zone: Hour 2 is right when the Mac is set to Manila
+  time; otherwise use the hour that is 02:00 in Manila. A run missed while the Mac sleeps
+  happens when it wakes. The log is ~/Library/Logs/tribo-backup.log.
+  Replace TRIBO_REPO with the absolute path of your checkout, then:
+    cp deploy/backup/ph.tribo.backup.plist ~/Library/LaunchAgents/
+    launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/ph.tribo.backup.plist
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>ph.tribo.backup</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/sh</string>
+    <string>-c</string>
+    <string>exec /bin/sh "$0" &gt;&gt;"$HOME/Library/Logs/tribo-backup.log" 2&gt;&amp;1</string>
+    <string>TRIBO_REPO/deploy/backup/pull.sh</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+  </dict>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key>
+    <integer>2</integer>
+    <key>Minute</key>
+    <integer>0</integer>
+  </dict>
+</dict>
+</plist>

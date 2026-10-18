@@ -1,0 +1,12 @@
+# Nightly backup on a Linux machine you own (runbook step 10); tribo-backup.timer starts it.
+# Install as a user unit, with %h your home and the checkout at ~/tribo (change ExecStart if not):
+#   cp deploy/backup/tribo-backup.{service,timer} ~/.config/systemd/user/
+#   systemctl --user daemon-reload && systemctl --user enable --now tribo-backup.timer
+#   loginctl enable-linger "$USER"     so it runs while you are logged out
+[Unit]
+Description=Tribo nightly backup pull
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh %h/tribo/deploy/backup/pull.sh

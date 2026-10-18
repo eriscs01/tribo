@@ -1,0 +1,11 @@
+# 02:00 Manila time whatever the machine's own time zone; a run missed while it was off
+# happens at the next boot (Persistent).
+[Unit]
+Description=Tribo nightly backup at 02:00 Asia/Manila
+
+[Timer]
+OnCalendar=*-*-* 02:00:00 Asia/Manila
+Persistent=true
+
+[Install]
+WantedBy=timers.target
