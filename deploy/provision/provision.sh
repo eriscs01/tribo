@@ -73,8 +73,11 @@ PasswordAuthentication no
 KbdInteractiveAuthentication no
 PubkeyAuthentication yes
 EOF
+  # Ubuntu 24.04 starts sshd from ssh.socket: /run/sshd and the service may not
+  # exist yet, and an inactive service picks up the config on its next start.
+  install -d -m 755 /run/sshd
   sshd -t
-  systemctl reload ssh 2>/dev/null || systemctl reload sshd
+  systemctl try-reload-or-restart ssh
 }
 
 enable_security_upgrades() {
