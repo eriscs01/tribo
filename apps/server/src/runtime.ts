@@ -29,7 +29,7 @@ export async function openRuntime(config: Config, applicationName: string) {
     appKey,
     pool,
     identity: createIdentityService(db, keyring(appKey)),
-    trips: createTripsService(write),
+    trips: createTripsService(db, write),
     items: createItemsService(db, write),
     verifyAudit: (chainKey?: string) => verifyChains(db, chainKey),
     /** Ends the pool. */

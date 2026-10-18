@@ -33,7 +33,7 @@ describe('registry against operations.csv', () => {
       ifMatch: row.ifMatch,
       idempotent: row.idempotent,
     });
-    const { status: _status, input: _input, output: _output, ...rest } = op ?? {};
+    const { status: _status, query: _query, input: _input, output: _output, ...rest } = op ?? {};
     expect(rest).toEqual(row);
   });
 

@@ -71,7 +71,7 @@ describe('tribo admin create', () => {
       authenticate: (token) => identity.authenticate(token),
       handlers: {
         ...authHandlers(identity, csrf),
-        ...tripHandlers(createTripsService(writePath(tdb.db))),
+        ...tripHandlers(createTripsService(tdb.db, writePath(tdb.db))),
         ...itemHandlers(createItemsService(tdb.db, writePath(tdb.db))),
       },
       ping: () => Promise.resolve(),

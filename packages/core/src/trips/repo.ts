@@ -20,6 +20,20 @@ export function lockTripForWrite(db: TripsDb, tripId: string) {
 }
 
 /** A trip as the API renders it: dates as text, so no driver turns them into local midnights. */
+const TRIP_COLUMNS = [
+  'id',
+  'name',
+  sql<string>`start_date::text`.as('start_date'),
+  sql<string>`end_date::text`.as('end_date'),
+  'currency',
+  'timezone',
+  'status',
+  'archived_at',
+  'version',
+  'created_at',
+  'updated_at',
+] as const;
+
 export function insertTrip(
   db: TripsDb,
   trip: {
@@ -42,20 +56,31 @@ export function insertTrip(
       created_by: trip.createdBy,
       updated_by: trip.createdBy,
     })
-    .returning([
-      'id',
-      'name',
-      sql<string>`start_date::text`.as('start_date'),
-      sql<string>`end_date::text`.as('end_date'),
-      'currency',
-      'timezone',
-      'status',
-      'archived_at',
-      'version',
-      'created_at',
-      'updated_at',
-    ])
+    .returning(TRIP_COLUMNS)
     .executeTakeFirstOrThrow();
+}
+
+export type TripRow = Awaited<ReturnType<typeof insertTrip>>;
+
+/**
+ * One page of the trips this account is an active member of (tribo.is_member, so deleted
+ * trips drop out), latest start first, then by id. `after` is the last row's sort key.
+ */
+export function listMemberTrips(
+  db: TripsDb,
+  userId: string,
+  page: { limit: number; after: { startDate: string; id: string } | null },
+) {
+  let query = db
+    .selectFrom('tribo.trips')
+    .select(TRIP_COLUMNS)
+    .where(sql<boolean>`tribo.is_member(${userId}, id)`);
+  if (page.after) {
+    query = query.where(
+      sql<boolean>`(start_date, id) < (${page.after.startDate}::date, ${page.after.id}::uuid)`,
+    );
+  }
+  return query.orderBy('start_date', 'desc').orderBy('id', 'desc').limit(page.limit).execute();
 }
 
 export function insertMembership(

@@ -28,6 +28,8 @@ export interface Operation {
   mcpTool: string | null;
   notes: string;
   status: OperationStatus;
+  /** Query parameters, one per key; GET reads take these instead of a body. */
+  query?: z.ZodObject;
   input?: z.ZodType;
   output?: z.ZodType;
 }
