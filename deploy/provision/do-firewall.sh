@@ -36,7 +36,9 @@ outbound="protocol:tcp,ports:0,address:$anywhere \
 protocol:udp,ports:0,address:$anywhere \
 protocol:icmp,address:$anywhere"
 
-id=$(doctl compute firewall list --format ID,Name --no-header | awk -v n="$name" '$2 == n { print $1 }')
+# A failed list must stop here, or the script would offer to create a duplicate.
+firewalls=$(doctl compute firewall list --format ID,Name --no-header)
+id=$(echo "$firewalls" | awk -v n="$name" '$2 == n { print $1 }')
 if [ -n "$id" ]; then
   set -- doctl compute firewall update "$id" --name "$name"
 else
