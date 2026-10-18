@@ -94,15 +94,15 @@ scp deploy/provision/provision.sh <login>@<ipv4>:
 ssh <login>@<ipv4> sudo sh provision.sh
 ```
 
-Keep your current session open until the checks below pass from a second terminal. Check, on your machine:
-
-The first connection asks you to trust the host key. If the Droplet Console works, compare the fingerprint SSH shows with the one the droplet prints there:
+The first connection asks you to trust the host key. If the Droplet Console works, compare the fingerprint SSH shows with the one this prints in the console:
 
 ```bash
 ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub
 ```
 
 If the console doesn't work, connect for the first time right after creating the droplet, from your own network. After that, a `REMOTE HOST IDENTIFICATION HAS CHANGED` warning is an incident, unless you have just recreated the droplet. In that case, remove the old key with `ssh-keygen -R <host>` and trust the new one.
+
+Keep your current session open until the checks below pass from a second terminal. Check, on your machine:
 
 ```bash
 ssh tribo@<ipv4> 'sudo sshd -T | grep -E "^(allowusers|permitrootlogin|authenticationmethods|passwordauthentication|kbdinteractiveauthentication|maxauthtries) "; sudo ls /root/.ssh'
