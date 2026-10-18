@@ -3,5 +3,4 @@ services:
   proxy:
     environment:
       TRIBO_ACME_EMAIL: ${TRIBO_ACME_EMAIL:?set TRIBO_ACME_EMAIL for acme-dns-cloudflare}
-    secrets:
-      - { source: cloudflare_api_token, uid: '0', gid: '0', mode: 0400 }
+    secrets: [cloudflare_api_token]

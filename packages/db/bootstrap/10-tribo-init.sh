@@ -17,6 +17,10 @@ read_secret() {
     echo "tribo init: secret $1 is missing or empty in $secrets_dir" >&2
     exit 1
   fi
+  if [[ ! -r $file ]]; then
+    echo "tribo init: secret $1 is not readable by uid $(id -u); on the host the secret files must be mode 644 (docs/runbook.md, step 7)" >&2
+    exit 1
+  fi
   tr -d '\r\n' <"$file"
 }
 
