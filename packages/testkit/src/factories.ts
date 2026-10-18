@@ -163,6 +163,10 @@ export async function createItem(
     sharedWith?: readonly string[];
     title?: string;
     type?: ValueOf<'tribo.items.type'>;
+    /** All-day dates, or a timed start (and end) as instants in a zone. */
+    days?: { start: string; end?: string };
+    timed?: { start: Date; end?: Date; tz: string };
+    cost?: { amountMinor: number; currency: string };
   },
 ): Promise<string> {
   const { id } = await db
@@ -173,6 +177,14 @@ export async function createItem(
       visibility: init.visibility ?? 'shared',
       title: init.title ?? `Item ${next()}`,
       type: init.type ?? 'activity',
+      start_date: init.days?.start ?? null,
+      end_date: init.days?.end ?? null,
+      start_at: init.timed?.start ?? null,
+      start_tz: init.timed?.tz ?? null,
+      end_at: init.timed?.end ?? null,
+      end_tz: init.timed?.end ? init.timed.tz : null,
+      cost_minor: init.cost?.amountMinor ?? null,
+      cost_currency: init.cost?.currency ?? null,
     })
     .returning('id')
     .executeTakeFirstOrThrow();
@@ -188,6 +200,31 @@ export async function createItem(
       )
       .execute();
   }
+  return id;
+}
+
+/** One row of an item's assignment board, as items.assignments.replace would write it. */
+export async function addAllocation(
+  db: Db,
+  init: {
+    tripId: string;
+    itemId: string;
+    membershipId: string;
+    role: ValueOf<'tribo.allocations.role'>;
+    rsvp?: ValueOf<'tribo.allocations.rsvp'>;
+  },
+): Promise<string> {
+  const { id } = await db
+    .insertInto('tribo.allocations')
+    .values({
+      trip_id: init.tripId,
+      item_id: init.itemId,
+      membership_id: init.membershipId,
+      role: init.role,
+      rsvp: init.rsvp ?? null,
+    })
+    .returning('id')
+    .executeTakeFirstOrThrow();
   return id;
 }
 

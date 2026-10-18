@@ -1976,6 +1976,9 @@ export interface components {
             visibility: components["schemas"]["ItemVisibility"];
             ownerMembershipId: string;
             tags: string[];
+            cost: (components["schemas"]["Money"] | components["schemas"]["MaskedValue"]) | null;
+            bookingRef: components["schemas"]["MaskedValue"] | null;
+            cardLast4: components["schemas"]["MaskedValue"] | null;
             version: number;
             boardVersion: number;
             createdAt: components["schemas"]["Instant"];
@@ -1990,6 +1993,10 @@ export interface components {
             visibility?: components["schemas"]["ItemVisibility"];
             sharedWith?: string[];
             tags?: string[];
+        };
+        ItemPage: {
+            items: components["schemas"]["Item"][];
+            nextCursor: string | null;
         };
         /** @enum {string} */
         ItemStatus: "draft" | "planned" | "booked" | "confirmed" | "open" | "done" | "cancelled";
@@ -2071,6 +2078,10 @@ export interface components {
         MfaSetup: {
             key: string;
             uri: string;
+        };
+        Money: {
+            amountMinor: number;
+            currency: components["schemas"]["CurrencyCode"];
         };
         NewPassword: string;
         OpeningHours: {
@@ -6065,7 +6076,14 @@ export interface operations {
     };
     "items.list": {
         parameters: {
-            query?: never;
+            query?: {
+                limit?: number;
+                cursor?: string;
+                type?: components["schemas"]["ItemType"];
+                from?: string;
+                to?: string;
+                assignee?: "me";
+            };
             header?: never;
             path: {
                 tripId: string;
@@ -6074,13 +6092,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["ItemPage"];
                 };
             };
             /** @description Error */

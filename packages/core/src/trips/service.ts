@@ -266,16 +266,26 @@ export async function guardTrip(tx: Tx, tripId: string, operationId: string): Pr
   if (refusal) throw new ApiError(refusal);
 }
 
+/** The caller inside a trip: their membership, its role, and whether costs show to them. */
+export interface CallerMembership {
+  id: string;
+  role: TripRole;
+  /** Every role but a viewer reads costs; a viewer only with can_view_costs. */
+  canViewCosts: boolean;
+}
+
 /** Inside a trip a person is their membership: the caller's active one, or null. */
 export async function callerMembership(
   db: Kysely<DB>,
   userId: string,
   tripId: string,
-): Promise<{ id: string; role: TripRole } | null> {
+): Promise<CallerMembership | null> {
   const personId = await accountPersonId(db, userId);
   if (personId === null) return null;
   const row = await findActiveMembership(forModule(db, 'trips'), tripId, personId);
-  return row ? { id: row.id, role: row.trip_role as TripRole } : null;
+  if (!row) return null;
+  const role = row.trip_role as TripRole;
+  return { id: row.id, role, canViewCosts: role !== 'viewer' || row.can_view_costs };
 }
 
 /** True when every one of these is an active membership of the trip. */

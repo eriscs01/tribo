@@ -94,6 +94,10 @@ function selectItem(db: ItemsDb) {
       'i.visibility',
       'i.owner_membership_id',
       'i.tags',
+      'i.cost_minor',
+      'i.cost_currency',
+      'i.booking_ref_enc',
+      'i.card_last4_enc',
       'i.version',
       'i.board_version',
       'i.created_at',
@@ -115,4 +119,52 @@ export function findVisibleItem(db: ItemsDb, userId: string, itemId: string) {
     .where('i.id', '=', itemId)
     .where(sql<boolean>`tribo.item_visible(${userId}, i.id)`)
     .executeTakeFirst();
+}
+
+export interface ItemFilter {
+  type?: ValueOf<'tribo.items.type'>;
+  /** Inclusive day range; an item matches when its days, in its own zones, overlap it. */
+  from?: string;
+  to?: string;
+  /** Only items this membership is an assignee of. */
+  assigneeMembershipId?: string;
+}
+
+/** An item's first and last day, each in its own zone; null for an undated item. */
+const firstDay = sql<string>`coalesce((i.start_at AT TIME ZONE i.start_tz)::date, i.start_date)`;
+const lastDay = sql<string>`coalesce((i.end_at AT TIME ZONE i.end_tz)::date, i.end_date, ${firstDay})`;
+
+/**
+ * One page of a trip's items that tribo.item_visible lets this account see, in id order
+ * (UUIDv7, so the order they were added). `after` is the last id of the previous page.
+ */
+export function listVisibleItems(
+  db: ItemsDb,
+  userId: string,
+  tripId: string,
+  page: { filter: ItemFilter; limit: number; after: string | null },
+) {
+  const { filter } = page;
+  let query = selectItem(db)
+    .where('i.trip_id', '=', tripId)
+    .where(sql<boolean>`tribo.item_visible(${userId}, i.id)`);
+  if (filter.type !== undefined) query = query.where('i.type', '=', filter.type);
+  if (filter.from !== undefined)
+    query = query.where(sql<boolean>`${lastDay} >= ${filter.from}::date`);
+  if (filter.to !== undefined) query = query.where(sql<boolean>`${firstDay} <= ${filter.to}::date`);
+  const assignee = filter.assigneeMembershipId;
+  if (assignee !== undefined) {
+    query = query.where((eb) =>
+      eb.exists(
+        eb
+          .selectFrom('tribo.allocations as a')
+          .select('a.id')
+          .whereRef('a.item_id', '=', 'i.id')
+          .where('a.membership_id', '=', assignee)
+          .where('a.role', '=', 'assignee'),
+      ),
+    );
+  }
+  if (page.after !== null) query = query.where('i.id', '>', page.after);
+  return query.orderBy('i.id').limit(page.limit).execute();
 }

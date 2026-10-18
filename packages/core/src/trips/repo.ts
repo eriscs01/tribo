@@ -207,7 +207,7 @@ export function findActiveMembership(db: TripsDb, tripId: string, personId: stri
   return db
     .selectFrom('tribo.memberships as m')
     .innerJoin('tribo.trips as t', 't.id', 'm.trip_id')
-    .select(['m.id', 'm.trip_role'])
+    .select(['m.id', 'm.trip_role', 'm.can_view_costs'])
     .where('m.trip_id', '=', tripId)
     .where('m.person_id', '=', personId)
     .where('m.deleted_at', 'is', null)

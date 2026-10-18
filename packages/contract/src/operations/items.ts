@@ -1,6 +1,6 @@
 // Generated from operations.csv by src/scripts/import-operations.ts. A story replaces an
 // entry's status with 'implemented' and adds its input and output schemas.
-import { Item, ItemInput } from '../item.js';
+import { Item, ItemInput, ItemListQuery, ItemPage } from '../item.js';
 import { defineOperation } from '../operation.js';
 
 export const itemsOperations = [
@@ -20,7 +20,9 @@ export const itemsOperations = [
     mcpTool: null,
     notes:
       'All types; ?type, ?from&to, ?assignee=me; item_visible; viewers masked; costs per canViewCosts',
-    status: 'planned',
+    status: 'implemented',
+    query: ItemListQuery,
+    output: ItemPage,
   }),
   defineOperation({
     id: 'items.create',

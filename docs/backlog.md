@@ -101,7 +101,7 @@
 
 ## Items
 
-- [ ] `items.list` · Drop A · `GET /v1/trips/{tripId}/items`
+- [x] `items.list` · Drop A · `GET /v1/trips/{tripId}/items`
   - All types; ?type, ?from&to, ?assignee=me; item_visible; viewers masked; costs per canViewCosts
   - Roles: owner, organizer, member, viewer. If-Match: `no`. Idempotency: safe to repeat.
 - [x] `items.create` · Drop A · `POST /v1/trips/{tripId}/items`

@@ -1,5 +1,8 @@
 import * as z from 'zod';
 import { ID_PREFIX, typeId } from './ids.js';
+import { MaskedValue } from './masked.js';
+import { Money } from './money.js';
+import { page, PageQuery } from './page.js';
 import { AllDay, Instant, TimeInput, TimeZone } from './time.js';
 
 export const ItemType = z
@@ -73,6 +76,11 @@ export const Item = z
     visibility: ItemVisibility,
     ownerMembershipId: typeId(ID_PREFIX.membership),
     tags: z.array(z.string()),
+    /** The booked price; masked for a viewer without canViewCosts. */
+    cost: z.union([Money, MaskedValue]).nullable(),
+    /** Masked for every reader when set; the plaintext comes only from items.reveal. */
+    bookingRef: MaskedValue.nullable(),
+    cardLast4: MaskedValue.nullable(),
     version: z.int().min(1),
     boardVersion: z.int().min(1),
     createdAt: Instant,
@@ -81,3 +89,24 @@ export const Item = z
   .meta({ id: 'Item' });
 
 export type Item = z.infer<typeof Item>;
+
+/**
+ * items.list filters. `from`/`to` keep the items whose days (in their own zones) overlap
+ * that inclusive range, so undated items drop out; `assignee=me` keeps the caller's tasks.
+ */
+export const ItemListQuery = PageQuery.extend({
+  type: ItemType.optional(),
+  from: z.iso.date().optional(),
+  to: z.iso.date().optional(),
+  assignee: z.literal('me').optional(),
+}).refine((q) => q.from === undefined || q.to === undefined || q.from <= q.to, {
+  message: 'the range ends before it starts',
+  path: ['to'],
+});
+
+export type ItemListQuery = z.infer<typeof ItemListQuery>;
+
+/** items.list: one page of the trip's items the caller may see, in the order they were added. */
+export const ItemPage = page(Item, 'ItemPage');
+
+export type ItemPage = z.infer<typeof ItemPage>;
