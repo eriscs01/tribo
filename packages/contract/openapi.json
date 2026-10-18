@@ -4693,12 +4693,12 @@
           }
         ],
         "responses": {
-          "501": {
-            "description": "Registered but not implemented yet (not_implemented)",
+          "200": {
+            "description": "OK",
             "content": {
-              "application/problem+json": {
+              "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Problem"
+                  "$ref": "#/components/schemas/LibrarySearchResult"
                 }
               }
             }
@@ -4715,7 +4715,7 @@
           }
         },
         "x-tribo": {
-          "status": "planned",
+          "status": "implemented",
           "slice": "1a",
           "drop": "A",
           "roles": "any signed-in user",
@@ -4724,7 +4724,30 @@
           "destructive": false,
           "mcpApproval": false,
           "mcpTool": "search_library"
-        }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          }
+        ]
       }
     },
     "/v1/library/templates": {
@@ -8735,6 +8758,99 @@
         "required": [
           "lat",
           "lng"
+        ],
+        "additionalProperties": false
+      },
+      "LibraryHit": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "person"
+              },
+              "id": {
+                "type": "string",
+                "pattern": "^per_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "id",
+              "name"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "place"
+              },
+              "id": {
+                "type": "string",
+                "pattern": "^plc_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+              },
+              "name": {
+                "type": "string"
+              },
+              "placeKind": {
+                "$ref": "#/components/schemas/PlaceKind"
+              }
+            },
+            "required": [
+              "kind",
+              "id",
+              "name",
+              "placeKind"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "vendor"
+              },
+              "id": {
+                "type": "string",
+                "pattern": "^vnd_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+              },
+              "name": {
+                "type": "string"
+              },
+              "vendorKind": {
+                "$ref": "#/components/schemas/VendorKind"
+              }
+            },
+            "required": [
+              "kind",
+              "id",
+              "name",
+              "vendorKind"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      },
+      "LibrarySearchResult": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LibraryHit"
+            }
+          }
+        },
+        "required": [
+          "items"
         ],
         "additionalProperties": false
       },

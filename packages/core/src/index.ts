@@ -24,6 +24,7 @@ export {
 } from './items/service.js';
 export {
   createLibraryService,
+  type LibraryHitRecord,
   type LibraryService,
   type PersonRecord,
   type PlaceRecord,

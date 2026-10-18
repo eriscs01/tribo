@@ -233,3 +233,40 @@ describe('library.vendors.create over HTTP', () => {
     });
   });
 });
+
+describe('library.search over HTTP', () => {
+  it('answers matches as TypeIDs and checks its query', async () => {
+    const ana = await signedInUser();
+    await app.inject({
+      method: 'POST',
+      url: '/v1/library/places',
+      ...ana.auth,
+      payload: { name: 'Mount Bandilaan', kind: 'landmark' },
+    });
+    const res = await app.inject({
+      method: 'GET',
+      url: '/v1/library/search?q=bandilaan',
+      ...ana.auth,
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({
+      items: [
+        {
+          kind: 'place',
+          id: expect.stringMatching(/^plc_/) as unknown,
+          name: 'Mount Bandilaan',
+          placeKind: 'landmark',
+        },
+      ],
+    });
+    const queries = ['', 'q=', 'q=x&limit=0', 'q=x&limit=51', 'q=x&cursor=abc'];
+    const responses = await Promise.all(
+      queries.map((query) =>
+        app.inject({ method: 'GET', url: `/v1/library/search?${query}`, ...ana.auth }),
+      ),
+    );
+    responses.forEach((r, i) => {
+      expect(r.json(), queries[i]).toMatchObject({ code: 'validation_failed' });
+    });
+  });
+});

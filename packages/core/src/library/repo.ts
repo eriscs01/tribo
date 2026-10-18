@@ -238,3 +238,54 @@ export function insertVendor(db: LibraryDb, vendor: NewVendor) {
 }
 
 export type VendorRow = Awaited<ReturnType<typeof insertVendor>>;
+
+/** A name search: a substring match or a close spelling, best word similarity first. */
+export interface NameSearch {
+  q: string;
+  limit: number;
+}
+
+const likePattern = (q: string) => `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+
+const nameMatches = (column: string, q: string) =>
+  sql<boolean>`(${sql.ref(column)} ILIKE ${likePattern(q)} OR ${q} <% ${sql.ref(column)})`;
+
+const nameScore = (column: string, q: string) =>
+  sql<number>`word_similarity(${q}, ${sql.ref(column)})`;
+
+/** People this account may see (tribo.person_visible, the one person predicate) by name. */
+export function searchVisiblePersons(db: LibraryDb, userId: string, search: NameSearch) {
+  return db
+    .selectFrom('tribo.persons as p')
+    .select(['p.id', 'p.display_name as name', nameScore('p.display_name', search.q).as('score')])
+    .where(nameMatches('p.display_name', search.q))
+    .where(sql<boolean>`tribo.person_visible(${userId}, p.id)`)
+    .orderBy('score', 'desc')
+    .orderBy('p.id')
+    .limit(search.limit)
+    .execute();
+}
+
+export function searchPlaces(db: LibraryDb, search: NameSearch) {
+  return db
+    .selectFrom('tribo.places as pl')
+    .select(['pl.id', 'pl.name', 'pl.kind', nameScore('pl.name', search.q).as('score')])
+    .where('pl.deleted_at', 'is', null)
+    .where(nameMatches('pl.name', search.q))
+    .orderBy('score', 'desc')
+    .orderBy('pl.id')
+    .limit(search.limit)
+    .execute();
+}
+
+export function searchVendors(db: LibraryDb, search: NameSearch) {
+  return db
+    .selectFrom('tribo.vendors as v')
+    .select(['v.id', 'v.name', 'v.kind', nameScore('v.name', search.q).as('score')])
+    .where('v.deleted_at', 'is', null)
+    .where(nameMatches('v.name', search.q))
+    .orderBy('score', 'desc')
+    .orderBy('v.id')
+    .limit(search.limit)
+    .execute();
+}

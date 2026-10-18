@@ -32,6 +32,10 @@ import {
   lockPerson,
   newRowId,
   resolvePlaceId,
+  searchPlaces,
+  searchVendors,
+  searchVisiblePersons,
+  type NameSearch,
   updatePerson,
   type PersonFields,
   type PersonRow,
@@ -81,7 +85,18 @@ export interface VendorRecord {
   updatedAt: Date;
 }
 
+/** One library.search match. */
+export type LibraryHitRecord =
+  | { kind: 'person'; id: string; name: string }
+  | { kind: 'place'; id: string; name: string; placeKind: ValueOf<'tribo.places.kind'> }
+  | { kind: 'vendor'; id: string; name: string; vendorKind: ValueOf<'tribo.vendors.kind'> };
+
 export interface LibraryService {
+  /**
+   * library.search: the best `limit` name matches across people (tribo.person_visible only),
+   * places and vendors.
+   */
+  search(userId: string, search: NameSearch): Promise<LibraryHitRecord[]>;
   /** library.people.create: a placeholder traveller the caller creates and alone edits. */
   createPerson(ctx: RequestContext, body: unknown): Promise<PersonRecord>;
   /** library.people.get: not_found unless tribo.person_visible lets the caller see it. */
@@ -160,6 +175,43 @@ export function createLibraryService(
   };
 
   return {
+    async search(userId, search) {
+      const library = forModule(db, 'library');
+      const [people, places, vendors] = await Promise.all([
+        searchVisiblePersons(library, userId, search),
+        searchPlaces(library, search),
+        searchVendors(library, search),
+      ]);
+      const scored: { score: number; hit: LibraryHitRecord }[] = [
+        ...people.map((r) => ({
+          score: r.score,
+          hit: { kind: 'person' as const, id: r.id, name: r.name },
+        })),
+        ...places.map((r) => ({
+          score: r.score,
+          hit: {
+            kind: 'place' as const,
+            id: r.id,
+            name: r.name,
+            placeKind: r.kind as ValueOf<'tribo.places.kind'>,
+          },
+        })),
+        ...vendors.map((r) => ({
+          score: r.score,
+          hit: {
+            kind: 'vendor' as const,
+            id: r.id,
+            name: r.name,
+            vendorKind: r.kind as ValueOf<'tribo.vendors.kind'>,
+          },
+        })),
+      ];
+      return scored
+        .sort((a, b) => b.score - a.score || a.hit.name.localeCompare(b.hit.name))
+        .slice(0, search.limit)
+        .map(({ hit }) => hit);
+    },
+
     async getPerson(userId, personId) {
       const row = await findVisiblePerson(forModule(db, 'library'), userId, personId);
       if (!row) throw new ApiError('not_found');

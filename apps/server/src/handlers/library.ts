@@ -1,14 +1,22 @@
 import {
   encodeTypeId,
   ID_PREFIX,
+  LibrarySearchQuery,
   MASKED,
+  type LibraryHit,
   type Person,
   type Place,
   type Vendor,
 } from '@tribo/contract';
-import type { LibraryService, PersonRecord, PlaceRecord, VendorRecord } from '@tribo/core';
+import type {
+  LibraryHitRecord,
+  LibraryService,
+  PersonRecord,
+  PlaceRecord,
+  VendorRecord,
+} from '@tribo/core';
 import { ifMatch, pathId, requestContext, signedIn } from '../context.js';
-import type { Handlers } from '../routes.js';
+import { parsedQuery, type Handlers } from '../routes.js';
 
 export function personView(person: PersonRecord): Person {
   return {
@@ -44,6 +52,21 @@ export function vendorView(vendor: VendorRecord): Vendor {
   };
 }
 
+function hitView(hit: LibraryHitRecord): LibraryHit {
+  switch (hit.kind) {
+    case 'person':
+      return { ...hit, id: encodeTypeId(ID_PREFIX.person, hit.id) };
+    case 'place':
+      return { ...hit, id: encodeTypeId(ID_PREFIX.place, hit.id) };
+    case 'vendor':
+      return { ...hit, id: encodeTypeId(ID_PREFIX.vendor, hit.id) };
+    default: {
+      const unhandled: never = hit;
+      throw new Error(`library hit ${JSON.stringify(unhandled)} has no view`);
+    }
+  }
+}
+
 export function libraryHandlers(library: LibraryService): Handlers {
   return {
     'library.people.create': async (request, reply) => {
@@ -72,6 +95,13 @@ export function libraryHandlers(library: LibraryService): Handlers {
     'library.vendors.create': async (request, reply) => {
       const vendor = await library.createVendor(requestContext(request), request.body);
       return reply.code(201).send(vendorView(vendor));
+    },
+    'library.search': async (request) => {
+      const hits = await library.search(
+        signedIn(request).userId,
+        parsedQuery(request, LibrarySearchQuery),
+      );
+      return { items: hits.map(hitView) };
     },
   };
 }

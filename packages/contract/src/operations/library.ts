@@ -4,6 +4,7 @@ import { defineOperation } from '../operation.js';
 import { Person, PersonInput, PersonPatch } from '../person.js';
 import { Place, PlaceInput } from '../place.js';
 import { Vendor, VendorInput } from '../vendor.js';
+import { LibrarySearchQuery, LibrarySearchResult } from '../library.js';
 
 export const libraryOperations = [
   defineOperation({
@@ -21,7 +22,9 @@ export const libraryOperations = [
     mcpApproval: false,
     mcpTool: 'search_library',
     notes: 'Search people, places, vendors (trigram); People limited by person_visible',
-    status: 'planned',
+    status: 'implemented',
+    query: LibrarySearchQuery,
+    output: LibrarySearchResult,
   }),
   defineOperation({
     id: 'library.people.list',

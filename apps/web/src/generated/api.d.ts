@@ -2006,6 +2006,27 @@ export interface components {
             lat: number;
             lng: number;
         };
+        LibraryHit: {
+            /** @constant */
+            kind: "person";
+            id: string;
+            name: string;
+        } | {
+            /** @constant */
+            kind: "place";
+            id: string;
+            name: string;
+            placeKind: components["schemas"]["PlaceKind"];
+        } | {
+            /** @constant */
+            kind: "vendor";
+            id: string;
+            name: string;
+            vendorKind: components["schemas"]["VendorKind"];
+        };
+        LibrarySearchResult: {
+            items: components["schemas"]["LibraryHit"][];
+        };
         Links: string[];
         LoginInput: {
             username: string;
@@ -4575,20 +4596,23 @@ export interface operations {
     };
     "library.search": {
         parameters: {
-            query?: never;
+            query: {
+                q: string;
+                limit?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["LibrarySearchResult"];
                 };
             };
             /** @description Error */

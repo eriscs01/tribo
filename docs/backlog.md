@@ -224,7 +224,7 @@
 
 ## Library
 
-- [ ] `library.search` · Drop A · `GET /v1/library/search`
+- [x] `library.search` · Drop A · `GET /v1/library/search`
   - Search people, places, vendors (trigram); People limited by person_visible
   - Roles: any signed-in user. If-Match: `no`. Idempotency: safe to repeat.
 - [x] `library.people.create` · Drop A · `POST /v1/library/people`

@@ -92,6 +92,7 @@ const unused = () => Promise.reject(new Error('not used here'));
 const trips: TripsService = { create: unused, list: unused };
 const items: ItemsService = { create: unused, get: unused };
 const library: LibraryService = {
+  search: unused,
   createPerson: unused,
   getPerson: unused,
   updatePerson: unused,
