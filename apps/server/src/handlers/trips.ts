@@ -46,5 +46,15 @@ export function tripHandlers(trips: TripsService): Handlers {
           ifMatch(request),
         ),
       ),
+
+    'trips.delete': async (request, reply) => {
+      await trips.delete(
+        requestContext(request),
+        pathId(request, 'tripId'),
+        request.body,
+        ifMatch(request),
+      );
+      return reply.code(204).send();
+    },
   };
 }

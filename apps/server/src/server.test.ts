@@ -89,7 +89,13 @@ const identity: IdentityService = {
 /** A registered operation that is still a stub (trips.history, slice 1b). */
 const PLANNED = '/v1/trips/trp_01h455vb4pex5vsknk084sn02q/history';
 const unused = () => Promise.reject(new Error('not used here'));
-const trips: TripsService = { create: unused, list: unused, get: unused, update: unused };
+const trips: TripsService = {
+  create: unused,
+  list: unused,
+  get: unused,
+  update: unused,
+  delete: unused,
+};
 const items: ItemsService = { create: unused, get: unused };
 const library: LibraryService = {
   search: unused,

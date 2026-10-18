@@ -37,6 +37,11 @@ export function canUpdateTrip(role: TripRole): boolean {
   return TRIP_EDITORS.has(role);
 }
 
+/** trips.delete: the owner alone deletes the trip. */
+export function canDeleteTrip(role: TripRole): boolean {
+  return role === 'owner';
+}
+
 /**
  * The stored statuses in lifecycle order; `archived` is derived from archived_at (R40).
  * policy.test.ts checks this holds exactly the statuses the database allows.

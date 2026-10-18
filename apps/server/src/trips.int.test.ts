@@ -147,3 +147,24 @@ describe('trips.update over HTTP', () => {
     expect(res.json()).toMatchObject({ code: 'version_conflict' });
   });
 });
+
+describe('trips.delete over HTTP', () => {
+  it('answers 428 if_match_required without If-Match', async () => {
+    const { cookies, headers, url } = await ownerWithTrip();
+    const res = await app.inject({ method: 'DELETE', url, cookies, headers });
+    expect(res.statusCode).toBe(428);
+  });
+
+  it('answers 204 with no body, after which the trip is not_found', async () => {
+    const { cookies, headers, url } = await ownerWithTrip();
+    const res = await app.inject({
+      method: 'DELETE',
+      url,
+      cookies,
+      headers: { ...headers, 'if-match': '"1"' },
+    });
+    expect(res.statusCode).toBe(204);
+    expect(res.body).toBe('');
+    expect((await app.inject({ method: 'GET', url, cookies })).statusCode).toBe(404);
+  });
+});

@@ -112,6 +112,25 @@ export function updateTrip(db: TripsDb, tripId: string, fields: TripFields, upda
     .executeTakeFirstOrThrow();
 }
 
+/**
+ * Soft-deletes the trip and bumps its version. Everything under it drops out with it:
+ * tribo.is_member and tribo.item_visible ignore a deleted trip's rows (R18).
+ */
+export function softDeleteTrip(db: TripsDb, tripId: string, deletedBy: string) {
+  return db
+    .updateTable('tribo.trips')
+    .set((eb) => ({
+      deleted_at: sql<Date>`now()`,
+      deleted_by: deletedBy,
+      version: eb('version', '+', 1),
+      updated_at: sql<Date>`now()`,
+      updated_by: deletedBy,
+    }))
+    .where('id', '=', tripId)
+    .returning(TRIP_COLUMNS)
+    .executeTakeFirstOrThrow();
+}
+
 /** Replaces the trip's destinations (owned rows) with these places, in this order. */
 export async function replaceDestinations(
   db: TripsDb,

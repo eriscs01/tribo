@@ -98,7 +98,7 @@ export const tripsOperations = [
     mcpTool: 'delete_trip',
     notes:
       'Soft-delete trip and children; Undo via trips.restore (1b); MCP approval; Allowed on archived trips; refused with trip_retired once the audit chain is retired (R29)',
-    status: 'planned',
+    status: 'implemented',
   }),
   defineOperation({
     id: 'trips.archive',

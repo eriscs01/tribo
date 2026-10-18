@@ -11,6 +11,7 @@ export * from './me.js';
 export * from './meta.js';
 export * from './mfa.js';
 export * from './money.js';
+export * from './no-body.js';
 export * from './openapi.js';
 export * from './operation.js';
 export * from './page.js';

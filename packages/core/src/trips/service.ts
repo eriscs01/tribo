@@ -1,6 +1,7 @@
 import {
   decodeTypeId,
   ID_PREFIX,
+  NoBody,
   TripCursorKey,
   TripInput,
   TripPatch,
@@ -21,6 +22,7 @@ import { moneyRecorded } from '../expenses/service.js';
 import { accountPersonId } from '../library/service.js';
 import { writeOperation } from '../write-operation.js';
 import {
+  canDeleteTrip,
   canGetTrip,
   canUpdateTrip,
   statusMoveRefusal,
@@ -38,6 +40,7 @@ import {
   lockTrip,
   lockTripForWrite,
   replaceDestinations,
+  softDeleteTrip,
   updateTrip,
   type TripFields,
   type TripRole,
@@ -86,10 +89,21 @@ export interface TripsService {
     body: unknown,
     ifMatch: number | undefined,
   ): Promise<TripRecord>;
+  /**
+   * trips.delete: the owner soft-deletes the trip under If-Match, archived or not; what it
+   * holds drops out with it, and trips.restore (1b) brings both back.
+   */
+  delete(
+    ctx: RequestContext,
+    tripId: string,
+    body: unknown,
+    ifMatch: number | undefined,
+  ): Promise<void>;
 }
 
 const tripsCreate = writeOperation('trips.create', TripInput);
 const tripsUpdate = writeOperation('trips.update', TripPatch);
+const tripsDelete = writeOperation('trips.delete', NoBody);
 
 /** `write` is core's write path (writePath in write-path.ts), passed in to keep imports acyclic. */
 export function createTripsService(db: Kysely<DB>, write: WritePath): TripsService {
@@ -154,6 +168,35 @@ export function createTripsService(db: Kysely<DB>, write: WritePath): TripsServi
             version: record.version,
             snapshot: tripSnapshot(record),
             result: record,
+          };
+        },
+      }),
+
+    delete: (ctx, tripId, body, ifMatch) =>
+      write(ctx, {
+        operation: tripsDelete,
+        target: { tripId },
+        body,
+        ifMatch,
+        authorize: (tx, c, target) => requireRole(tx, actingUser(c), target.tripId, canDeleteTrip),
+        load: async (tx, target) => {
+          const row = await lockTrip(forModule(tx, 'trips'), target.tripId);
+          if (!row) throw new ApiError('not_found');
+          return { tripId: row.id, counter: row.version };
+        },
+        mutate: async (tx, c, loaded) => {
+          const trips = forModule(tx, 'trips');
+          const row = await softDeleteTrip(trips, loaded.tripId, actingUser(c));
+          const destinations = await listDestinations(trips, [loaded.tripId]);
+          const record = tripRecord(row, destinations.get(loaded.tripId) ?? []);
+          return {
+            action: 'delete',
+            aggregate: 'trip',
+            entityId: record.id,
+            tripId: record.id,
+            version: record.version,
+            snapshot: tripSnapshot(record),
+            result: undefined,
           };
         },
       }),
