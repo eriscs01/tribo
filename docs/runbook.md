@@ -398,7 +398,7 @@ cd /opt/tribo && docker compose exec -T db pg_dump --username postgres --dbname 
 
 ### Step 11. Restore check
 
-Run it on your own machine with Docker (Docker Desktop, OrbStack or Colima; Engine 28 or later), never on the host: `restore.sh` refuses a Docker engine that runs the production project `tribo`. The scratch project `tribo-restore` has its own volumes and network, fresh random database passwords, and publishes only `127.0.0.1:8443`. Its secrets and a copy of the app key live in `~/.local/state/tribo-restore/`, which only you can open, until `--down`. It runs the release the snapshot's manifest names (the images are linux/amd64, so they run emulated on Apple silicon).
+Run it on your own machine with Docker (Docker Desktop, OrbStack or Colima, with at least the Engine and Compose in `deploy/docker-minimum.env`; `restore.sh` runs `docker-check.sh` first), never on the host: `restore.sh` refuses a Docker engine that runs the production project `tribo`. The scratch project `tribo-restore` has its own volumes and network, fresh random database passwords, and publishes only `127.0.0.1:8443`. Its secrets and a copy of the app key live in `~/.local/state/tribo-restore/`, which only you can open, until `--down`. It runs the release the snapshot's manifest names (the images are linux/amd64, so they run emulated on Apple silicon).
 
 Export the app key from your password manager or offline storage (step 7) to a file only you can read, and set `TRIBO_APP_KEY_FILE` to it in `~/.config/tribo/backup.env`. Then restore the newest snapshot (pass a snapshot directory to restore another):
 

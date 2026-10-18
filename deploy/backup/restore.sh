@@ -64,6 +64,9 @@ app_key=${TRIBO_APP_KEY_FILE:?set TRIBO_APP_KEY_FILE to your copy of the app key
 version=${TRIBO_RESTORE_VERSION:-$(value tribo_version)}
 [ -n "$version" ] || fail "the manifest names no release; set TRIBO_RESTORE_VERSION"
 
+# The scratch project layers on compose.yml, so it needs the same Engine and Compose.
+sh "$deploy/docker-check.sh" || fail "upgrade Docker to the versions in $deploy/docker-minimum.env"
+
 say "checking $snapshot"
 [ "$(sha256 "$snapshot/tribo.dump")" = "$(value dump_sha256)" ] || fail "tribo.dump does not match its manifest checksum"
 
