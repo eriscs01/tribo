@@ -13,7 +13,7 @@ export function insertAccountPerson(db: LibraryDb, userId: string, displayName: 
   return db
     .insertInto('tribo.persons')
     .values({ user_id: userId, display_name: displayName, created_by: userId })
-    .returning(['id', 'user_id', 'display_name', 'version'])
+    .returning('id')
     .executeTakeFirstOrThrow();
 }
 

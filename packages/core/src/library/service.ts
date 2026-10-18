@@ -501,20 +501,12 @@ export async function createAccountPerson(
   tx: Tx,
   account: { userId: string; displayName: string },
 ): Promise<Change<{ personId: string }>> {
-  const row = await insertAccountPerson(
+  const { id } = await insertAccountPerson(
     forModule(tx, 'library'),
     account.userId,
     account.displayName,
   );
-  return {
-    action: 'create',
-    aggregate: 'person',
-    entityId: row.id,
-    tripId: null,
-    version: row.version,
-    snapshot: { userId: row.user_id, displayName: row.display_name },
-    result: { personId: row.id },
-  };
+  return { ...(await personChange(tx, 'create', id)), result: { personId: id } };
 }
 
 /** The person an account is inside every trip, through its memberships; null if it has none. */
