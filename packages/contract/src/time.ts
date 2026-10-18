@@ -14,9 +14,13 @@ function isRealDate(year: number, month: number, day: number): boolean {
   return d.getUTCFullYear() === year && d.getUTCMonth() === month - 1 && d.getUTCDate() === day;
 }
 
-/** IANA time zone name, e.g. Asia/Manila. */
+/**
+ * IANA time zone name, e.g. Asia/Manila. Area/Location names and UTC only, as the
+ * tribo.iana_tz domain stores them (R17): abbreviations and POSIX specs are refused.
+ */
 export const TimeZone = z
   .string()
+  .regex(/^(UTC|[A-Za-z]+(\/[A-Za-z0-9_+-]+)+)$/, 'expected an IANA Area/Location name')
   .refine(isTimeZone, 'expected an IANA time zone')
   .meta({ id: 'TimeZone' });
 

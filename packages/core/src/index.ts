@@ -9,3 +9,17 @@ export {
   type NewAdmin,
   type SignedIn,
 } from './identity/service.js';
+export {
+  createTripsService,
+  type TripCreator,
+  type TripRecord,
+  type TripsService,
+  type TripStatus,
+} from './trips/service.js';
+export {
+  createItemsService,
+  type ItemRecord,
+  type ItemsService,
+  type ItemTimeRecord,
+} from './items/service.js';
+export { verifyChains, type ChainReport } from './audit/service.js';

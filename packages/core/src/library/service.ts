@@ -1,6 +1,7 @@
-import { forModule } from '@tribo/db';
+import { forModule, type DB } from '@tribo/db';
 import type { Change, Tx } from '@tribo/platform';
-import { insertAccountPerson } from './repo.js';
+import type { Kysely } from 'kysely';
+import { findAccountPerson, insertAccountPerson } from './repo.js';
 
 /**
  * Every account has exactly one person, made with the account. Returns the person's
@@ -24,4 +25,10 @@ export async function createAccountPerson(
     snapshot: { userId: row.user_id, displayName: row.display_name },
     result: { personId: row.id },
   };
+}
+
+/** The person an account is inside every trip, through its memberships; null if it has none. */
+export async function accountPersonId(db: Kysely<DB>, userId: string): Promise<string | null> {
+  const row = await findAccountPerson(forModule(db, 'library'), userId);
+  return row?.id ?? null;
 }

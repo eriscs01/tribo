@@ -14,3 +14,8 @@ export function tripWriteRefusal(
   if (trip.archived && !WRITES_ON_ARCHIVED.has(operationId)) return 'trip_archived';
   return null;
 }
+
+/** trips.create: the owner of a trip must have signed in with a second factor. */
+export function tripCreateRefusal(caller: { mfaVerified: boolean }): ErrorCode | null {
+  return caller.mfaVerified ? null : 'mfa_required';
+}

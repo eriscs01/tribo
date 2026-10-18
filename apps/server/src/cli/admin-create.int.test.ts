@@ -2,11 +2,19 @@
 // enrols TOTP from the printed key and signs in with it over HTTP.
 import { randomBytes } from 'node:crypto';
 import { SESSION_COOKIE } from '@tribo/contract';
-import { createIdentityService, type IdentityService } from '@tribo/core';
+import {
+  createIdentityService,
+  createItemsService,
+  createTripsService,
+  writePath,
+  type IdentityService,
+} from '@tribo/core';
 import { AppKey, keyring } from '@tribo/crypto';
 import { createTestDatabase, totpFor, type TestDatabase } from '@tribo/testkit';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { authHandlers } from '../handlers/auth.js';
+import { itemHandlers } from '../handlers/items.js';
+import { tripHandlers } from '../handlers/trips.js';
 import { buildServer } from '../server.js';
 import { adminCreate } from './admin-create.js';
 import { CliError, type CliIo } from './io.js';
@@ -61,7 +69,11 @@ describe('tribo admin create', () => {
       trustedProxies: ['loopback'],
       csrfSecret: csrf,
       authenticate: (token) => identity.authenticate(token),
-      handlers: authHandlers(identity, csrf),
+      handlers: {
+        ...authHandlers(identity, csrf),
+        ...tripHandlers(createTripsService(writePath(tdb.db))),
+        ...itemHandlers(createItemsService(tdb.db, writePath(tdb.db))),
+      },
       ping: () => Promise.resolve(),
       logLevel: 'silent',
     });

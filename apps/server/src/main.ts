@@ -3,19 +3,21 @@ import { loadMigrations, migrate } from '@tribo/db';
 import pg from 'pg';
 import { loadConfig } from './config.js';
 import { authHandlers } from './handlers/auth.js';
+import { itemHandlers } from './handlers/items.js';
+import { tripHandlers } from './handlers/trips.js';
 import { openRuntime } from './runtime.js';
 import { buildServer } from './server.js';
 import { csrfSecret } from './session.js';
 
 const config = loadConfig(process.env);
-const { appKey, pool, identity, close } = await openRuntime(config, 'tribo');
+const { appKey, pool, identity, trips, items, close } = await openRuntime(config, 'tribo');
 const csrf = csrfSecret(appKey);
 
 const app = await buildServer({
   trustedProxies: config.trustedProxies,
   csrfSecret: csrf,
   authenticate: (token) => identity.authenticate(token),
-  handlers: authHandlers(identity, csrf),
+  handlers: { ...authHandlers(identity, csrf), ...tripHandlers(trips), ...itemHandlers(items) },
   logLevel: config.logLevel,
   ping: async () => {
     await pool.query('SELECT 1');

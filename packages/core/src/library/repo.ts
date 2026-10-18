@@ -11,3 +11,13 @@ export function insertAccountPerson(db: LibraryDb, userId: string, displayName: 
     .returning(['id', 'user_id', 'display_name', 'version'])
     .executeTakeFirstOrThrow();
 }
+
+/** The live person of an account, or undefined (an erased or deleted account has none). */
+export function findAccountPerson(db: LibraryDb, userId: string) {
+  return db
+    .selectFrom('tribo.persons')
+    .select('id')
+    .where('user_id', '=', userId)
+    .where('deleted_at', 'is', null)
+    .executeTakeFirst();
+}
