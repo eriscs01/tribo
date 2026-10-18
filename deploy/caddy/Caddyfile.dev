@@ -7,8 +7,16 @@
 tribo.localhost {
 	tls internal
 	request_header X-Request-Id {http.request.uuid}
-	reverse_proxy app:3000 {
-		header_up X-Forwarded-For {client_ip}
+	# One origin for the SPA and the API, so the __Host- session cookie and CSRF need no CORS.
+	@server path /v1/* /healthz
+	handle @server {
+		reverse_proxy app:3000 {
+			header_up X-Forwarded-For {client_ip}
+		}
+	}
+	# Everything else is the SPA, from Vite's dev server (hot reload over this origin's wss).
+	handle {
+		reverse_proxy web:5173
 	}
 }
 
