@@ -44,16 +44,16 @@ Rules that keep the loop honest:
 
 ## 2. Pick the cheapest test that can fail for the right reason
 
-| Question the test answers | Kind of test |
-| --- | --- |
-| Is this pure rule, calculation or mapping correct? | Unit: no I/O, fast, many cases |
-| Does storage enforce what it promises (constraints, triggers, row locks)? | Integration against the real database |
-| Does a module's public operation do its whole job, including persistence and side records? | Integration through the module's public interface |
-| Do two or more modules cooperate on one flow? | Cross-module integration (section 3) |
-| Does an adapter (HTTP, CLI, tool protocol) map input, errors and auth correctly onto the core? | Adapter integration through the real adapter |
-| Does the published contract match what the code serves? | Contract test: schema, registry or snapshot checks |
-| Does a user get the result end to end? | End to end against a running stack; few, covering the main journeys |
-| Does a guarantee hold for every combination, not just the ones I thought of? | Property or generated tests (randomised data, many seeds) |
+| Question the test answers                                                                      | Kind of test                                                        |
+| ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Is this pure rule, calculation or mapping correct?                                             | Unit: no I/O, fast, many cases                                      |
+| Does storage enforce what it promises (constraints, triggers, row locks)?                      | Integration against the real database                               |
+| Does a module's public operation do its whole job, including persistence and side records?     | Integration through the module's public interface                   |
+| Do two or more modules cooperate on one flow?                                                  | Cross-module integration (section 3)                                |
+| Does an adapter (HTTP, CLI, tool protocol) map input, errors and auth correctly onto the core? | Adapter integration through the real adapter                        |
+| Does the published contract match what the code serves?                                        | Contract test: schema, registry or snapshot checks                  |
+| Does a user get the result end to end?                                                         | End to end against a running stack; few, covering the main journeys |
+| Does a guarantee hold for every combination, not just the ones I thought of?                   | Property or generated tests (randomised data, many seeds)           |
 
 Use the real database for anything that depends on it; mocks of storage test your mock.
 Mock only what you do not own and cannot run locally (third-party services, the clock,
