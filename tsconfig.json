@@ -20,6 +20,9 @@
       "path": "packages/testkit"
     },
     {
+      "path": "packages/story-kit"
+    },
+    {
       "path": "apps/server"
     },
     {

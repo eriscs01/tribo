@@ -6,6 +6,8 @@ const globalSetup = ['packages/testkit/src/global-setup.ts'];
 // unit: no I/O (web tests opt into jsdom per file). integration and leak: one PostgreSQL 18 container per run (Docker needed).
 export default defineConfig({
   test: {
+    // Story tests carry their drop (`// @module-tag drop-a`): `vitest run --tags-filter drop-b`.
+    tags: [{ name: 'drop-a' }, { name: 'drop-b' }],
     projects: [
       {
         test: {

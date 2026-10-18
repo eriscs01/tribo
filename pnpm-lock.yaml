@@ -381,6 +381,15 @@ importers:
         specifier: 4.6.7
         version: 4.6.7
 
+  packages/story-kit:
+    dependencies:
+      '@tribo/contract':
+        specifier: workspace:*
+        version: link:../contract
+      '@tribo/db':
+        specifier: workspace:*
+        version: link:../db
+
   packages/testkit:
     dependencies:
       '@node-rs/argon2':
