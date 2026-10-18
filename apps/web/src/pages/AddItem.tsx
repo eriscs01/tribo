@@ -7,6 +7,7 @@ import { m, optionsOf } from '../messages';
 import { Field } from '../ui/Field';
 import { ErrorNotice } from '../ui/Notice';
 import { fieldErrorsOf } from '../ui/problem';
+import { TimeZoneInput } from '../ui/TimeZoneInput';
 
 type Timing = 'none' | 'timed' | 'allDay';
 type Visibility = Exclude<Schemas['ItemVisibility'], 'selected'>;
@@ -168,15 +169,13 @@ export function AddItemForm({ trip }: { trip: Trip }) {
           {form.timing === 'timed' ? (
             <Field label={m.addItem.timezone}>
               {(control) => (
-                <input
+                <TimeZoneInput
                   {...control}
                   name="tz"
                   required
-                  list="zones"
-                  spellCheck={false}
                   value={form.tz}
-                  onChange={(e) => {
-                    set('tz', e.target.value);
+                  onChange={(zone) => {
+                    set('tz', zone);
                   }}
                 />
               )}

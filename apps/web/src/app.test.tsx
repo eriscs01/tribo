@@ -7,7 +7,7 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Schemas } from './api/client';
-import { setCsrfToken } from './api/client';
+import { sendCsrfFromSession } from './api/queries';
 import { m } from './messages';
 import { createAppRouter } from './router';
 
@@ -104,6 +104,7 @@ function fakeApi() {
 
 function renderApp(path: string) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  sendCsrfFromSession(queryClient);
   const router = createAppRouter(queryClient, createMemoryHistory({ initialEntries: [path] }));
   render(
     <QueryClientProvider client={queryClient}>
@@ -121,7 +122,6 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
-  setCsrfToken(null);
 });
 
 describe('web shell', () => {

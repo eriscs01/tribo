@@ -4,7 +4,8 @@ import {
   type InfiniteData,
   type QueryClient,
 } from '@tanstack/react-query';
-import { api, ApiProblem, setCsrfToken, unwrap, type Schemas } from './client';
+import { PAGE_LIMIT_MAX } from '@tribo/contract';
+import { api, ApiProblem, readCsrfTokenFrom, unwrap, type Schemas } from './client';
 
 export type Session = Schemas['Session'];
 export type Trip = Schemas['Trip'];
@@ -19,34 +20,33 @@ export const keys = {
   item: (id: string) => ['item', id] as const,
 };
 
-/** The signed-in session, or null when there is none; also arms the CSRF header. */
+/** The signed-in session, or null when there is none. */
 export const sessionQuery = queryOptions({
   queryKey: keys.session,
   queryFn: async (): Promise<Session | null> => {
     try {
-      const session = await unwrap(api.GET('/v1/auth/session'));
-      setCsrfToken(session.csrfToken);
-      return session;
+      return await unwrap(api.GET('/v1/auth/session'));
     } catch (error) {
-      if (error instanceof ApiProblem && error.code === 'unauthenticated') {
-        setCsrfToken(null);
-        return null;
-      }
+      if (error instanceof ApiProblem && error.code === 'unauthenticated') return null;
       throw error;
     }
   },
   staleTime: 60_000,
 });
 
-const PAGE = 50;
+/** Unsafe requests carry the CSRF token of whatever session this cache holds, or none. */
+export function sendCsrfFromSession(client: QueryClient) {
+  readCsrfTokenFrom(() => client.getQueryData<Session | null>(keys.session)?.csrfToken ?? null);
+}
 
+/** The trip list in the server's default page size (PageQuery in the contract). */
 export const tripsQuery = infiniteQueryOptions({
   queryKey: keys.trips,
   queryFn: ({ pageParam }) =>
     unwrap(
       api.GET('/v1/trips', {
         params: {
-          query: pageParam === null ? { limit: PAGE } : { limit: PAGE, cursor: pageParam },
+          query: pageParam === null ? {} : { cursor: pageParam },
         },
       }),
     ),
@@ -71,7 +71,7 @@ export function tripQuery(client: QueryClient, id: string) {
       let cursor: string | null = null;
       do {
         const query: { limit: number; cursor?: string } =
-          cursor === null ? { limit: 200 } : { limit: 200, cursor };
+          cursor === null ? { limit: PAGE_LIMIT_MAX } : { limit: PAGE_LIMIT_MAX, cursor };
         // Pages follow one another: each cursor comes from the page before.
         // eslint-disable-next-line no-await-in-loop
         const page = await unwrap(api.GET('/v1/trips', { params: { query } }));

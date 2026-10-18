@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useRef, useState, type SubmitEvent } from 'react';
-import { api, ApiProblem, setCsrfToken, unwrap, type ErrorCode, type Schemas } from '../api/client';
+import { api, ApiProblem, unwrap, type ErrorCode, type Schemas } from '../api/client';
 import { sessionQuery } from '../api/queries';
 import { m } from '../messages';
 import { Field } from '../ui/Field';
@@ -33,7 +33,6 @@ export function SignInPage({ redirect }: { redirect?: string | undefined }) {
   const signIn = useMutation({
     mutationFn: (body: Schemas['LoginInput']) => unwrap(api.POST('/v1/auth/login', { body })),
     onSuccess: async (session) => {
-      setCsrfToken(session.csrfToken);
       client.setQueryData(sessionQuery.queryKey, session);
       await navigate({ to: safeRedirect(redirect) });
     },

@@ -7,8 +7,6 @@ import { m } from '../messages';
 import { ErrorNotice } from '../ui/Notice';
 import { AddItemForm } from './AddItem';
 
-const ZONES = Intl.supportedValuesOf('timeZone');
-
 export function TripPage({ tripId }: { tripId: string }) {
   const client = useQueryClient();
   const trip = useQuery(tripQuery(client, tripId));
@@ -35,11 +33,6 @@ export function TripPage({ tripId }: { tripId: string }) {
             <dd>{trip.data.currency}</dd>
           </dl>
           <AddItemForm trip={trip.data} />
-          <datalist id="zones">
-            {ZONES.map((zone) => (
-              <option key={zone} value={zone} />
-            ))}
-          </datalist>
         </>
       ) : null}
     </section>

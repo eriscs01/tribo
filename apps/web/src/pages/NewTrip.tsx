@@ -8,9 +8,7 @@ import { m } from '../messages';
 import { Field } from '../ui/Field';
 import { ErrorNotice } from '../ui/Notice';
 import { fieldErrorsOf } from '../ui/problem';
-
-/** Zone names the browser knows, offered as suggestions; the server decides what is valid. */
-const ZONES = Intl.supportedValuesOf('timeZone');
+import { TimeZoneInput } from '../ui/TimeZoneInput';
 
 export function NewTripPage() {
   const client = useQueryClient();
@@ -119,24 +117,13 @@ export function NewTripPage() {
         </Field>
         <Field label={m.newTrip.timezone} hint={m.newTrip.timezoneHint} error={fields.timezone}>
           {(control) => (
-            <>
-              <input
-                {...control}
-                name="timezone"
-                required
-                list="zones"
-                spellCheck={false}
-                value={form.timezone}
-                onChange={(e) => {
-                  set('timezone')(e.target.value);
-                }}
-              />
-              <datalist id="zones">
-                {ZONES.map((zone) => (
-                  <option key={zone} value={zone} />
-                ))}
-              </datalist>
-            </>
+            <TimeZoneInput
+              {...control}
+              name="timezone"
+              required
+              value={form.timezone}
+              onChange={set('timezone')}
+            />
           )}
         </Field>
         <button type="submit" disabled={create.isPending}>

@@ -30,17 +30,20 @@ export class ApiProblem extends Error {
 
 const UNSAFE = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
-/** The session's CSRF token: auth.login and auth.session hand it out; it dies with the session. */
-let csrfToken: string | null = null;
+/**
+ * Where the session's CSRF token is read from at request time. The session owns the token
+ * (auth.login and auth.session hand it out), so the client keeps no copy of its own.
+ */
+let csrfToken: () => string | null = () => null;
 
-export function setCsrfToken(token: string | null) {
-  csrfToken = token;
+export function readCsrfTokenFrom(source: () => string | null) {
+  csrfToken = source;
 }
 
 export const csrfMiddleware: Middleware = {
   onRequest({ request }) {
-    if (csrfToken !== null && UNSAFE.has(request.method))
-      request.headers.set(CSRF_HEADER, csrfToken);
+    const token = UNSAFE.has(request.method) ? csrfToken() : null;
+    if (token !== null) request.headers.set(CSRF_HEADER, token);
     return request;
   },
 };

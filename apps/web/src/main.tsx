@@ -4,6 +4,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { registerSW } from 'virtual:pwa-register';
 import { ApiProblem } from './api/client';
+import { sendCsrfFromSession } from './api/queries';
 import { createAppRouter } from './router';
 import './styles.css';
 
@@ -15,6 +16,7 @@ const queryClient = new QueryClient({
     },
   },
 });
+sendCsrfFromSession(queryClient);
 const router = createAppRouter(queryClient);
 
 // The service worker precaches the app shell; production builds only.

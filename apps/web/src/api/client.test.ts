@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ApiProblem, createApi, setCsrfToken, unwrap } from './client';
+import { ApiProblem, createApi, readCsrfTokenFrom, unwrap } from './client';
 
 const json = (status: number, body: unknown, type = 'application/json') =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': type } });
@@ -19,7 +19,7 @@ function stubFetch(response: () => Response) {
 
 afterEach(() => {
   vi.unstubAllGlobals();
-  setCsrfToken(null);
+  readCsrfTokenFrom(() => null);
 });
 
 const api = createApi('https://tribo.test');
@@ -27,7 +27,7 @@ const api = createApi('https://tribo.test');
 describe('API client', () => {
   it('sends the session CSRF token on unsafe methods only', async () => {
     const requests = stubFetch(() => json(200, { items: [], nextCursor: null }));
-    setCsrfToken('csrf-1');
+    readCsrfTokenFrom(() => 'csrf-1');
     await api.GET('/v1/trips', { params: { query: { limit: 5 } } });
     await api.POST('/v1/auth/logout');
     expect(requests[0]?.headers.get('x-csrf-token')).toBeNull();

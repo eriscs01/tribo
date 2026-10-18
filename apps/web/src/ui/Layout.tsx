@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
 import { useEffect, useRef } from 'react';
-import { api, setCsrfToken, unwrap } from '../api/client';
+import { api, unwrap } from '../api/client';
 import { sessionQuery } from '../api/queries';
 import { m } from '../messages';
 
@@ -25,7 +25,6 @@ export function Layout() {
   const signOut = useMutation({
     mutationFn: () => unwrap(api.POST('/v1/auth/logout')),
     onSettled: async () => {
-      setCsrfToken(null);
       client.clear();
       client.setQueryData(sessionQuery.queryKey, null);
       await navigate({ to: '/sign-in', search: {} });
