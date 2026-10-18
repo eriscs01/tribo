@@ -7,7 +7,7 @@ import { clearSessionCookie, csrfTokenFor, sessionTokenOf, setSessionCookie } fr
 
 const USER_AGENT_MAX = 512;
 
-/** auth.login, auth.session and auth.logout over the web session cookie. */
+/** auth.* over the web session cookie: sign-in, session, sign-out and TOTP enrolment. */
 export function authHandlers(identity: IdentityService, csrfSecret: Buffer): Handlers {
   const view = (session: SignedIn, token: string): Session => ({
     user: {
@@ -40,5 +40,7 @@ export function authHandlers(identity: IdentityService, csrfSecret: Buffer): Han
       clearSessionCookie(reply);
       return reply.code(204).send();
     },
+    'auth.mfa.setup': async (request, reply) =>
+      reply.code(201).send(await identity.startMfaEnrolment(signedIn(request))),
   };
 }

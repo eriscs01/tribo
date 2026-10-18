@@ -73,6 +73,7 @@ const identity: IdentityService = {
     return Promise.resolve();
   },
   createAdmin: () => Promise.reject(new Error('not used here')),
+  startMfaEnrolment: () => Promise.reject(new Error('not used here')),
 };
 /** Trips and items are proven against the database in skeleton.int.test.ts. */
 /** A registered operation that is still a stub (trips.get). */

@@ -30,7 +30,7 @@ const ctx = (): RequestContext => ({
 
 beforeAll(async () => {
   tdb = await createTestDatabase();
-  identity = createIdentityService(tdb.db, keys);
+  identity = createIdentityService(tdb.db, keys, 'Tribo (tribo.test)');
 });
 afterAll(() => tdb.destroy());
 

@@ -188,3 +188,18 @@ export function enrolMfaAndActivate(
     .returning(['id', 'username', 'platform_role', 'status', 'mfa_enabled_at', 'version'])
     .executeTakeFirstOrThrow();
 }
+
+/**
+ * Stores a pending TOTP secret, replacing any earlier pending one, while MFA is still off.
+ * A pending secret is credential state: it bumps no version until auth.mfa.confirm enables
+ * it. Undefined when the account already has MFA on.
+ */
+export function setPendingMfaSecret(db: IdentityDb, userId: string, mfaSecretEnc: Buffer) {
+  return db
+    .updateTable('tribo.users')
+    .set({ mfa_secret_enc: mfaSecretEnc })
+    .where('id', '=', userId)
+    .where('mfa_enabled_at', 'is', null)
+    .returning('id')
+    .executeTakeFirst();
+}

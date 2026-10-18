@@ -15,7 +15,7 @@
 - [x] `auth.session` · Drop A · `GET /v1/auth/session`
   - Current session + CSRF token
   - Roles: self. If-Match: `no`. Idempotency: safe to repeat.
-- [ ] `auth.mfa.setup` · Drop A · `POST /v1/auth/mfa/totp`
+- [x] `auth.mfa.setup` · Drop A · `POST /v1/auth/mfa/totp`
   - Start TOTP enrolment (secret); Secret shown once; No Idempotency-Key: each call replaces the pending secret (R2)
   - Roles: self. If-Match: `no`. Idempotency: never replayed.
 - [ ] `auth.mfa.confirm` · Drop A · `POST /v1/auth/mfa/totp/confirm`

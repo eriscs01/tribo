@@ -68,6 +68,11 @@ export interface IdentityService {
     ctx: RequestContext,
     admin: NewAdmin,
   ): Promise<{ userId: string; personId: string; recoveryCodes: string[] }>;
+  /**
+   * auth.mfa.setup: a fresh pending TOTP secret for the caller, replacing any earlier one,
+   * shown once. invalid_transition once MFA is on (an admin MFA reset turns it off).
+   */
+  startMfaEnrolment(caller: SignedIn): Promise<{ key: string; uri: string }>;
 }
 
 const MFA_SECRET = (userId: string): FieldRef => ({
@@ -86,7 +91,12 @@ export function totpMatches(secret: Buffer, code: string): boolean {
   return totpValid(secret, code);
 }
 
-export function createIdentityService(db: Kysely<DB>, keys: Keyring): IdentityService {
+/** `issuer` names this deployment in authenticator apps, e.g. "Tribo (tribo.example)". */
+export function createIdentityService(
+  db: Kysely<DB>,
+  keys: Keyring,
+  issuer: string,
+): IdentityService {
   const identity = forModule(db, 'identity');
 
   /** Records a refused sign-in (and counts it if it was a guess), then refuses it. */
@@ -267,6 +277,15 @@ export function createIdentityService(db: Kysely<DB>, keys: Keyring): IdentitySe
         });
         return { userId: created.id, personId: person.personId, recoveryCodes };
       });
+    },
+
+    async startMfaEnrolment(caller) {
+      const enrolment = startTotpEnrolment(issuer, caller.username);
+      const secretEnc = seal(keys, MFA_SECRET(caller.userId), enrolment.secret);
+      if (!(await repo.setPendingMfaSecret(identity, caller.userId, secretEnc))) {
+        throw new ApiError('invalid_transition', { detail: 'MFA is already on' });
+      }
+      return { key: enrolment.key, uri: enrolment.uri };
     },
   };
 }

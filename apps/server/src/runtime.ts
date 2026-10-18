@@ -25,10 +25,13 @@ export async function openRuntime(config: Config, applicationName: string) {
   });
   const db = new Kysely<DB>({ dialect: new PostgresDialect({ pool }) });
   const write = writePath(db);
+  /** How authenticator apps name this deployment. */
+  const issuer = `Tribo (${config.publicUrl.host})`;
   return {
     appKey,
     pool,
-    identity: createIdentityService(db, keyring(appKey)),
+    issuer,
+    identity: createIdentityService(db, keyring(appKey), issuer),
     trips: createTripsService(db, write),
     items: createItemsService(db, write),
     verifyAudit: (chainKey?: string) => verifyChains(db, chainKey),

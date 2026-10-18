@@ -30,7 +30,11 @@ let adminKey = '';
 
 beforeAll(async () => {
   tdb = await createTestDatabase();
-  const identity = createIdentityService(tdb.db, keyring(new AppKey(randomBytes(32))));
+  const identity = createIdentityService(
+    tdb.db,
+    keyring(new AppKey(randomBytes(32))),
+    'Tribo (tribo.test)',
+  );
   const write = writePath(tdb.db);
   app = await buildServer({
     trustedProxies: ['loopback'],

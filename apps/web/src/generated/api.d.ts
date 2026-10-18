@@ -1988,6 +1988,10 @@ export interface components {
             totp?: components["schemas"]["TotpCode"];
             recoveryCode?: string;
         };
+        MfaSetup: {
+            key: string;
+            uri: string;
+        };
         Problem: {
             type: string;
             title: string;
@@ -2821,13 +2825,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["MfaSetup"];
                 };
             };
             /** @description Error */
