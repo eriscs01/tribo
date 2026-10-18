@@ -3,6 +3,7 @@
 import { defineOperation } from '../operation.js';
 import { Person, PersonInput, PersonPatch } from '../person.js';
 import { Place, PlaceInput } from '../place.js';
+import { Vendor, VendorInput } from '../vendor.js';
 
 export const libraryOperations = [
   defineOperation({
@@ -252,7 +253,9 @@ export const libraryOperations = [
     mcpApproval: false,
     mcpTool: null,
     notes: 'Add vendor (kind, contacts, links); Audited on platform chain (G11)',
-    status: 'planned',
+    status: 'implemented',
+    input: VendorInput,
+    output: Vendor,
   }),
   defineOperation({
     id: 'library.vendors.get',

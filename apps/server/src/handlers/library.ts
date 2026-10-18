@@ -1,5 +1,12 @@
-import { encodeTypeId, ID_PREFIX, MASKED, type Person, type Place } from '@tribo/contract';
-import type { LibraryService, PersonRecord, PlaceRecord } from '@tribo/core';
+import {
+  encodeTypeId,
+  ID_PREFIX,
+  MASKED,
+  type Person,
+  type Place,
+  type Vendor,
+} from '@tribo/contract';
+import type { LibraryService, PersonRecord, PlaceRecord, VendorRecord } from '@tribo/core';
 import { ifMatch, pathId, requestContext, signedIn } from '../context.js';
 import type { Handlers } from '../routes.js';
 
@@ -27,6 +34,16 @@ export function placeView(place: PlaceRecord): Place {
   };
 }
 
+export function vendorView(vendor: VendorRecord): Vendor {
+  return {
+    ...vendor,
+    id: encodeTypeId(ID_PREFIX.vendor, vendor.id),
+    placeId: vendor.placeId === null ? null : encodeTypeId(ID_PREFIX.place, vendor.placeId),
+    createdAt: vendor.createdAt.toISOString(),
+    updatedAt: vendor.updatedAt.toISOString(),
+  };
+}
+
 export function libraryHandlers(library: LibraryService): Handlers {
   return {
     'library.people.create': async (request, reply) => {
@@ -50,6 +67,11 @@ export function libraryHandlers(library: LibraryService): Handlers {
     'library.places.create': async (request, reply) => {
       const place = await library.createPlace(requestContext(request), request.body);
       return reply.code(201).send(placeView(place));
+    },
+
+    'library.vendors.create': async (request, reply) => {
+      const vendor = await library.createVendor(requestContext(request), request.body);
+      return reply.code(201).send(vendorView(vendor));
     },
   };
 }

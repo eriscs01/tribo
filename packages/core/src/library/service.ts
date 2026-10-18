@@ -1,7 +1,10 @@
 import {
+  decodeTypeId,
+  ID_PREFIX,
   PersonInput,
   PersonPatch,
   PlaceInput,
+  VendorInput,
   type Contacts,
   type EmergencyContact,
   type OpeningHours,
@@ -25,12 +28,15 @@ import {
   insertAccountPerson,
   insertPlace,
   insertPlaceholder,
+  insertVendor,
   lockPerson,
   newRowId,
+  resolvePlaceId,
   updatePerson,
   type PersonFields,
   type PersonRow,
   type PlaceRow,
+  type VendorRow,
 } from './repo.js';
 
 /** A person as the library hands it out; sensitive values stay inside the module. */
@@ -62,6 +68,19 @@ export interface PlaceRecord {
   updatedAt: Date;
 }
 
+export interface VendorRecord {
+  id: string;
+  name: string;
+  kind: ValueOf<'tribo.vendors.kind'>;
+  placeId: string | null;
+  contacts: Contacts;
+  links: string[];
+  notes: string | null;
+  version: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface LibraryService {
   /** library.people.create: a placeholder traveller the caller creates and alone edits. */
   createPerson(ctx: RequestContext, body: unknown): Promise<PersonRecord>;
@@ -76,11 +95,14 @@ export interface LibraryService {
   ): Promise<PersonRecord>;
   /** library.places.create: any signed-in user adds to the one shared library (G11). */
   createPlace(ctx: RequestContext, body: unknown): Promise<PlaceRecord>;
+  /** library.vendors.create: any signed-in user adds to the one shared library (G11). */
+  createVendor(ctx: RequestContext, body: unknown): Promise<VendorRecord>;
 }
 
 const peopleCreate = writeOperation('library.people.create', PersonInput);
 const peopleUpdate = writeOperation('library.people.update', PersonPatch);
 const placesCreate = writeOperation('library.places.create', PlaceInput);
+const vendorsCreate = writeOperation('library.vendors.create', VendorInput);
 
 const EMERGENCY_CONTACT = (personId: string): FieldRef => ({
   table: 'persons',
@@ -217,6 +239,64 @@ export function createLibraryService(
           };
         },
       }),
+
+    createVendor: (ctx, body) =>
+      write(ctx, {
+        operation: vendorsCreate,
+        target: null,
+        body,
+        ifMatch: undefined,
+        authorize: signedInOnly,
+        load: () => Promise.resolve({ tripId: null }),
+        mutate: async (tx, c, _loaded, input) => {
+          const library = forModule(tx, 'library');
+          let placeId: string | null = null;
+          if (input.placeId !== undefined) {
+            placeId =
+              (await resolvePlaceId(library, decodeTypeId(ID_PREFIX.place, input.placeId))) ?? null;
+            if (placeId === null) {
+              throw new ApiError('validation_failed', {
+                errors: [{ path: '/placeId', message: 'no such place' }],
+              });
+            }
+          }
+          const row = await insertVendor(library, {
+            name: input.name,
+            kind: input.kind ?? 'other',
+            placeId,
+            contacts: input.contacts ?? {},
+            links: input.links ?? [],
+            notes: input.notes ?? null,
+            createdBy: actingUser(c),
+          });
+          const vendor = vendorRecord(row);
+          const { id, version, createdAt: _c, updatedAt: _u, ...snapshot } = vendor;
+          return {
+            action: 'create',
+            aggregate: 'vendor',
+            entityId: id,
+            tripId: null,
+            version,
+            snapshot,
+            result: vendor,
+          };
+        },
+      }),
+  };
+}
+
+function vendorRecord(row: VendorRow): VendorRecord {
+  return {
+    id: row.id,
+    name: row.name,
+    kind: row.kind as VendorRecord['kind'],
+    placeId: row.place_id,
+    contacts: contactsOf(row.contacts),
+    links: row.links as string[],
+    notes: row.notes,
+    version: row.version,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
   };
 }
 

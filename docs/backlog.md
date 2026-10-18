@@ -241,7 +241,7 @@
   - Add place (kind, lat/lng, hours, links); Audited on platform chain (G11)
   - Roles: any signed-in user. If-Match: `no`. Idempotency: creates (key).
   - Limit: Takes no Idempotency-Key in 1a: only expenses.create and files.upload honour it; this create follows in 1b.
-- [ ] `library.vendors.create` · Drop A · `POST /v1/library/vendors`
+- [x] `library.vendors.create` · Drop A · `POST /v1/library/vendors`
   - Add vendor (kind, contacts, links); Audited on platform chain (G11)
   - Roles: any signed-in user. If-Match: `no`. Idempotency: creates (key).
   - Limit: Takes no Idempotency-Key in 1a: only expenses.create and files.upload honour it; this create follows in 1b.

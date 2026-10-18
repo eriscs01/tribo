@@ -184,3 +184,57 @@ export function insertPlace(db: LibraryDb, place: NewPlace) {
 }
 
 export type PlaceRow = Awaited<ReturnType<typeof insertPlace>>;
+
+/**
+ * The place a new reference should point at: the place itself while live, or the survivor
+ * of a merge (chains stay one hop). Undefined for an unknown or deleted place.
+ */
+export async function resolvePlaceId(db: LibraryDb, placeId: string): Promise<string | undefined> {
+  const row = await db
+    .selectFrom('tribo.places')
+    .select((eb) => eb.fn.coalesce('merged_into', 'id').as('id'))
+    .where('id', '=', placeId)
+    .where((eb) => eb.or([eb('deleted_at', 'is', null), eb('merged_into', 'is not', null)]))
+    .executeTakeFirst();
+  return row?.id;
+}
+
+export interface NewVendor {
+  name: string;
+  kind: ValueOf<'tribo.vendors.kind'>;
+  placeId: string | null;
+  contacts: Contacts;
+  links: Links;
+  notes: string | null;
+  createdBy: string;
+}
+
+export function insertVendor(db: LibraryDb, vendor: NewVendor) {
+  return db
+    .insertInto('tribo.vendors')
+    .values({
+      name: vendor.name,
+      kind: vendor.kind,
+      place_id: vendor.placeId,
+      contacts: jsonb(vendor.contacts),
+      links: jsonb(vendor.links),
+      notes: vendor.notes,
+      created_by: vendor.createdBy,
+      updated_by: vendor.createdBy,
+    })
+    .returning([
+      'id',
+      'name',
+      'kind',
+      'place_id',
+      'contacts',
+      'links',
+      'notes',
+      'version',
+      'created_at',
+      'updated_at',
+    ])
+    .executeTakeFirstOrThrow();
+}
+
+export type VendorRow = Awaited<ReturnType<typeof insertVendor>>;

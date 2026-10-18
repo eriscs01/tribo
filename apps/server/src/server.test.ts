@@ -96,6 +96,7 @@ const library: LibraryService = {
   getPerson: unused,
   updatePerson: unused,
   createPlace: unused,
+  createVendor: unused,
 };
 
 let app: FastifyInstance | undefined;

@@ -5193,12 +5193,12 @@
           }
         ],
         "responses": {
-          "501": {
-            "description": "Registered but not implemented yet (not_implemented)",
+          "201": {
+            "description": "OK",
             "content": {
-              "application/problem+json": {
+              "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Problem"
+                  "$ref": "#/components/schemas/Vendor"
                 }
               }
             }
@@ -5215,7 +5215,7 @@
           }
         },
         "x-tribo": {
-          "status": "planned",
+          "status": "implemented",
           "slice": "1a",
           "drop": "A",
           "roles": "any signed-in user",
@@ -5236,7 +5236,17 @@
               "maxLength": 255
             }
           }
-        ]
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VendorInput"
+              }
+            }
+          }
+        }
       }
     },
     "/v1/library/vendors/{vendorId}": {
@@ -9426,6 +9436,116 @@
       "Username": {
         "type": "string",
         "pattern": "^[A-Za-z0-9._-]{3,32}$"
+      },
+      "Vendor": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^vnd_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/VendorKind"
+          },
+          "placeId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^plc_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "contacts": {
+            "$ref": "#/components/schemas/Contacts"
+          },
+          "links": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "createdAt": {
+            "$ref": "#/components/schemas/Instant"
+          },
+          "updatedAt": {
+            "$ref": "#/components/schemas/Instant"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "kind",
+          "placeId",
+          "contacts",
+          "links",
+          "notes",
+          "version",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "VendorInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "kind": {
+            "$ref": "#/components/schemas/VendorKind"
+          },
+          "placeId": {
+            "type": "string",
+            "pattern": "^plc_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+          },
+          "contacts": {
+            "$ref": "#/components/schemas/Contacts"
+          },
+          "links": {
+            "$ref": "#/components/schemas/Links"
+          },
+          "notes": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false
+      },
+      "VendorKind": {
+        "type": "string",
+        "enum": [
+          "airline",
+          "lodging",
+          "tour_operator",
+          "rental",
+          "ferry_line",
+          "bus_line",
+          "restaurant",
+          "other"
+        ]
       },
       "WallClockTime": {
         "type": "object",

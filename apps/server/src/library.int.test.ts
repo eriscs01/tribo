@@ -205,3 +205,31 @@ describe('library.places.create over HTTP', () => {
     });
   });
 });
+
+describe('library.vendors.create over HTTP', () => {
+  it('answers 201 with the vendor and its place as a TypeID', async () => {
+    const ana = await signedInUser();
+    const place = await app.inject({
+      method: 'POST',
+      url: '/v1/library/places',
+      ...ana.auth,
+      payload: { name: 'Dumaguete Port', kind: 'port' },
+    });
+    const placeId = place.json<{ id: string }>().id;
+    const res = await app.inject({
+      method: 'POST',
+      url: '/v1/library/vendors',
+      ...ana.auth,
+      payload: { name: 'Island Fast Craft', kind: 'ferry_line', placeId },
+    });
+    expect(res.statusCode).toBe(201);
+    expect(res.json()).toMatchObject({
+      id: expect.stringMatching(/^vnd_/) as unknown,
+      name: 'Island Fast Craft',
+      kind: 'ferry_line',
+      placeId,
+      contacts: {},
+      version: 1,
+    });
+  });
+});

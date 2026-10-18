@@ -2160,6 +2160,28 @@ export interface components {
         /** @enum {string} */
         TripStatus: "draft" | "planning" | "active" | "completed" | "archived";
         Username: string;
+        Vendor: {
+            id: string;
+            name: string;
+            kind: components["schemas"]["VendorKind"];
+            placeId: string | null;
+            contacts: components["schemas"]["Contacts"];
+            links: string[];
+            notes: string | null;
+            version: number;
+            createdAt: components["schemas"]["Instant"];
+            updatedAt: components["schemas"]["Instant"];
+        };
+        VendorInput: {
+            name: string;
+            kind?: components["schemas"]["VendorKind"];
+            placeId?: string;
+            contacts?: components["schemas"]["Contacts"];
+            links?: components["schemas"]["Links"];
+            notes?: string;
+        };
+        /** @enum {string} */
+        VendorKind: "airline" | "lodging" | "tour_operator" | "rental" | "ferry_line" | "bus_line" | "restaurant" | "other";
         WallClockTime: {
             local: string;
             tz: components["schemas"]["TimeZone"];
@@ -4813,15 +4835,19 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VendorInput"];
+            };
+        };
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["Vendor"];
                 };
             };
             /** @description Error */
