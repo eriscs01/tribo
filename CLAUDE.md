@@ -30,5 +30,6 @@ Boundary rule: a module's `repo.ts` gets a Kysely handle typed to its own tables
 - Never edit a migration that has been merged. Add a new numbered file instead.
 - Never commit secrets, `.env` files, database dumps or real trip data. Fixtures use invented people and trips.
 - Run `pnpm lint && pnpm typecheck && pnpm test` before opening a PR, and list in the PR how each acceptance criterion is proven (test name or command).
+- Apply the `design-principles` skill while writing code. Before opening a PR, review the branch diff (`git diff origin/main...HEAD`) with it: fix each finding, or list it in the PR as a follow-up. The PR body follows `.github/pull_request_template.md`, including its `## Design principles` section; a hook refuses `gh pr create` without that section.
 - `pnpm dev:up` starts the local stack (PostgreSQL 18, the app in watch mode, Caddy) at https://tribo.localhost with a seeded demo trip; see `deploy/dev/README.md`.
 - `pnpm test` runs three Vitest projects: `unit` (`*.test.ts`, no I/O), `integration` (`*.int.test.ts`) and `leak` (`*.leak.test.ts`). The last two start one PostgreSQL 18 container per run through Testcontainers, so they need Docker; run one with `pnpm test:unit`, `test:integration` or `test:leak`. Integration tests get a fresh migrated database from `createTestDatabase()` in `@tribo/testkit` and build data with its factories.
