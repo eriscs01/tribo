@@ -279,7 +279,10 @@ describe('lockout', () => {
     await expect(wrong(a.username)).rejects.toMatchObject({ code: 'unauthenticated' });
     const locked = await user(a.userId);
     expect(locked.failed_login_count).toBe(0);
-    const minutes = ((locked.locked_until?.getTime() ?? 0) - Date.now()) / 60_000;
+    // locked_until comes from the database clock, so measure against it, not the host's.
+    const { rows } = await sql<{ now: Date }>`select clock_timestamp() as now`.execute(tdb.db);
+    const minutes =
+      ((locked.locked_until?.getTime() ?? 0) - (rows[0]?.now.getTime() ?? 0)) / 60_000;
     expect(minutes).toBeGreaterThan(14);
     expect(minutes).toBeLessThanOrEqual(15);
 
