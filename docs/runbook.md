@@ -341,13 +341,15 @@ ssh tribo-backup status
 ssh tribo-backup id
 ```
 
+ufw admits at most 6 new SSH connections from one address in 30 seconds (step 3), and a backup opens up to three. If a command here fails with `Connection refused`, wait 30 seconds and run it again.
+
 Run one backup by hand:
 
 ```bash
 sh deploy/backup/pull.sh
 ```
 
-Check: it ends with `snapshot … complete`, and the newest snapshot's `manifest` names the running release and a `dump_bytes` above zero. Once the host has an upload volume, `ssh tribo@<ipv4> test -x /usr/bin/rrsync` must succeed; rrsync comes with Ubuntu's rsync package. If the upload sync fails from macOS, install Homebrew's rsync (`brew install rsync`) and set `TRIBO_RSYNC=/opt/homebrew/bin/rsync`.
+Check: it ends with `snapshot … complete`, and the newest snapshot's `manifest` names the running release and a `dump_bytes` above zero. The upload sync goes through rrsync, which comes with Ubuntu's rsync package, and accepts only rsync 3 as the client. macOS ships openrsync instead, which rrsync refuses, so on a Mac install Homebrew's rsync (`brew install rsync`) and set `TRIBO_RSYNC=/opt/homebrew/bin/rsync` in `backup.env`. `pull.sh` stops with that advice once the host has an upload volume and the client is not rsync 3.
 
 Install the nightly timer. On macOS, from the root of your checkout (launchd uses the Mac's own time zone, so with the Mac set to another zone, change `Hour` to the hour that is 02:00 in Manila):
 

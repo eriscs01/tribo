@@ -59,16 +59,21 @@ $ssh "$host" dump >"$work/tribo.dump" || fail "pg_dump on $host"
 
 if [ "$uploads" = yes ]; then
   say "syncing the upload volume"
+  # The host's rrsync accepts only rsync 3's request syntax; macOS's own openrsync sends
+  # another and is refused.
+  "$rsync" --version 2>&1 | head -n 1 | grep -q '^rsync  *version' ||
+    fail "$rsync is not rsync 3 (macOS ships openrsync): brew install rsync, then TRIBO_RSYNC=/opt/homebrew/bin/rsync"
   link=
   [ -n "$previous" ] && [ -d "$previous/uploads" ] && link="--link-dest=$previous/uploads"
   # -rlt, not -a: owners and groups are the host's uids, which mean nothing here; the restore
-  # sets them. The trailing slashes copy the volume's contents, not the directory.
+  # sets them. The trailing slashes copy the volume's contents, not the directory. No
+  # --delete: the snapshot starts empty, and rrsync -ro refuses every delete option.
   # shellcheck disable=SC2086
-  $rsync -rlt --delete $link -e "$ssh" "$host:./" "$work/uploads/" || fail "rsync of uploads"
+  $rsync -rlt $link -e "$ssh" "$host:./" "$work/uploads/" || fail "rsync of uploads"
 fi
 
 {
-  echo "created=$(TZ=Asia/Manila date '+%Y-%m-%dT%H:%M:%S%z')"
+  echo "created=$(manila_time '+%Y-%m-%dT%H:%M:%S%z')"
   echo "host=$host"
   echo "tribo_version=$version"
   echo "dump_bytes=$(wc -c <"$work/tribo.dump" | tr -d ' ')"

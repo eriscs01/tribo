@@ -2,7 +2,11 @@
 # A snapshot is named by its Manila time, e.g. 2026-10-19T020000; an unfinished one ends in
 # .partial.
 
-snapshot_name() { TZ=Asia/Manila date +%Y-%m-%dT%H%M%S; }
+# Manila time as a POSIX zone string: Asia/Manila has no DST, and the string needs no tz
+# database, which minimal systems lack (there `TZ=Asia/Manila` silently means UTC).
+manila_time() { TZ=PHT-8 date "$@"; }
+
+snapshot_name() { manila_time +%Y-%m-%dT%H%M%S; }
 
 # Complete snapshots in $1, oldest first.
 list_snapshots() {
