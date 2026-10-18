@@ -1,6 +1,4 @@
 # TRIBO_TLS_MODE=origin-cert: compose.yml's proxy service extends this.
 services:
   proxy:
-    secrets:
-      - { source: origin_cert, uid: '0', gid: '0', mode: 0400 }
-      - { source: origin_key, uid: '0', gid: '0', mode: 0400 }
+    secrets: [origin_cert, origin_key]

@@ -238,15 +238,15 @@ Only `proxy` publishes ports (80, 443 and 443/udp). The database and the app are
 3. Create the secrets in `/opt/tribo/secrets/`:
 
    ```bash
-   mkdir -p secrets && cd secrets
+   mkdir -p secrets && chmod 700 secrets && cd secrets
    openssl rand -out app_key 32
    for name in db_superuser_password db_owner_password db_app_password; do openssl rand -hex 32 >"$name"; done
-   chmod 600 *
+   chmod 644 *
    ```
 
    Copy `app_key` off the box now (password manager or offline storage): without it, sensitive fields in any backup are unreadable. `db_superuser_password` is the `postgres` role's password, used only by the database container.
 
-   Add the mode's own secrets, also mode 600:
+   Add the mode's own secrets, also mode 644:
 
    | Mode                  | Files                                                                               |
    | --------------------- | ----------------------------------------------------------------------------------- |
@@ -254,9 +254,14 @@ Only `proxy` publishes ports (80, 443 and 443/udp). The database and the app are
    | `origin-cert`         | `origin_cert` and `origin_key`: a Cloudflare Origin CA certificate and its key, PEM |
    | `tunnel` profile      | `tunnel_token`: the token of a remotely managed tunnel                              |
 
-   Compose mounts each secret into its container owned by that container's user with mode 400, so the host files can stay 600 and owned by the operator.
+   Compose bind-mounts each secret file into its container as it is on the host: it ignores a secret's `uid`, `gid` and `mode` outside Swarm. The containers run as other users (`postgres` is uid 999, the app's `node` is 1000), so the files must be readable by all (644). The directory is 700, so no other user on the host can reach them, and each container sees only the secrets it mounts. With mode 600 the database's init script stops at `Permission denied`.
 
-4. `docker compose pull && docker compose up -d`, then `docker compose logs -f proxy` until the certificate is issued (acme modes), and open `${TRIBO_PUBLIC_URL}/healthz` from a phone on mobile data. It answers `{"status":"ok"}`.
+   Check, before the first start: `ls -ld . && ls -l` shows `drwx------` for the directory and `-rw-r--r--` for each file.
+
+4. `docker compose pull && docker compose up -d --wait`, then `docker compose logs -f proxy` until the certificate is issued (acme modes), and open `${TRIBO_PUBLIC_URL}/healthz` from a phone on mobile data. It answers `{"status":"ok"}`.
+
+   If `db` stays unhealthy on the first start, read why with `docker compose logs db | grep 'tribo init'`. The init script runs only on an empty volume, so after fixing the cause (usually the secrets' modes), delete the half-made volume and start again with `docker compose down -v && docker compose up -d --wait`. Do this only on a first install: `down -v` deletes the database.
+
 5. First admin (step 9): `docker compose exec app tribo admin create <username>`; scan the TOTP code and store the recovery codes.
 
 ### Mode notes
@@ -413,3 +418,23 @@ Record the check below, and repeat it every quarter and after any change to the 
 
 | Date | Snapshot | Release | Chains | Notes |
 | ---- | -------- | ------- | ------ | ----- |
+
+## Walking skeleton check (step 12)
+
+Sprint 0 task 18. Exit criteria 1–2 by hand on the reference host, over HTTPS, after a release is installed (steps 6–9). CI job "End to end" runs the same steps on every pull request, on `main` and on release tags (`apps/e2e/src/walking-skeleton.spec.ts`); this check proves them on the real host, certificate and DNS. Work in `/opt/tribo` on the droplet, and use a phone or laptop browser for the web steps. Use invented trip data only.
+
+1. **Admin and TOTP (exit criterion 1).** If step 9 already made the first admin, sign in with that account at step 2 and skip this one. Otherwise run `docker compose exec app tribo admin create <username> "<display name>"`. Type a password (12–128 characters) twice. Add the printed key or `otpauth://` URI to your authenticator app, then type the six-digit code it shows. The command prints 10 recovery codes: store them in your password manager.
+2. **Sign in.** Open `${TRIBO_PUBLIC_URL}` in the browser: it shows "Sign in". Enter the username, the password and the current authenticator code, then "Sign in". "My trips" opens and the header shows "Signed in as <username>".
+3. **Trip (exit criterion 2).** "New trip": name `Siargao surf week`, first day `2026-11-10`, last day `2026-11-16`, currency `PHP`, time zone `Asia/Manila`; "Create trip". The trip page opens with that name.
+4. **Item.** Under "Add an item", title `Island hopping`, then "Add item". The item page opens. Reload it: the title is still there and "Visible to" says "Everyone on the trip". Follow "Back to Siargao surf week", then "All trips": the trip is in the list.
+5. **Audit chain.** On the droplet, look up the trip's chain and the item's event:
+
+   ```bash
+   docker compose exec -T db psql -U tribo_app -d tribo -c \
+     "SELECT chain_key, seq, action, entity_type, surface FROM audit.audit_events WHERE trip_id = (SELECT id FROM tribo.trips WHERE name = 'Siargao surf week' ORDER BY created_at DESC LIMIT 1) ORDER BY seq"
+   ```
+
+   The last row is `trip:<uuid> | … | create | item | web`.
+
+6. **Verify.** `docker compose exec app tribo audit verify trip:<uuid>`, with the chain key from step 5, prints `… intact`. Then `docker compose exec app tribo audit verify` ends with `All <n> chains intact.` and exits 0.
+7. **Record.** In the "Releases" table above, add "walking skeleton checked by hand on <date>" to the notes of the tag you checked.

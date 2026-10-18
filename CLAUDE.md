@@ -11,6 +11,7 @@ Every fact has exactly one owner, and only that owner stores, changes, versions 
 ```
 apps/server/       Fastify bootstrap, REST adapter, CLI (tribo admin|audit …), daily jobs
 apps/web/          React SPA, service worker, generated API client
+apps/e2e/          Playwright walking-skeleton test against a running Compose stack
 packages/contract/ Zod schemas, defineOperation, registry, error codes, OpenAPI generator; operations.csv
 packages/platform/ request context, write-path wrapper, idempotency, logging, rate limits
 packages/crypto/   app key loader, field and file envelopes
@@ -33,3 +34,4 @@ Boundary rule: a module's `repo.ts` gets a Kysely handle typed to its own tables
 - Apply the `design-principles` skill while writing code. Before opening a PR, review the branch diff (`git diff origin/main...HEAD`) with it: fix each finding, or list it in the PR as a follow-up. The PR body follows `.github/pull_request_template.md`, including its `## Design principles` section; a hook refuses `gh pr create` without that section.
 - `pnpm dev:up` starts the local stack (PostgreSQL 18, the app in watch mode, Caddy) at https://tribo.localhost with a seeded demo trip; see `deploy/dev/README.md`.
 - `pnpm test` runs three Vitest projects: `unit` (`*.test.ts`, no I/O), `integration` (`*.int.test.ts`) and `leak` (`*.leak.test.ts`). The last two start one PostgreSQL 18 container per run through Testcontainers, so they need Docker; run one with `pnpm test:unit`, `test:integration` or `test:leak`. Integration tests get a fresh migrated database from `createTestDatabase()` in `@tribo/testkit` and build data with its factories.
+- `pnpm test:e2e` runs the Playwright walking-skeleton test (`apps/e2e`) against a stack that is already up: `pnpm dev:up` by default, or the one `COMPOSE_FILE` names (CI job "End to end" uses `deploy/compose.yml`). Run `pnpm build` first, and `pnpm --filter @tribo/e2e exec playwright install chromium` once.

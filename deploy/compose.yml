@@ -19,10 +19,7 @@ services:
     environment:
       POSTGRES_PASSWORD_FILE: /run/secrets/db_superuser_password
       TRIBO_BOOTSTRAP_SQL: /tribo/migrations/0000_bootstrap.sql
-    secrets:
-      - { source: db_superuser_password, uid: '999', gid: '999', mode: 0400 }
-      - { source: db_owner_password, uid: '999', gid: '999', mode: 0400 }
-      - { source: db_app_password, uid: '999', gid: '999', mode: 0400 }
+    secrets: [db_superuser_password, db_owner_password, db_app_password]
     volumes:
       - pgdata:/var/lib/postgresql
       # The roles and the database come from the release's own app image, so the host needs
@@ -37,7 +34,9 @@ services:
         image: { subpath: app/packages/db/migrations }
     shm_size: 256m
     healthcheck:
-      test: [CMD, pg_isready, -U, postgres, -d, tribo]
+      # A query on the tribo database, not pg_isready: when the init script fails, the server
+      # still starts but the database is missing, and db must then stay unhealthy.
+      test: [CMD, psql, -U, postgres, -d, tribo, -Xqc, SELECT 1]
       interval: 5s
       timeout: 3s
       retries: 30
@@ -54,10 +53,7 @@ services:
       TRIBO_PUBLIC_URL: ${TRIBO_PUBLIC_URL:?set TRIBO_PUBLIC_URL in .env}
       TRIBO_DB_HOST: db
       TRIBO_LOG_LEVEL: ${TRIBO_LOG_LEVEL:-info}
-    secrets:
-      - { source: app_key, uid: '1000', gid: '1000', mode: 0400 }
-      - { source: db_owner_password, uid: '1000', gid: '1000', mode: 0400 }
-      - { source: db_app_password, uid: '1000', gid: '1000', mode: 0400 }
+    secrets: [app_key, db_owner_password, db_app_password]
     depends_on:
       db:
         condition: service_healthy
@@ -110,12 +106,13 @@ services:
     cap_drop: [ALL]
     environment:
       TUNNEL_TOKEN_FILE: /run/secrets/tunnel_token
-    secrets:
-      - { source: tunnel_token, uid: '65532', gid: '65532', mode: 0400 }
+    secrets: [tunnel_token]
     depends_on: [proxy]
 
-# Files in secrets/, mode 600, never in git (docs/runbook.md). Only the ones a running service
-# mounts need to exist.
+# Files in secrets/, never in git (docs/runbook.md step 7). Only the ones a running service
+# mounts need to exist. Compose bind-mounts each file as it is on the host: uid, gid and mode
+# apply only in Swarm, so the files are 644 for the container users and the secrets directory
+# is 700, which keeps them from every other host user.
 secrets:
   app_key:
     file: ./secrets/app_key
