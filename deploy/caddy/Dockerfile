@@ -2,12 +2,15 @@
 # Tribo proxy image: Caddy with the Cloudflare DNS module (one image for every TLS mode), the
 # Caddyfile per mode and the built SPA it serves.
 # Build from the repo root: docker build -f deploy/caddy/Dockerfile .
-ARG NODE_IMAGE=node:26.12.0-bookworm-slim@sha256:298992629d69bbd5b2b03ad57094d8e4fcb3a8eeb7c4e25d29de656519568913
+ARG NODE_IMAGE=node:26.12.0-trixie-slim@sha256:0d1e33586362bb9e608c4e751e7a9e7edb55c9ac11461ed5666af696cc461dd4
 ARG CADDY_BUILDER_IMAGE=caddy:2.11.7-builder@sha256:d842facfd63b960922e57444ff76fd8f0793a66dfdcf481af8026e1f4e6a39b4
 ARG CADDY_IMAGE=caddy:2.11.7@sha256:685ae3d7c34d9b5f8caeddc5d14051db7bbd88ff1f5a2fa0c16bd8ca328fb7af
 
 FROM ${CADDY_BUILDER_IMAGE} AS caddy
-RUN xcaddy build v2.11.7 --with github.com/caddy-dns/cloudflare@v0.2.4
+# golang.org/x/net is raised past Caddy 2.11.7's own v0.59.0 for CVE-2026-78669 (HTTP/2);
+# drop the replace once a Caddy release requires v0.60.0 or later.
+RUN xcaddy build v2.11.7 --with github.com/caddy-dns/cloudflare@v0.2.4 \
+      --replace golang.org/x/net=golang.org/x/net@v0.60.0
 
 FROM ${NODE_IMAGE} AS web
 RUN npm install -g pnpm@12.14.0 && rm -rf /root/.npm

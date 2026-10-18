@@ -131,12 +131,15 @@ jobs:
           cache-to: type=gha,scope=tribo-proxy,mode=max
       # Findings with no fixed version are left out: no image change could clear them.
       - name: Scan both images (Trivy)
+        # Both images are scanned before the step fails, so one run reports every finding.
         run: |
+          failed=0
           for image in tribo-app:ci tribo-proxy:ci; do
             docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD:/src:ro" "$TRIVY" \
               image --quiet --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 \
-              --ignorefile /src/.trivyignore.yaml "$image"
+              --ignorefile /src/.trivyignore.yaml "$image" || failed=1
           done
+          exit "$failed"
     env:
       OSV_SCANNER: ghcr.io/google/osv-scanner:v2.6.0@sha256:afd838850ac1a0fcc15ff4a041dc9ba11123c3f0d2666217a5f0fcf9222b55fa
       TRIVY: aquasec/trivy:0.75.0@sha256:af6acf9a6b85dfe389a1941505c0ce9efef52a4719635e1a962f022a3d855daa
