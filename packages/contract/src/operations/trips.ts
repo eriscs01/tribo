@@ -59,7 +59,8 @@ export const tripsOperations = [
     mcpTool: null,
     notes:
       'Trip detail incl. destinations; Members only; ETag = SHA-256 of the representation (rule 4)',
-    status: 'planned',
+    status: 'implemented',
+    output: Trip,
   }),
   defineOperation({
     id: 'trips.update',

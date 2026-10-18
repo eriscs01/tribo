@@ -12,12 +12,14 @@ import {
 import type { Kysely } from 'kysely';
 import { accountPersonId } from '../library/service.js';
 import { writeOperation } from '../write-operation.js';
-import { tripCreateRefusal, tripWriteRefusal } from './policy.js';
+import { canGetTrip, tripCreateRefusal, tripWriteRefusal } from './policy.js';
 import {
   countActiveMemberships,
   findActiveMembership,
+  findTrip,
   insertMembership,
   insertTrip,
+  listDestinations,
   listMemberTrips,
   lockTripForWrite,
   type TripRole,
@@ -37,6 +39,8 @@ export interface TripRecord {
   currency: string;
   timezone: string;
   status: TripStatus;
+  /** Place ids in travel order. */
+  destinations: string[];
   version: number;
   createdAt: Date;
   updatedAt: Date;
@@ -55,6 +59,8 @@ export interface TripsService {
     userId: string,
     page: PageQuery,
   ): Promise<{ items: TripRecord[]; nextCursor: string | null }>;
+  /** trips.get: any member of the trip; not_found to everyone else. */
+  get(userId: string, tripId: string): Promise<TripRecord>;
 }
 
 const tripsCreate = writeOperation('trips.create', TripInput);
@@ -69,13 +75,30 @@ export function createTripsService(db: Kysely<DB>, write: WritePath): TripsServi
         limit: page.limit + 1,
         after,
       });
-      const items = rows.slice(0, page.limit).map(tripRecord);
+      const shown = rows.slice(0, page.limit);
+      const destinations = await listDestinations(
+        forModule(db, 'trips'),
+        shown.map((r) => r.id),
+      );
+      const items = shown.map((r) => tripRecord(r, destinations.get(r.id) ?? []));
       const last = items.at(-1);
       return {
         items,
         nextCursor:
           rows.length > page.limit && last ? encodeCursor([last.startDate, last.id]) : null,
       };
+    },
+
+    async get(userId, tripId) {
+      const membership = await callerMembership(db, userId, tripId);
+      // A trip the caller is not in does not exist for them.
+      if (membership === null) throw new ApiError('not_found');
+      if (!canGetTrip(membership.role)) throw new ApiError('forbidden');
+      const trips = forModule(db, 'trips');
+      const row = await findTrip(trips, tripId);
+      if (!row) throw new ApiError('not_found');
+      const destinations = await listDestinations(trips, [tripId]);
+      return tripRecord(row, destinations.get(tripId) ?? []);
     },
 
     create: (ctx, caller, body) =>
@@ -101,21 +124,14 @@ export function createTripsService(db: Kysely<DB>, write: WritePath): TripsServi
             role: 'owner',
             createdBy: userId,
           });
-          const record = tripRecord(trip);
+          const record = tripRecord(trip, []);
           return {
             action: 'create',
             aggregate: 'trip',
             entityId: trip.id,
             tripId: trip.id,
             version: trip.version,
-            snapshot: {
-              name: record.name,
-              startDate: record.startDate,
-              endDate: record.endDate,
-              currency: record.currency,
-              timezone: record.timezone,
-              status: record.status,
-            },
+            snapshot: tripSnapshot(record),
             result: record,
             related: [
               {
@@ -186,7 +202,20 @@ function tripCursor(cursor: string): { startDate: string; id: string } {
   return { startDate, id };
 }
 
-function tripRecord(row: TripRow): TripRecord {
+/** The trip's fields and its owned destinations, as entity_versions keeps them. */
+function tripSnapshot(trip: TripRecord) {
+  return {
+    name: trip.name,
+    startDate: trip.startDate,
+    endDate: trip.endDate,
+    currency: trip.currency,
+    timezone: trip.timezone,
+    status: trip.status,
+    destinations: [...trip.destinations],
+  };
+}
+
+function tripRecord(row: TripRow, destinations: string[]): TripRecord {
   return {
     id: row.id,
     name: row.name,
@@ -195,6 +224,7 @@ function tripRecord(row: TripRow): TripRecord {
     currency: row.currency,
     timezone: row.timezone,
     status: row.archived_at === null ? (row.status as TripStatus) : 'archived',
+    destinations,
     version: row.version,
     createdAt: row.created_at,
     updatedAt: row.updated_at,

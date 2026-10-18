@@ -50,7 +50,7 @@
   - Create trip: dates, currency, tz, destinations; mfa_required if caller has no TOTP
   - Roles: self (MFA on; becomes owner). If-Match: `no`. Idempotency: creates (key).
   - Limit: Takes no Idempotency-Key in 1a: only expenses.create and files.upload honour it; this create follows in 1b.
-- [ ] `trips.get` · Drop A · `GET /v1/trips/{tripId}`
+- [x] `trips.get` · Drop A · `GET /v1/trips/{tripId}`
   - Trip detail incl. destinations; Members only; ETag = SHA-256 of the representation (rule 4)
   - Roles: owner, organizer, member, viewer. If-Match: `no`. Idempotency: safe to repeat.
 - [ ] `trips.update` · Drop A · `PATCH /v1/trips/{tripId}`

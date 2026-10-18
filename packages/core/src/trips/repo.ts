@@ -62,6 +62,35 @@ export function insertTrip(
 
 export type TripRow = Awaited<ReturnType<typeof insertTrip>>;
 
+/** A trip that is not deleted, or undefined. */
+export function findTrip(db: TripsDb, tripId: string): Promise<TripRow | undefined> {
+  return db
+    .selectFrom('tribo.trips')
+    .select(TRIP_COLUMNS)
+    .where('id', '=', tripId)
+    .where('deleted_at', 'is', null)
+    .executeTakeFirst();
+}
+
+/** Each trip's destination place ids, in travel order; trips without any are absent. */
+export async function listDestinations(
+  db: TripsDb,
+  tripIds: readonly string[],
+): Promise<Map<string, string[]>> {
+  const byTrip = new Map<string, string[]>();
+  if (tripIds.length === 0) return byTrip;
+  const rows = await db
+    .selectFrom('tribo.trip_destinations')
+    .select(['trip_id', 'place_id'])
+    .where('trip_id', 'in', tripIds)
+    .orderBy('trip_id')
+    .orderBy('position')
+    .execute();
+  for (const row of rows)
+    byTrip.set(row.trip_id, [...(byTrip.get(row.trip_id) ?? []), row.place_id]);
+  return byTrip;
+}
+
 /**
  * One page of the trips this account is an active member of (tribo.is_member, so deleted
  * trips drop out), latest start first, then by id. `after` is the last row's sort key.

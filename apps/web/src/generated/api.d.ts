@@ -2170,6 +2170,7 @@ export interface components {
             currency: components["schemas"]["CurrencyCode"];
             timezone: components["schemas"]["TimeZone"];
             status: components["schemas"]["TripStatus"];
+            destinations: string[];
             version: number;
             createdAt: components["schemas"]["Instant"];
             updatedAt: components["schemas"]["Instant"];
@@ -5539,13 +5540,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["Trip"];
                 };
             };
             /** @description Error */

@@ -63,6 +63,7 @@ function fakeApi() {
         ...input,
         id: TRIP_ID,
         status: 'draft',
+        destinations: [],
         version: 1,
         createdAt: NOW,
         updatedAt: NOW,

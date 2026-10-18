@@ -6519,12 +6519,12 @@
           }
         ],
         "responses": {
-          "501": {
-            "description": "Registered but not implemented yet (not_implemented)",
+          "200": {
+            "description": "OK",
             "content": {
-              "application/problem+json": {
+              "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Problem"
+                  "$ref": "#/components/schemas/Trip"
                 }
               }
             }
@@ -6541,7 +6541,7 @@
           }
         },
         "x-tribo": {
-          "status": "planned",
+          "status": "implemented",
           "slice": "1a",
           "drop": "A",
           "roles": "owner, organizer, member, viewer",
@@ -9505,6 +9505,13 @@
           "status": {
             "$ref": "#/components/schemas/TripStatus"
           },
+          "destinations": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^plc_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+            }
+          },
           "version": {
             "type": "integer",
             "minimum": 1,
@@ -9525,6 +9532,7 @@
           "currency",
           "timezone",
           "status",
+          "destinations",
           "version",
           "createdAt",
           "updatedAt"

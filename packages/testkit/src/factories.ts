@@ -86,6 +86,24 @@ export async function createPlaceholder(
   return id;
 }
 
+/** A shared library place, as library.places.create would write it. */
+export async function createPlace(
+  db: Db,
+  init: { createdBy: string; name?: string },
+): Promise<string> {
+  const { id } = await db
+    .insertInto('tribo.places')
+    .values({
+      name: init.name ?? `Place ${next()}`,
+      kind: 'destination',
+      created_by: init.createdBy,
+      updated_by: init.createdBy,
+    })
+    .returning('id')
+    .executeTakeFirstOrThrow();
+  return id;
+}
+
 export interface TripFixture {
   tripId: string;
   ownerMembershipId: string;

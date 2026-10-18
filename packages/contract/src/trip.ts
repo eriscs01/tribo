@@ -38,6 +38,8 @@ export const Trip = z
     currency: CurrencyCode,
     timezone: TimeZone,
     status: TripStatus,
+    /** Places from the library, in travel order. */
+    destinations: z.array(typeId(ID_PREFIX.place)),
     version: z.int().min(1),
     createdAt: Instant,
     updatedAt: Instant,

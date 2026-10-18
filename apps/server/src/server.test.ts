@@ -86,10 +86,10 @@ const identity: IdentityService = {
   changePassword: () => Promise.reject(new Error('not used here')),
 };
 /** Trips and items are proven against the database in skeleton.int.test.ts. */
-/** A registered operation that is still a stub (trips.get). */
-const PLANNED = '/v1/trips/trp_01h455vb4pex5vsknk084sn02q';
+/** A registered operation that is still a stub (trips.history, slice 1b). */
+const PLANNED = '/v1/trips/trp_01h455vb4pex5vsknk084sn02q/history';
 const unused = () => Promise.reject(new Error('not used here'));
-const trips: TripsService = { create: unused, list: unused };
+const trips: TripsService = { create: unused, list: unused, get: unused };
 const items: ItemsService = { create: unused, get: unused };
 const library: LibraryService = {
   search: unused,
@@ -475,9 +475,9 @@ describe('declared query', () => {
 
 describe('registry coverage at start', () => {
   it('refuses a handler for an operation that is not implemented', async () => {
-    await expect(server({ handlers: { 'trips.get': () => Promise.resolve({}) } })).rejects.toThrow(
-      /trips.get has no implemented registry operation/,
-    );
+    await expect(
+      server({ handlers: { 'trips.history': () => Promise.resolve({}) } }),
+    ).rejects.toThrow(/trips.history has no implemented registry operation/);
   });
 
   it('refuses an implemented operation without a handler', async () => {
