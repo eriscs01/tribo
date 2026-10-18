@@ -9,6 +9,7 @@ export * from './money.js';
 export * from './openapi.js';
 export * from './operation.js';
 export * from './page.js';
+export * from './password.js';
 export * from './problem.js';
 export * from './session.js';
 export * from './time.js';

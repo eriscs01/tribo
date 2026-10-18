@@ -5648,15 +5648,8 @@
           }
         ],
         "responses": {
-          "501": {
-            "description": "Registered but not implemented yet (not_implemented)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
+          "204": {
+            "description": "No content"
           },
           "default": {
             "description": "Error",
@@ -5670,7 +5663,7 @@
           }
         },
         "x-tribo": {
-          "status": "planned",
+          "status": "implemented",
           "slice": "1a",
           "drop": "A",
           "roles": "self",
@@ -5679,6 +5672,16 @@
           "destructive": false,
           "mcpApproval": false,
           "mcpTool": null
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordChangeInput"
+              }
+            }
+          }
         }
       }
     },
@@ -8665,6 +8668,24 @@
         "type": "string",
         "minLength": 12,
         "maxLength": 128
+      },
+      "PasswordChangeInput": {
+        "type": "object",
+        "properties": {
+          "currentPassword": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "newPassword": {
+            "$ref": "#/components/schemas/NewPassword"
+          }
+        },
+        "required": [
+          "currentPassword",
+          "newPassword"
+        ],
+        "additionalProperties": false
       },
       "Problem": {
         "type": "object",

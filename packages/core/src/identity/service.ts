@@ -2,6 +2,7 @@ import {
   AuthPasswordResetInput,
   MfaConfirmInput,
   NewPassword,
+  PasswordChangeInput,
   Username,
   type LoginInput,
   type MfaConfirm,
@@ -93,6 +94,12 @@ export interface IdentityService {
    * live (used, revoked, expired or unknown) is reset_link_used.
    */
   resetPassword(ctx: RequestContext, body: unknown): Promise<void>;
+  /**
+   * me.password.change: the current password sets a new one and revokes the caller's other
+   * sessions. A wrong current password counts towards the lockout, as at sign-in; while
+   * locked, it is rate_limited.
+   */
+  changePassword(ctx: RequestContext, caller: SignedIn, body: unknown): Promise<void>;
 }
 
 const mfaConfirm = writeOperation('auth.mfa.confirm', MfaConfirmInput);
@@ -326,6 +333,31 @@ export function createIdentityService(
           { ...ctx, userId: link.user_id },
           { action: 'password_reset', entityType: 'user', entityId: link.user_id, tripId: null },
         );
+      });
+    },
+
+    async changePassword(ctx, caller, body) {
+      const input = validate(PasswordChangeInput, body);
+      const account = await repo.findPasswordAccount(identity, caller.userId);
+      if (!account) throw new ApiError('unauthenticated');
+      if (account.locked) throw new ApiError('rate_limited');
+      if (!(await verifySecret(account.password_hash, input.currentPassword))) {
+        await repo.countFailedLogin(identity, account.id);
+        throw new ApiError('validation_failed', {
+          errors: [{ path: '/currentPassword', message: 'does not match the current password' }],
+        });
+      }
+      const passwordHash = await hashSecret(input.newPassword);
+      await db.transaction().execute(async (tx) => {
+        const txIdentity = forModule(tx, 'identity');
+        await repo.setPassword(txIdentity, account.id, passwordHash);
+        await repo.revokeSessions(txIdentity, account.id, caller.sessionId);
+        await recordEvent(tx, ctx, {
+          action: 'password_change',
+          entityType: 'user',
+          entityId: account.id,
+          tripId: null,
+        });
       });
     },
 

@@ -3,6 +3,7 @@ import type { Handlers } from '../routes.js';
 import { authHandlers } from './auth.js';
 import { itemHandlers } from './items.js';
 import { tripHandlers } from './trips.js';
+import { meHandlers } from './me.js';
 
 /** The services the operation handlers call, as the runtime or a test builds them. */
 export interface HandlerServices {
@@ -22,5 +23,6 @@ export function operationHandlers(services: HandlerServices): Handlers {
     ...authHandlers(services.identity, services.csrfSecret),
     ...tripHandlers(services.trips),
     ...itemHandlers(services.items),
+    ...meHandlers(services.identity),
   };
 }

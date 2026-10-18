@@ -309,3 +309,14 @@ export async function revokeSessions(
   if (keep !== null) query = query.where('id', '<>', keep);
   await query.execute();
 }
+
+/** The caller's password hash, with `locked` judged by the database clock. */
+export function findPasswordAccount(db: IdentityDb, userId: string) {
+  return db
+    .selectFrom('tribo.users')
+    .select(['id', 'password_hash'])
+    .select(sql<boolean>`coalesce(locked_until > now(), false)`.as('locked'))
+    .where('id', '=', userId)
+    .where('deleted_at', 'is', null)
+    .executeTakeFirst();
+}

@@ -34,7 +34,7 @@
 - [ ] `me.update` · Drop A · `PATCH /v1/me`
   - Edit own profile (name, contacts, dietary, emergency contact, licence); masked_field_write on masked fields
   - Roles: self. If-Match: `version`. Idempotency: safe to repeat.
-- [ ] `me.password.change` · Drop A · `POST /v1/me/password`
+- [x] `me.password.change` · Drop A · `POST /v1/me/password`
   - Change own password; revokes other sessions; Decided (G1); Never replayed (rule 6)
   - Roles: self. If-Match: `no`. Idempotency: never replayed.
 - [ ] `me.tasks` · Drop B · `GET /v1/me/tasks`

@@ -76,6 +76,7 @@ const identity: IdentityService = {
   startMfaEnrolment: () => Promise.reject(new Error('not used here')),
   confirmMfa: () => Promise.reject(new Error('not used here')),
   resetPassword: () => Promise.reject(new Error('not used here')),
+  changePassword: () => Promise.reject(new Error('not used here')),
 };
 /** Trips and items are proven against the database in skeleton.int.test.ts. */
 /** A registered operation that is still a stub (trips.get). */

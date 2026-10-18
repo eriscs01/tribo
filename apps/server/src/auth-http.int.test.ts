@@ -156,3 +156,27 @@ describe('auth.passwordReset over HTTP', () => {
     expect(repeat.json()).toMatchObject({ code: 'reset_link_used' });
   });
 });
+
+describe('me.password.change over HTTP', () => {
+  it('answers 204 for a signed-in caller, whose session keeps working', async () => {
+    const caller = await signedIn();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/v1/me/password',
+      ...caller,
+      payload: { currentPassword: PASSWORD, newPassword: 'staple paperclip lantern' },
+    });
+    expect(res.statusCode).toBe(204);
+    const session = await app.inject({ method: 'GET', url: '/v1/auth/session', ...caller });
+    expect(session.statusCode).toBe(200);
+  });
+
+  it('refuses a caller without a session, and a session without its CSRF token', async () => {
+    const payload = { currentPassword: PASSWORD, newPassword: 'staple paperclip lantern' };
+    const anonymous = await app.inject({ method: 'POST', url: '/v1/me/password', payload });
+    expect(anonymous.statusCode).toBe(401);
+    const { cookies } = await signedIn();
+    const forged = await app.inject({ method: 'POST', url: '/v1/me/password', cookies, payload });
+    expect(forged.statusCode).toBe(403);
+  });
+});

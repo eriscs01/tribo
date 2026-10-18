@@ -2004,6 +2004,10 @@ export interface components {
             uri: string;
         };
         NewPassword: string;
+        PasswordChangeInput: {
+            currentPassword: string;
+            newPassword: components["schemas"]["NewPassword"];
+        };
         Problem: {
             type: string;
             title: string;
@@ -4951,16 +4955,18 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordChangeInput"];
+            };
+        };
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description No content */
+            204: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
+                content?: never;
             };
             /** @description Error */
             default: {
