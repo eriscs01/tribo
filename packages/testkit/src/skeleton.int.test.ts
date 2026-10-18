@@ -37,7 +37,7 @@ const mem = (id: string) => encodeTypeId(ID_PREFIX.membership, id);
 beforeAll(async () => {
   tdb = await createTestDatabase();
   const write = writePath(tdb.db);
-  trips = createTripsService(write);
+  trips = createTripsService(tdb.db, write);
   items = createItemsService(tdb.db, write);
 });
 afterAll(() => tdb.destroy());

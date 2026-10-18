@@ -1,5 +1,6 @@
-import { encodeTypeId, ID_PREFIX, type Trip } from '@tribo/contract';
+import { encodeTypeId, ID_PREFIX, PageQuery, type Trip, type TripPage } from '@tribo/contract';
 import type { TripRecord, TripsService } from '@tribo/core';
+import { validate } from '@tribo/platform';
 import { requestContext, signedIn } from '../context.js';
 import type { Handlers } from '../routes.js';
 
@@ -20,6 +21,11 @@ export function tripView(trip: TripRecord): Trip {
 
 export function tripHandlers(trips: TripsService): Handlers {
   return {
+    'trips.list': async (request): Promise<TripPage> => {
+      const page = await trips.list(signedIn(request).userId, validate(PageQuery, request.query));
+      return { items: page.items.map(tripView), nextCursor: page.nextCursor };
+    },
+
     'trips.create': async (request, reply) => {
       const trip = await trips.create(requestContext(request), signedIn(request), request.body);
       return reply.code(201).send(tripView(trip));

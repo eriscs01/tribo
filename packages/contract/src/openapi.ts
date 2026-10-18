@@ -74,7 +74,21 @@ function security(auth: readonly AuthMode[]): Json[] {
   });
 }
 
-function parameters(op: Operation): Json[] {
+/** One query parameter per key of the operation's query object, as JSON Schema input. */
+function queryParameters(query: z.ZodObject, components: Components): Json[] {
+  const object = jsonSchema(query, 'input', components) as {
+    properties?: Record<string, Json>;
+    required?: string[];
+  };
+  return Object.entries(object.properties ?? {}).map(([name, schema]) => ({
+    name,
+    in: 'query',
+    required: object.required?.includes(name) ?? false,
+    schema,
+  }));
+}
+
+function parameters(op: Operation, components: Components): Json[] {
   const params: Json[] = pathParams(op.path).map((name) => {
     const prefix = PATH_PARAM_PREFIX[name];
     return {
@@ -84,6 +98,7 @@ function parameters(op: Operation): Json[] {
       schema: prefix ? { type: 'string', pattern: typeIdPattern(prefix) } : { type: 'string' },
     };
   });
+  if (op.query) params.push(...queryParameters(op.query, components));
   if (op.ifMatch !== 'no') {
     params.push({
       name: 'If-Match',
@@ -138,7 +153,7 @@ function operationObject(op: Operation, components: Components): Json {
       mcpTool: op.mcpTool,
     },
   };
-  const params = parameters(op);
+  const params = parameters(op, components);
   if (params.length > 0) object.parameters = params;
   if (op.input) {
     object.requestBody = {

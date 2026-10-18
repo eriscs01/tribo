@@ -1,6 +1,7 @@
 import * as z from 'zod';
 import { ID_PREFIX, typeId } from './ids.js';
 import { CurrencyCode } from './money.js';
+import { page } from './page.js';
 import { Instant, TimeZone } from './time.js';
 
 /** A trip's lifecycle as the API shows it; `archived` is rendered from archived_at. */
@@ -44,3 +45,8 @@ export const Trip = z
   .meta({ id: 'Trip' });
 
 export type Trip = z.infer<typeof Trip>;
+
+/** trips.list: the caller's trips, latest start first. */
+export const TripPage = page(Trip, 'TripPage');
+
+export type TripPage = z.infer<typeof TripPage>;

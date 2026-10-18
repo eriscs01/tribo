@@ -40,7 +40,7 @@ beforeAll(async () => {
     authenticate: (token) => identity.authenticate(token),
     handlers: {
       ...authHandlers(identity, csrf),
-      ...tripHandlers(createTripsService(write)),
+      ...tripHandlers(createTripsService(tdb.db, write)),
       ...itemHandlers(createItemsService(tdb.db, write)),
     },
     ping: () => Promise.resolve(),
@@ -127,6 +127,10 @@ describe('walking skeleton over HTTP', () => {
     expect(read.statusCode).toBe(200);
     expect(read.json()).toEqual(item);
 
+    const listed = await app.inject({ method: 'GET', url: '/v1/trips', ...admin });
+    expect(listed.statusCode).toBe(200);
+    expect(listed.json()).toEqual({ items: [trip.json()], nextCursor: null });
+
     const tripUuid = decodeTypeId(ID_PREFIX.trip, tripId);
     const event = await tdb.db
       .selectFrom('audit.audit_events')
@@ -174,6 +178,17 @@ describe('walking skeleton over HTTP', () => {
       method: 'GET',
       url: '/v1/items/itm_01h455vb4pex5vsknk084sn02q',
     });
+    expect(anonymous.json()).toMatchObject({ code: 'unauthenticated' });
+  });
+
+  it('checks trips.list query parameters and needs a session', async () => {
+    const admin = await signIn({ username: 'ana', password: PASSWORD, totp: totpFor(adminKey) });
+    for (const query of ['limit=0', 'limit=201', 'limit=two', 'sort=name']) {
+      const res = await app.inject({ method: 'GET', url: `/v1/trips?${query}`, ...admin });
+      expect(res.statusCode, query).toBe(400);
+      expect(res.json(), query).toMatchObject({ code: 'validation_failed' });
+    }
+    const anonymous = await app.inject({ method: 'GET', url: '/v1/trips' });
     expect(anonymous.json()).toMatchObject({ code: 'unauthenticated' });
   });
 

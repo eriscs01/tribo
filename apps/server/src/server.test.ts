@@ -64,8 +64,10 @@ const identity: IdentityService = {
   createAdmin: () => Promise.reject(new Error('not used here')),
 };
 /** Trips and items are proven against the database in skeleton.int.test.ts. */
+/** A registered operation that is still a stub (trips.get). */
+const PLANNED = '/v1/trips/trp_01h455vb4pex5vsknk084sn02q';
 const unused = () => Promise.reject(new Error('not used here'));
-const trips: TripsService = { create: unused };
+const trips: TripsService = { create: unused, list: unused };
 const items: ItemsService = { create: unused, get: unused };
 
 let app: FastifyInstance | undefined;
@@ -130,13 +132,13 @@ describe('GET /healthz', () => {
 
 describe('problem details', () => {
   it('answers a planned operation with 501 not_implemented', async () => {
-    const res = await (await server()).inject({ method: 'GET', url: '/v1/trips' });
+    const res = await (await server()).inject({ method: 'GET', url: PLANNED });
     expect(res.statusCode).toBe(501);
     expect(res.headers['content-type']).toMatch(/^application\/problem\+json/);
     expect(res.json()).toMatchObject({
       code: 'not_implemented',
       status: 501,
-      instance: '/v1/trips',
+      instance: PLANNED,
     });
   });
 
@@ -186,7 +188,7 @@ describe('request id', () => {
     expect(requestLines.length).toBeGreaterThanOrEqual(3);
     for (const line of requestLines) expect(line.requestId).toBe(id);
 
-    const problemRes = await s.inject({ method: 'GET', url: '/v1/trips' });
+    const problemRes = await s.inject({ method: 'GET', url: PLANNED });
     expect(problemRes.json()).toMatchObject({ requestId: problemRes.headers['x-request-id'] });
   });
 
@@ -313,7 +315,7 @@ describe('authentication', () => {
   it('leaves public operations and planned stubs alone', async () => {
     const s = await server();
     expect((await s.inject({ method: 'GET', url: '/healthz' })).statusCode).toBe(200);
-    expect((await s.inject({ method: 'GET', url: '/v1/trips' })).statusCode).toBe(501);
+    expect((await s.inject({ method: 'GET', url: PLANNED })).statusCode).toBe(501);
   });
 });
 
@@ -386,8 +388,8 @@ describe('auth handlers', () => {
 
 describe('registry coverage at start', () => {
   it('refuses a handler for an operation that is not implemented', async () => {
-    await expect(server({ handlers: { 'trips.list': () => Promise.resolve([]) } })).rejects.toThrow(
-      /trips.list has no implemented registry operation/,
+    await expect(server({ handlers: { 'trips.get': () => Promise.resolve({}) } })).rejects.toThrow(
+      /trips.get has no implemented registry operation/,
     );
   });
 

@@ -1,6 +1,14 @@
-import { TripInput } from '@tribo/contract';
+import { TripInput, type PageQuery } from '@tribo/contract';
 import { forModule, type DB, type ValueOf } from '@tribo/db';
-import { ApiError, type RequestContext, type Tx, type WritePath } from '@tribo/platform';
+import {
+  ApiError,
+  decodeCursor,
+  encodeCursor,
+  invalidCursor,
+  type RequestContext,
+  type Tx,
+  type WritePath,
+} from '@tribo/platform';
 import type { Kysely } from 'kysely';
 import { accountPersonId } from '../library/service.js';
 import { writeOperation } from '../write-operation.js';
@@ -10,8 +18,10 @@ import {
   findActiveMembership,
   insertMembership,
   insertTrip,
+  listMemberTrips,
   lockTripForWrite,
   type TripRole,
+  type TripRow,
 } from './repo.js';
 
 export type { TripRole } from './repo.js';
@@ -40,13 +50,34 @@ export interface TripCreator {
 export interface TripsService {
   /** trips.create: the trip and the caller's owner membership, in one write. */
   create(ctx: RequestContext, caller: TripCreator, body: unknown): Promise<TripRecord>;
+  /** trips.list: the trips the caller is a member of; admins get no implicit access. */
+  list(
+    userId: string,
+    page: PageQuery,
+  ): Promise<{ items: TripRecord[]; nextCursor: string | null }>;
 }
 
 const tripsCreate = writeOperation('trips.create', TripInput);
 
 /** `write` is core's write path (writePath in write-path.ts), passed in to keep imports acyclic. */
-export function createTripsService(write: WritePath): TripsService {
+export function createTripsService(db: Kysely<DB>, write: WritePath): TripsService {
   return {
+    async list(userId, page) {
+      const after = page.cursor === undefined ? null : tripCursor(page.cursor);
+      // One extra row says whether another page follows.
+      const rows = await listMemberTrips(forModule(db, 'trips'), userId, {
+        limit: page.limit + 1,
+        after,
+      });
+      const items = rows.slice(0, page.limit).map(tripRecord);
+      const last = items.at(-1);
+      return {
+        items,
+        nextCursor:
+          rows.length > page.limit && last ? encodeCursor([last.startDate, last.id]) : null,
+      };
+    },
+
     create: (ctx, caller, body) =>
       write(ctx, {
         operation: tripsCreate,
@@ -147,7 +178,17 @@ function actingUser(ctx: RequestContext): string {
   return ctx.userId;
 }
 
-function tripRecord(row: Awaited<ReturnType<typeof insertTrip>>): TripRecord {
+const DATE = /^\d{4}-\d{2}-\d{2}$/;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+/** A trips.list cursor's sort key; anything else is refused before it reaches SQL. */
+function tripCursor(cursor: string): { startDate: string; id: string } {
+  const [startDate = '', id = ''] = decodeCursor(cursor, 2);
+  if (!DATE.test(startDate) || !UUID.test(id)) throw invalidCursor();
+  return { startDate, id };
+}
+
+function tripRecord(row: TripRow): TripRecord {
   return {
     id: row.id,
     name: row.name,

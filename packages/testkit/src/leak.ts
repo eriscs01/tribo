@@ -1,7 +1,8 @@
 // Leak-test harness: fast-check generates small worlds of users, placeholders, trips,
 // memberships (some soft-deleted) and items (shared, private or selected, some deleted);
 // a TypeScript oracle states who may see what; the property checks that the database's
-// tribo.item_visible and tribo.person_visible agree with it for every pair in the world.
+// tribo.item_visible and tribo.person_visible agree with it for every pair in the world, and
+// that each list operation registered here returns each account exactly what the oracle allows.
 import { VALUE_SETS, type DB } from '@tribo/db';
 import fc from 'fast-check';
 import { sql, type Kysely } from 'kysely';
@@ -119,6 +120,8 @@ export interface BuiltWorld {
 export interface Oracle {
   itemVisible(world: BuiltWorld, userId: string, itemId: string): boolean;
   personVisible(world: BuiltWorld, userId: string, personId: string): boolean;
+  /** A trip is the caller's while they hold an active membership in it and it is not deleted. */
+  tripVisible(world: BuiltWorld, userId: string, tripId: string): boolean;
 }
 
 const personOf = (w: BuiltWorld, userId: string) => w.persons.find((p) => p.userId === userId);
@@ -156,6 +159,13 @@ export const oracle: Oracle = {
         t.members.some((m) => m.personId === personId && !m.deleted) &&
         t.members.some((m) => m.personId === me.id && !m.deleted),
     );
+  },
+
+  tripVisible(w, userId, tripId) {
+    const trip = w.trips.find((t) => t.id === tripId);
+    const me = personOf(w, userId);
+    if (!trip || trip.deleted || !me) return false;
+    return trip.members.some((m) => m.personId === me.id && !m.deleted);
   },
 };
 
@@ -275,23 +285,66 @@ export async function findMismatches(
 class Rollback extends Error {}
 
 /**
- * The property: build the world inside a transaction, compare, roll back. One database
- * serves every run, and the visibility functions (STABLE SQL) see the uncommitted rows.
+ * Builds the world inside a transaction, checks it, rolls back. One database serves every
+ * run, and the visibility functions (STABLE SQL) see the uncommitted rows.
  */
+async function inWorld<T>(
+  db: Kysely<DB>,
+  spec: WorldSpec,
+  check: (trx: Kysely<DB>, world: BuiltWorld) => Promise<T>,
+): Promise<T> {
+  let result: { value: T } | undefined;
+  try {
+    await db.transaction().execute(async (trx) => {
+      result = { value: await check(trx, await buildWorld(trx, spec)) };
+      throw new Rollback();
+    });
+  } catch (error) {
+    if (!(error instanceof Rollback)) throw error;
+  }
+  if (!result) throw new Error('world check did not run');
+  return result.value;
+}
+
+/** The property: the database's visibility predicates agree with the oracle for every pair. */
 export function visibilityProperty(db: Kysely<DB>, rules: Oracle = oracle) {
   return fc.asyncProperty(worldArb, async (spec) => {
-    let mismatches: Mismatch[] = [];
-    try {
-      await db.transaction().execute(async (trx) => {
-        const world = await buildWorld(trx, spec);
-        mismatches = await findMismatches(trx, world, rules);
-        throw new Rollback();
-      });
-    } catch (error) {
-      if (!(error instanceof Rollback)) throw error;
-    }
+    const mismatches = await inWorld(db, spec, (trx, world) => findMismatches(trx, world, rules));
     if (mismatches.length > 0) {
       throw new Error(`visibility leak or over-hiding: ${JSON.stringify(mismatches.slice(0, 5))}`);
+    }
+  });
+}
+
+/** A list read as the leak harness drives it: every id it returns to this account. */
+export type ListRead = (db: Kysely<DB>, userId: string) => Promise<string[]>;
+
+/**
+ * The property for a list operation: for every account in the world, the ids the read
+ * returns are exactly those `visible` allows among `candidates`, no more and no fewer.
+ */
+export function listProperty(
+  db: Kysely<DB>,
+  read: ListRead,
+  candidates: (world: BuiltWorld) => string[],
+  visible: (world: BuiltWorld, userId: string, id: string) => boolean,
+) {
+  return fc.asyncProperty(worldArb, async (spec) => {
+    const mismatches = await inWorld(db, spec, async (trx, world) => {
+      const out: { userId: string; listed: string[]; expected: string[] }[] = [];
+      for (const userId of world.userIds) {
+        const listed = (await read(trx, userId)).sort();
+        const expected = candidates(world)
+          .filter((id) => visible(world, userId, id))
+          .sort();
+        if (JSON.stringify(listed) !== JSON.stringify(expected)) {
+          out.push({ userId, listed, expected });
+        }
+      }
+      return out;
+    });
+    if (mismatches.length > 0) {
+      throw new Error(`list leak or over-hiding: ${JSON.stringify(mismatches.slice(0, 5))}`);
     }
   });
 }
