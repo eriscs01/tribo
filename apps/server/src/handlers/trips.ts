@@ -1,6 +1,7 @@
 import { encodeTypeId, ID_PREFIX, PageQuery, type Trip, type TripPage } from '@tribo/contract';
 import type { TripRecord, TripsService } from '@tribo/core';
-import { requestContext, signedIn } from '../context.js';
+import { ifMatch, pathId, requestContext, signedIn } from '../context.js';
+import { sendRepresentation } from '../representation.js';
 import { parsedQuery, type Handlers } from '../routes.js';
 
 export function tripView(trip: TripRecord): Trip {
@@ -12,6 +13,7 @@ export function tripView(trip: TripRecord): Trip {
     currency: trip.currency,
     timezone: trip.timezone,
     status: trip.status,
+    destinations: trip.destinations.map((id) => encodeTypeId(ID_PREFIX.place, id)),
     version: trip.version,
     createdAt: trip.createdAt.toISOString(),
     updatedAt: trip.updatedAt.toISOString(),
@@ -28,6 +30,31 @@ export function tripHandlers(trips: TripsService): Handlers {
     'trips.create': async (request, reply) => {
       const trip = await trips.create(requestContext(request), signedIn(request), request.body);
       return reply.code(201).send(tripView(trip));
+    },
+
+    'trips.get': async (request, reply) => {
+      const trip = await trips.get(signedIn(request).userId, pathId(request, 'tripId'));
+      return sendRepresentation(request, reply, tripView(trip));
+    },
+
+    'trips.update': async (request) =>
+      tripView(
+        await trips.update(
+          requestContext(request),
+          pathId(request, 'tripId'),
+          request.body,
+          ifMatch(request),
+        ),
+      ),
+
+    'trips.delete': async (request, reply) => {
+      await trips.delete(
+        requestContext(request),
+        pathId(request, 'tripId'),
+        request.body,
+        ifMatch(request),
+      );
+      return reply.code(204).send();
     },
   };
 }

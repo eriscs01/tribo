@@ -1,7 +1,7 @@
 // Generated from operations.csv by src/scripts/import-operations.ts. A story replaces an
 // entry's status with 'implemented' and adds its input and output schemas.
 import { PageQuery } from '../page.js';
-import { Trip, TripInput, TripPage } from '../trip.js';
+import { Trip, TripInput, TripPage, TripPatch } from '../trip.js';
 import { defineOperation } from '../operation.js';
 
 export const tripsOperations = [
@@ -59,7 +59,8 @@ export const tripsOperations = [
     mcpTool: null,
     notes:
       'Trip detail incl. destinations; Members only; ETag = SHA-256 of the representation (rule 4)',
-    status: 'planned',
+    status: 'implemented',
+    output: Trip,
   }),
   defineOperation({
     id: 'trips.update',
@@ -77,7 +78,9 @@ export const tripsOperations = [
     mcpTool: null,
     notes:
       'Edit fields, destinations, status transition; invalid_transition on bad status move; Status archived only via trips.archive; currency_locked once any expense or budget line exists (R9, write-path rule); trip_archived on archived trips (R29)',
-    status: 'planned',
+    status: 'implemented',
+    input: TripPatch,
+    output: Trip,
   }),
   defineOperation({
     id: 'trips.delete',
@@ -95,7 +98,7 @@ export const tripsOperations = [
     mcpTool: 'delete_trip',
     notes:
       'Soft-delete trip and children; Undo via trips.restore (1b); MCP approval; Allowed on archived trips; refused with trip_retired once the audit chain is retired (R29)',
-    status: 'planned',
+    status: 'implemented',
   }),
   defineOperation({
     id: 'trips.archive',

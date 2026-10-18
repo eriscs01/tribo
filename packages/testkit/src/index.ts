@@ -2,6 +2,7 @@ export { connectAs, createTestDatabase, type TestDatabase } from './database.js'
 export {
   addMember,
   createItem,
+  createPlace,
   createPlaceholder,
   createResetLink,
   createTrip,

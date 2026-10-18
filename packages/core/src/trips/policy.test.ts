@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { tripCreateRefusal, tripWriteRefusal } from './policy.js';
+import { VALUE_SETS } from '@tribo/db';
+import { LIFECYCLE, statusMoveRefusal, tripCreateRefusal, tripWriteRefusal } from './policy.js';
 
 const open = { archived: false, deleted: false };
 const archived = { archived: true, deleted: false };
@@ -28,5 +29,26 @@ describe('tripCreateRefusal', () => {
   it('needs a session that passed a second factor', () => {
     expect(tripCreateRefusal({ mfaVerified: true })).toBeNull();
     expect(tripCreateRefusal({ mfaVerified: false })).toBe('mfa_required');
+  });
+});
+
+describe('statusMoveRefusal', () => {
+  it('orders every status the database allows, and only those', () => {
+    expect([...LIFECYCLE].sort()).toEqual([...VALUE_SETS['tribo.trips.status']].sort());
+  });
+
+  it('moves forward, one step or several, and stays put', () => {
+    expect(statusMoveRefusal('draft', 'planning')).toBeNull();
+    expect(statusMoveRefusal('draft', 'completed')).toBeNull();
+    expect(statusMoveRefusal('active', 'active')).toBeNull();
+  });
+
+  it('never moves back', () => {
+    expect(statusMoveRefusal('active', 'planning')).toBe('invalid_transition');
+    expect(statusMoveRefusal('completed', 'draft')).toBe('invalid_transition');
+  });
+
+  it('leaves archiving to trips.archive', () => {
+    expect(statusMoveRefusal('completed', 'archived')).toBe('invalid_transition');
   });
 });

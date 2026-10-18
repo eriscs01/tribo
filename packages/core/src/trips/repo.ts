@@ -62,6 +62,108 @@ export function insertTrip(
 
 export type TripRow = Awaited<ReturnType<typeof insertTrip>>;
 
+/** A trip that is not deleted, or undefined. */
+export function findTrip(db: TripsDb, tripId: string): Promise<TripRow | undefined> {
+  return db
+    .selectFrom('tribo.trips')
+    .select(TRIP_COLUMNS)
+    .where('id', '=', tripId)
+    .where('deleted_at', 'is', null)
+    .executeTakeFirst();
+}
+
+/** Locks a trip that is not deleted FOR UPDATE until commit, or undefined. */
+export function lockTrip(db: TripsDb, tripId: string): Promise<TripRow | undefined> {
+  return db
+    .selectFrom('tribo.trips')
+    .select(TRIP_COLUMNS)
+    .where('id', '=', tripId)
+    .where('deleted_at', 'is', null)
+    .forUpdate()
+    .executeTakeFirst();
+}
+
+export interface TripFields {
+  name: string;
+  startDate: string;
+  endDate: string;
+  currency: string;
+  timezone: string;
+  status: ValueOf<'tribo.trips.status'>;
+}
+
+/** Writes the trip's fields and bumps its version. */
+export function updateTrip(db: TripsDb, tripId: string, fields: TripFields, updatedBy: string) {
+  return db
+    .updateTable('tribo.trips')
+    .set((eb) => ({
+      name: fields.name,
+      start_date: fields.startDate,
+      end_date: fields.endDate,
+      currency: fields.currency,
+      timezone: fields.timezone,
+      status: fields.status,
+      version: eb('version', '+', 1),
+      updated_at: sql<Date>`now()`,
+      updated_by: updatedBy,
+    }))
+    .where('id', '=', tripId)
+    .returning(TRIP_COLUMNS)
+    .executeTakeFirstOrThrow();
+}
+
+/**
+ * Soft-deletes the trip and bumps its version. Everything under it drops out with it:
+ * tribo.is_member and tribo.item_visible ignore a deleted trip's rows (R18).
+ */
+export function softDeleteTrip(db: TripsDb, tripId: string, deletedBy: string) {
+  return db
+    .updateTable('tribo.trips')
+    .set((eb) => ({
+      deleted_at: sql<Date>`now()`,
+      deleted_by: deletedBy,
+      version: eb('version', '+', 1),
+      updated_at: sql<Date>`now()`,
+      updated_by: deletedBy,
+    }))
+    .where('id', '=', tripId)
+    .returning(TRIP_COLUMNS)
+    .executeTakeFirstOrThrow();
+}
+
+/** Replaces the trip's destinations (owned rows) with these places, in this order. */
+export async function replaceDestinations(
+  db: TripsDb,
+  tripId: string,
+  placeIds: readonly string[],
+): Promise<void> {
+  await db.deleteFrom('tribo.trip_destinations').where('trip_id', '=', tripId).execute();
+  if (placeIds.length === 0) return;
+  await db
+    .insertInto('tribo.trip_destinations')
+    .values(placeIds.map((placeId, position) => ({ trip_id: tripId, place_id: placeId, position })))
+    .execute();
+}
+
+/** Each trip's destination place ids, in travel order; trips without any are absent. */
+export async function listDestinations(
+  db: TripsDb,
+  tripIds: readonly string[],
+): Promise<Map<string, string[]>> {
+  const byTrip = new Map<string, string[]>();
+  if (tripIds.length === 0) return byTrip;
+  const rows = await db
+    .selectFrom('tribo.trip_destinations')
+    .select(['trip_id', 'place_id'])
+    .where('trip_id', 'in', tripIds)
+    .orderBy('trip_id')
+    .orderBy('position')
+    .execute();
+  for (const row of rows)
+    byTrip.set(row.trip_id, [...(byTrip.get(row.trip_id) ?? []), row.place_id]);
+  return byTrip;
+}
+
 /**
  * One page of the trips this account is an active member of (tribo.is_member, so deleted
  * trips drop out), latest start first, then by id. `after` is the last row's sort key.
