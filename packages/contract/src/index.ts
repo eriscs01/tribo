@@ -1,4 +1,5 @@
 export * from './account.js';
+export { MODULE_FILE } from './csv-row.js';
 export * from './errors.js';
 export * from './ids.js';
 export * from './item.js';

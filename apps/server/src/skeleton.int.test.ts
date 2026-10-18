@@ -17,9 +17,7 @@ import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { auditVerify } from './cli/audit-verify.js';
 import { CliError, type CliIo } from './cli/io.js';
-import { authHandlers } from './handlers/auth.js';
-import { itemHandlers } from './handlers/items.js';
-import { tripHandlers } from './handlers/trips.js';
+import { operationHandlers } from './handlers/index.js';
 import { buildServer } from './server.js';
 
 const PASSWORD = 'correct horse battery';
@@ -38,11 +36,12 @@ beforeAll(async () => {
     trustedProxies: ['loopback'],
     csrfSecret: csrf,
     authenticate: (token) => identity.authenticate(token),
-    handlers: {
-      ...authHandlers(identity, csrf),
-      ...tripHandlers(createTripsService(tdb.db, write)),
-      ...itemHandlers(createItemsService(tdb.db, write)),
-    },
+    handlers: operationHandlers({
+      identity,
+      csrfSecret: csrf,
+      trips: createTripsService(tdb.db, write),
+      items: createItemsService(tdb.db, write),
+    }),
     ping: () => Promise.resolve(),
     logLevel: 'silent',
   });

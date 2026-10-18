@@ -17,9 +17,7 @@ import type { IdentityService, ItemsService, SignedIn, TripsService } from '@tri
 import { afterEach, describe, expect, it } from 'vitest';
 import { ApiError } from '@tribo/platform';
 import { ConfigError, loadConfig } from './config.js';
-import { authHandlers } from './handlers/auth.js';
-import { itemHandlers } from './handlers/items.js';
-import { tripHandlers } from './handlers/trips.js';
+import { operationHandlers } from './handlers/index.js';
 import { parsedQuery } from './routes.js';
 import { buildServer, type ServerDeps } from './server.js';
 import { csrfTokenFor, setSessionCookie } from './session.js';
@@ -102,9 +100,7 @@ async function server(overrides: Partial<ServerDeps> = {}) {
     logStream: stream,
     registry: testRegistry,
     handlers: {
-      ...authHandlers(identity, secret),
-      ...tripHandlers(trips),
-      ...itemHandlers(items),
+      ...operationHandlers({ identity, csrfSecret: secret, trips, items }),
       'test.ip': (request) => {
         request.log.info('handler ran');
         return Promise.resolve({ ip: request.ip });
