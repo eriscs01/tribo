@@ -79,10 +79,10 @@ jobs:
       - uses: ./.github/actions/setup
       # Workspace packages resolve through their built dist.
       - run: pnpm build
-      # Fixed seed (the testkit default) so pushes are reproducible; random seeds belong to the nightly job.
+      # Fixed seed (the testkit default) so pushes are reproducible; random seeds run in nightly.yml.
       - run: pnpm test:leak
 
-  # Job 8, in three parts that run at once: the lockfile scan, and one build and Trivy scan
+  # Job 6, in three parts that run at once: the lockfile scan, and one build and Trivy scan
   # per image. "Build and scan" (the required check) passes only when all of them do.
   lockfile:
     name: Scan the lockfile
@@ -171,8 +171,8 @@ jobs:
           echo "lockfile, images: $RESULTS"
           [ "$RESULTS" = "success success" ]
 
-  # Job 9: exit criteria 1–2 (apps/e2e) in a browser against deploy/compose.yml, run from the
-  # images job 8 scanned (rebuilt here from its layer cache) in the internal TLS mode. It runs
+  # Job 7: exit criteria 1–2 (apps/e2e) in a browser against deploy/compose.yml, run from the
+  # images job 6 scanned (rebuilt here from its layer cache) in the internal TLS mode. It runs
   # on pull requests too, because a required check must report on the PR it guards.
   e2e:
     name: End to end

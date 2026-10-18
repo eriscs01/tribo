@@ -1,0 +1,59 @@
+name: Nightly
+
+# CI job 7 with random seeds: pushes and pull requests keep the fixed seed (ci.yml), so the
+# property tests explore new worlds here without making a required check flaky.
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  # A failed seed is rerun by hand from the Actions tab with that seed.
+  workflow_dispatch:
+    inputs:
+      seed:
+        description: fast-check seed (empty for a random one)
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  leak:
+    name: Leak properties (random seed)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      # Workspace packages resolve through their built dist.
+      - run: pnpm build
+      # A positive 31-bit seed, printed before the run so a failure can be reproduced locally
+      # with TRIBO_LEAK_SEED=<seed> pnpm test:leak.
+      - name: Pick the seed
+        env:
+          INPUT_SEED: ${{ inputs.seed }}
+        run: |
+          seed="${INPUT_SEED:-$(( $(od -An -N4 -tu4 /dev/urandom) % 2147483647 + 1 ))}"
+          echo "TRIBO_LEAK_SEED=$seed" >>"$GITHUB_ENV"
+          echo "Leak properties seed: $seed"
+          echo "Leak properties seed: \`$seed\` (reproduce with \`TRIBO_LEAK_SEED=$seed pnpm test:leak\`)" >>"$GITHUB_STEP_SUMMARY"
+      - run: pnpm test:leak
+
+  # A scheduled failure reaches no pull request, so it opens an issue carrying the seed.
+  report:
+    name: Report a failure
+    needs: [leak]
+    if: failure() && github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Open an issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh issue create --title "Nightly leak properties failed ($(date -u +%F))" \
+            --body "The random-seed leak run failed: $RUN_URL. Its summary names the seed; reproduce with \`TRIBO_LEAK_SEED=<seed> pnpm test:leak\`."
