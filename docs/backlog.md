@@ -15,14 +15,14 @@
 - [x] `auth.session` · Drop A · `GET /v1/auth/session`
   - Current session + CSRF token
   - Roles: self. If-Match: `no`. Idempotency: safe to repeat.
-- [ ] `auth.mfa.setup` · Drop A · `POST /v1/auth/mfa/totp`
+- [x] `auth.mfa.setup` · Drop A · `POST /v1/auth/mfa/totp`
   - Start TOTP enrolment (secret); Secret shown once; No Idempotency-Key: each call replaces the pending secret (R2)
   - Roles: self. If-Match: `no`. Idempotency: never replayed.
-- [ ] `auth.mfa.confirm` · Drop A · `POST /v1/auth/mfa/totp/confirm`
+- [x] `auth.mfa.confirm` · Drop A · `POST /v1/auth/mfa/totp/confirm`
   - Confirm TOTP; returns 10 recovery codes; Codes shown once; Codes never stored for replay; a replay returns 200 with codes omitted and redacted = true (R2)
   - Roles: self. If-Match: `no`. Idempotency: creates (key).
   - Limit: Takes no Idempotency-Key in 1a: only expenses.create and files.upload honour it; this create follows in 1b.
-- [ ] `auth.passwordReset` · Drop A · `POST /v1/auth/password-reset`
+- [x] `auth.passwordReset` · Drop A · `POST /v1/auth/password-reset`
   - Use admin reset link {token, newPassword}; revokes all sessions and refresh tokens; Token in body, never URL; Single-use token makes it naturally idempotent: a repeat gets reset_link_used (R2)
   - Roles: anyone with link. If-Match: `no`. Idempotency: safe to repeat.
 
@@ -34,7 +34,7 @@
 - [ ] `me.update` · Drop A · `PATCH /v1/me`
   - Edit own profile (name, contacts, dietary, emergency contact, licence); masked_field_write on masked fields
   - Roles: self. If-Match: `version`. Idempotency: safe to repeat.
-- [ ] `me.password.change` · Drop A · `POST /v1/me/password`
+- [x] `me.password.change` · Drop A · `POST /v1/me/password`
   - Change own password; revokes other sessions; Decided (G1); Never replayed (rule 6)
   - Roles: self. If-Match: `no`. Idempotency: never replayed.
 - [ ] `me.tasks` · Drop B · `GET /v1/me/tasks`
@@ -254,6 +254,6 @@
 - [x] `meta.liveness` · Drop A · `GET /healthz`
   - Liveness for Compose/Caddy: 200 when DB reachable; No details returned; Decided (G13)
   - Roles: anyone. If-Match: `no`. Idempotency: safe to repeat.
-- [ ] `meta.openapi` · Drop A · `GET /v1/openapi.json`
+- [x] `meta.openapi` · Drop A · `GET /v1/openapi.json`
   - Generated OpenAPI 3.1 document; Decided (G13)
   - Roles: any signed-in user. If-Match: `no`. Idempotency: safe to repeat.

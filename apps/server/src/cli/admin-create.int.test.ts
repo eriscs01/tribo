@@ -25,7 +25,11 @@ let identity: IdentityService;
 
 beforeAll(async () => {
   tdb = await createTestDatabase();
-  identity = createIdentityService(tdb.db, keyring(new AppKey(randomBytes(32))));
+  identity = createIdentityService(
+    tdb.db,
+    keyring(new AppKey(randomBytes(32))),
+    'Tribo (tribo.test)',
+  );
 });
 afterAll(() => tdb.destroy());
 

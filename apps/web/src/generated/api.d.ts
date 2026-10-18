@@ -1940,6 +1940,10 @@ export interface components {
             /** Format: date */
             date: string;
         };
+        AuthPasswordResetInput: {
+            token: string;
+            newPassword: components["schemas"]["NewPassword"];
+        };
         CurrencyCode: string;
         /** @enum {string} */
         ErrorCode: "unauthenticated" | "mfa_required" | "forbidden" | "not_found" | "validation_failed" | "if_match_required" | "version_conflict" | "idempotency_key_reused" | "capacity_exceeded" | "room_double_booked" | "driver_taken" | "invalid_transition" | "masked_field_write" | "rate_limited" | "file_too_large" | "file_type_not_allowed" | "file_purged" | "username_taken" | "invite_invalid" | "already_member" | "claim_conflict" | "person_has_account" | "owner_transfer_required" | "reset_link_used" | "currency_locked" | "trip_archived" | "trip_retired" | "approval_required" | "approval_not_pending" | "internal_error" | "not_implemented";
@@ -1987,6 +1991,36 @@ export interface components {
             password: string;
             totp?: components["schemas"]["TotpCode"];
             recoveryCode?: string;
+        };
+        MetaOpenapi: {
+            openapi: string;
+            info: {
+                title: string;
+                version: string;
+            } & {
+                [key: string]: unknown;
+            };
+            paths: {
+                [key: string]: unknown;
+            };
+        } & {
+            [key: string]: unknown;
+        };
+        MfaConfirm: {
+            recoveryCodes?: string[];
+            redacted: boolean;
+        };
+        MfaConfirmInput: {
+            code: components["schemas"]["TotpCode"];
+        };
+        MfaSetup: {
+            key: string;
+            uri: string;
+        };
+        NewPassword: string;
+        PasswordChangeInput: {
+            currentPassword: string;
+            newPassword: components["schemas"]["NewPassword"];
         };
         Problem: {
             type: string;
@@ -2821,13 +2855,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["MfaSetup"];
                 };
             };
             /** @description Error */
@@ -2851,15 +2885,19 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MfaConfirmInput"];
+            };
+        };
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["MfaConfirm"];
                 };
             };
             /** @description Error */
@@ -2880,16 +2918,18 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AuthPasswordResetInput"];
+            };
+        };
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description No content */
+            204: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
+                content?: never;
             };
             /** @description Error */
             default: {
@@ -4929,16 +4969,18 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordChangeInput"];
+            };
+        };
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description No content */
+            204: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
+                content?: never;
             };
             /** @description Error */
             default: {
@@ -5143,13 +5185,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["MetaOpenapi"];
                 };
             };
             /** @description Error */

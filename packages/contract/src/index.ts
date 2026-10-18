@@ -1,12 +1,16 @@
 export * from './account.js';
+export * from './auth.js';
 export { MODULE_FILE } from './csv-row.js';
 export * from './errors.js';
 export * from './ids.js';
 export * from './item.js';
+export * from './meta.js';
+export * from './mfa.js';
 export * from './money.js';
 export * from './openapi.js';
 export * from './operation.js';
 export * from './page.js';
+export * from './password.js';
 export * from './problem.js';
 export * from './session.js';
 export * from './time.js';

@@ -20,3 +20,14 @@ export type LoginStep =
 export function countsAsFailure(step: LoginStep): boolean {
   return step === 'wrong_password' || step === 'wrong_second_factor';
 }
+
+/**
+ * auth.mfa.confirm enables the pending secret auth.mfa.setup stored: there must be one,
+ * and MFA must still be off.
+ */
+export function mfaConfirmRefusal(account: {
+  mfaEnabled: boolean;
+  hasPendingSecret: boolean;
+}): 'invalid_transition' | null {
+  return account.mfaEnabled || !account.hasPendingSecret ? 'invalid_transition' : null;
+}

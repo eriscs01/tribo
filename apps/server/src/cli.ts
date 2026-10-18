@@ -43,7 +43,7 @@ try {
       identity: runtime.identity,
       verifyAudit: runtime.verifyAudit,
       io,
-      issuer: `Tribo (${config.publicUrl.host})`,
+      issuer: runtime.issuer,
       ctx: { requestId: `cli-${randomUUID()}`, surface: 'system', userId: null },
     },
     args,

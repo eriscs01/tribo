@@ -188,3 +188,135 @@ export function enrolMfaAndActivate(
     .returning(['id', 'username', 'platform_role', 'status', 'mfa_enabled_at', 'version'])
     .executeTakeFirstOrThrow();
 }
+
+/**
+ * Stores a pending TOTP secret, replacing any earlier pending one, while MFA is still off.
+ * A pending secret is credential state: it bumps no version until auth.mfa.confirm enables
+ * it. Undefined when the account already has MFA on.
+ */
+export function setPendingMfaSecret(db: IdentityDb, userId: string, mfaSecretEnc: Buffer) {
+  return db
+    .updateTable('tribo.users')
+    .set({ mfa_secret_enc: mfaSecretEnc })
+    .where('id', '=', userId)
+    .where('mfa_enabled_at', 'is', null)
+    .returning('id')
+    .executeTakeFirst();
+}
+
+/** The caller's account row, locked for auth.mfa.confirm. */
+export function lockAccount(db: IdentityDb, userId: string) {
+  return db
+    .selectFrom('tribo.users')
+    .select(['id', 'version', 'mfa_secret_enc', 'mfa_enabled_at'])
+    .where('id', '=', userId)
+    .where('deleted_at', 'is', null)
+    .forUpdate()
+    .executeTakeFirst();
+}
+
+/** Enables the pending TOTP secret, bumping the account's version. */
+export function enableMfa(
+  db: IdentityDb,
+  account: { userId: string; expectedVersion: number; by: string | null },
+) {
+  return db
+    .updateTable('tribo.users')
+    .set({
+      mfa_enabled_at: sql`now()`,
+      version: account.expectedVersion + 1,
+      updated_at: sql`now()`,
+      updated_by: account.by,
+    })
+    .where('id', '=', account.userId)
+    .where('version', '=', account.expectedVersion)
+    .returning(['id', 'username', 'platform_role', 'status', 'mfa_enabled_at', 'version'])
+    .executeTakeFirstOrThrow();
+}
+
+/** The session just proved a second factor. */
+export async function markSessionMfaVerified(db: IdentityDb, sessionId: string): Promise<void> {
+  await db
+    .updateTable('tribo.sessions')
+    .set({ mfa_verified_at: sql`now()` })
+    .where('id', '=', sessionId)
+    .execute();
+}
+
+/**
+ * Uses a reset link: marks it used if it is live (unused, unrevoked, unexpired, its account
+ * not deleted) and returns its account. A concurrent second use waits on the row and finds
+ * it used, so a link works exactly once.
+ */
+export function useResetLink(db: IdentityDb, tokenHash: Buffer) {
+  return db
+    .updateTable('tribo.password_reset_links as l')
+    .from('tribo.users as u')
+    .set({ used_at: sql`now()` })
+    .whereRef('u.id', '=', 'l.user_id')
+    .where('l.token_hash', '=', tokenHash)
+    .where('l.used_at', 'is', null)
+    .where('l.revoked_at', 'is', null)
+    .where('l.expires_at', '>', sql<Date>`now()`)
+    .where('u.deleted_at', 'is', null)
+    .returning('l.user_id')
+    .executeTakeFirst();
+}
+
+/** Revokes the account's reset links that are still unused. */
+export async function revokeResetLinks(db: IdentityDb, userId: string): Promise<void> {
+  await db
+    .updateTable('tribo.password_reset_links')
+    .set({ revoked_at: sql`now()` })
+    .where('user_id', '=', userId)
+    .where('used_at', 'is', null)
+    .where('revoked_at', 'is', null)
+    .execute();
+}
+
+/**
+ * Sets a new password hash and lifts any lockout. The hash is a credential, never in the
+ * snapshot, so it bumps no version; the audit event records the act.
+ */
+export async function setPassword(
+  db: IdentityDb,
+  userId: string,
+  passwordHash: string,
+): Promise<void> {
+  await db
+    .updateTable('tribo.users')
+    .set({
+      password_hash: passwordHash,
+      password_changed_at: sql`now()`,
+      failed_login_count: 0,
+      locked_until: null,
+    })
+    .where('id', '=', userId)
+    .execute();
+}
+
+/** Revokes the account's live sessions, all of them or all but `keep`. */
+export async function revokeSessions(
+  db: IdentityDb,
+  userId: string,
+  keep: string | null = null,
+): Promise<void> {
+  let query = db
+    .updateTable('tribo.sessions')
+    .set({ revoked_at: sql`now()` })
+    .where('user_id', '=', userId)
+    .where('revoked_at', 'is', null);
+  if (keep !== null) query = query.where('id', '<>', keep);
+  await query.execute();
+}
+
+/** The caller's password hash, with `locked` judged by the database clock. */
+export function findPasswordAccount(db: IdentityDb, userId: string) {
+  return db
+    .selectFrom('tribo.users')
+    .select(['id', 'password_hash'])
+    .select(sql<boolean>`coalesce(locked_until > now(), false)`.as('locked'))
+    .where('id', '=', userId)
+    .where('deleted_at', 'is', null)
+    .executeTakeFirst();
+}

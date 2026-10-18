@@ -7,7 +7,10 @@ import { clearSessionCookie, csrfTokenFor, sessionTokenOf, setSessionCookie } fr
 
 const USER_AGENT_MAX = 512;
 
-/** auth.login, auth.session and auth.logout over the web session cookie. */
+/**
+ * auth.*: sign-in, session and sign-out over the web session cookie, TOTP enrolment, and
+ * the public reset-link password reset.
+ */
 export function authHandlers(identity: IdentityService, csrfSecret: Buffer): Handlers {
   const view = (session: SignedIn, token: string): Session => ({
     user: {
@@ -38,6 +41,17 @@ export function authHandlers(identity: IdentityService, csrfSecret: Buffer): Han
     'auth.logout': async (request, reply) => {
       await identity.logout(requestContext(request), sessionTokenOf(request) ?? '');
       clearSessionCookie(reply);
+      return reply.code(204).send();
+    },
+    'auth.mfa.setup': async (request, reply) =>
+      reply.code(201).send(await identity.startMfaEnrolment(signedIn(request))),
+    // 1a takes no Idempotency-Key here: every confirm runs, none is replayed.
+    'auth.mfa.confirm': async (request, reply) =>
+      reply
+        .code(201)
+        .send(await identity.confirmMfa(requestContext(request), signedIn(request), request.body)),
+    'auth.passwordReset': async (request, reply) => {
+      await identity.resetPassword(requestContext(request), request.body);
       return reply.code(204).send();
     },
   };

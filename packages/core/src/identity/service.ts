@@ -1,10 +1,20 @@
-import { NewPassword, Username, type LoginInput } from '@tribo/contract';
+import {
+  AuthPasswordResetInput,
+  MfaConfirmInput,
+  NewPassword,
+  PasswordChangeInput,
+  Username,
+  type LoginInput,
+  type MfaConfirm,
+} from '@tribo/contract';
 import { open, seal, type FieldRef, type Keyring } from '@tribo/crypto';
 import { forModule, type DB, type ValueOf } from '@tribo/db';
 import { ApiError, validate, type RequestContext, type Tx } from '@tribo/platform';
 import type { Kysely } from 'kysely';
 import { recordEvent, recordWrite } from '../audit/service.js';
 import { createAccountPerson } from '../library/service.js';
+import { writeOperation } from '../write-operation.js';
+import { writePath } from '../write-path.js';
 import {
   burnPasswordCheck,
   hashSecret,
@@ -19,7 +29,7 @@ import {
   totpValid,
   verifySecret,
 } from './credentials.js';
-import { countsAsFailure, type LoginStep } from './policy.js';
+import { countsAsFailure, mfaConfirmRefusal, type LoginStep } from './policy.js';
 import * as repo from './repo.js';
 
 type PlatformRole = ValueOf<'tribo.users.platform_role'>;
@@ -68,7 +78,31 @@ export interface IdentityService {
     ctx: RequestContext,
     admin: NewAdmin,
   ): Promise<{ userId: string; personId: string; recoveryCodes: string[] }>;
+  /**
+   * auth.mfa.setup: a fresh pending TOTP secret for the caller, replacing any earlier one,
+   * shown once. invalid_transition once MFA is on (an admin MFA reset turns it off).
+   */
+  startMfaEnrolment(caller: SignedIn): Promise<{ key: string; uri: string }>;
+  /**
+   * auth.mfa.confirm: a code from the pending secret turns MFA on, replaces the recovery
+   * codes (returned once, never stored for replay) and marks this session MFA-verified.
+   */
+  confirmMfa(ctx: RequestContext, caller: SignedIn, body: unknown): Promise<MfaConfirm>;
+  /**
+   * auth.passwordReset: an admin's reset link sets a new password, once. It revokes every
+   * session and the account's other reset links, and lifts a lockout. Any link that is not
+   * live (used, revoked, expired or unknown) is reset_link_used.
+   */
+  resetPassword(ctx: RequestContext, body: unknown): Promise<void>;
+  /**
+   * me.password.change: the current password sets a new one and revokes the caller's other
+   * sessions. A wrong current password counts towards the lockout, as at sign-in; while
+   * locked, it is rate_limited.
+   */
+  changePassword(ctx: RequestContext, caller: SignedIn, body: unknown): Promise<void>;
 }
+
+const mfaConfirm = writeOperation('auth.mfa.confirm', MfaConfirmInput);
 
 const MFA_SECRET = (userId: string): FieldRef => ({
   table: 'users',
@@ -86,8 +120,14 @@ export function totpMatches(secret: Buffer, code: string): boolean {
   return totpValid(secret, code);
 }
 
-export function createIdentityService(db: Kysely<DB>, keys: Keyring): IdentityService {
+/** `issuer` names this deployment in authenticator apps, e.g. "Tribo (tribo.example)". */
+export function createIdentityService(
+  db: Kysely<DB>,
+  keys: Keyring,
+  issuer: string,
+): IdentityService {
   const identity = forModule(db, 'identity');
+  const write = writePath(db);
 
   /** Records a refused sign-in (and counts it if it was a guess), then refuses it. */
   async function refuse(
@@ -266,6 +306,110 @@ export function createIdentityService(db: Kysely<DB>, keys: Keyring): IdentitySe
           snapshot: userSnapshot(active),
         });
         return { userId: created.id, personId: person.personId, recoveryCodes };
+      });
+    },
+
+    async startMfaEnrolment(caller) {
+      const enrolment = startTotpEnrolment(issuer, caller.username);
+      const secretEnc = seal(keys, MFA_SECRET(caller.userId), enrolment.secret);
+      if (!(await repo.setPendingMfaSecret(identity, caller.userId, secretEnc))) {
+        throw new ApiError('invalid_transition', { detail: 'MFA is already on' });
+      }
+      return { key: enrolment.key, uri: enrolment.uri };
+    },
+
+    confirmMfa: (ctx, caller, body) =>
+      write(ctx, {
+        operation: mfaConfirm,
+        target: caller,
+        body,
+        ifMatch: undefined,
+        // Self only: the target is the caller's own account, so there is nobody else to refuse.
+        authorize: () => Promise.resolve(),
+        load: async (tx, target) => {
+          const account = await repo.lockAccount(forModule(tx, 'identity'), target.userId);
+          if (!account) throw new ApiError('not_found');
+          return { tripId: null, counter: account.version, account };
+        },
+        mutate: async (tx, c, { account }, input) => {
+          const refusal = mfaConfirmRefusal({
+            mfaEnabled: account.mfa_enabled_at !== null,
+            hasPendingSecret: account.mfa_secret_enc !== null,
+          });
+          if (refusal) throw new ApiError(refusal);
+          const secret = open(
+            keys,
+            MFA_SECRET(account.id),
+            account.mfa_secret_enc ?? Buffer.alloc(0),
+          );
+          if (!totpValid(secret, input.code)) {
+            throw new ApiError('validation_failed', {
+              errors: [{ path: '/code', message: 'code does not match the pending secret' }],
+            });
+          }
+          const recoveryCodes = Array.from({ length: RECOVERY_CODE_COUNT }, newRecoveryCode);
+          const codeHashes = await Promise.all(recoveryCodes.map(hashSecret));
+
+          const txIdentity = forModule(tx, 'identity');
+          const enabled = await repo.enableMfa(txIdentity, {
+            userId: account.id,
+            expectedVersion: account.version,
+            by: c.userId,
+          });
+          await repo.replaceRecoveryCodes(txIdentity, account.id, codeHashes);
+          await repo.markSessionMfaVerified(txIdentity, caller.sessionId);
+          return {
+            action: 'mfa_enrol',
+            aggregate: 'user',
+            entityId: account.id,
+            tripId: null,
+            version: enabled.version,
+            snapshot: userSnapshot(enabled),
+            result: { recoveryCodes, redacted: false },
+          };
+        },
+      }),
+
+    async resetPassword(ctx, body) {
+      const input = validate(AuthPasswordResetInput, body);
+      const passwordHash = await hashSecret(input.newPassword);
+      await db.transaction().execute(async (tx) => {
+        const txIdentity = forModule(tx, 'identity');
+        const link = await repo.useResetLink(txIdentity, tokenHash(input.token));
+        if (!link) throw new ApiError('reset_link_used');
+        await repo.setPassword(txIdentity, link.user_id, passwordHash);
+        await repo.revokeSessions(txIdentity, link.user_id);
+        await repo.revokeResetLinks(txIdentity, link.user_id);
+        await recordEvent(
+          tx,
+          { ...ctx, userId: link.user_id },
+          { action: 'password_reset', entityType: 'user', entityId: link.user_id, tripId: null },
+        );
+      });
+    },
+
+    async changePassword(ctx, caller, body) {
+      const input = validate(PasswordChangeInput, body);
+      const account = await repo.findPasswordAccount(identity, caller.userId);
+      if (!account) throw new ApiError('unauthenticated');
+      if (account.locked) throw new ApiError('rate_limited');
+      if (!(await verifySecret(account.password_hash, input.currentPassword))) {
+        await repo.countFailedLogin(identity, account.id);
+        throw new ApiError('validation_failed', {
+          errors: [{ path: '/currentPassword', message: 'does not match the current password' }],
+        });
+      }
+      const passwordHash = await hashSecret(input.newPassword);
+      await db.transaction().execute(async (tx) => {
+        const txIdentity = forModule(tx, 'identity');
+        await repo.setPassword(txIdentity, account.id, passwordHash);
+        await repo.revokeSessions(txIdentity, account.id, caller.sessionId);
+        await recordEvent(tx, ctx, {
+          action: 'password_change',
+          entityType: 'user',
+          entityId: account.id,
+          tripId: null,
+        });
       });
     },
   };

@@ -3,6 +3,7 @@ export {
   addMember,
   createItem,
   createPlaceholder,
+  createResetLink,
   createTrip,
   createUser,
   softDelete,
