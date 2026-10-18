@@ -178,6 +178,8 @@ Check the trusted signing key and the daemon defaults. Expect fingerprint `9DC85
 ssh tribo@<ipv4> 'gpg --show-keys --with-colons /etc/apt/keyrings/docker.asc | grep -m1 ^fpr; docker info --format "live-restore={{.LiveRestoreEnabled}} log={{.LoggingDriver}}"'
 ```
 
+The release needs at least the Engine and Compose versions in `deploy/docker-minimum.env`, where each one's reason is noted; `docker-check.sh` checks them before every start (steps 6–8 and Upgrade).
+
 Docker-published ports bypass ufw. The Cloud Firewall still blocks them, and `compose.yml` publishes only 80 and 443.
 
 ### Step 5. DNS
@@ -222,18 +224,18 @@ Sprint 0 task 14. `deploy/compose.yml` runs Tribo in any deployment mode from th
 
 ### What runs
 
-| Service  | Image                                                              | Notes                                                                                                                                                                     |
-| -------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `proxy`  | `ghcr.io/eriscs01/tribo-proxy:<tag>`                               | Caddy with the Cloudflare DNS module and the built SPA. `/v1/*` and `/healthz` go to `app`; everything else is the SPA, with `index.html` for unknown paths               |
-| `app`    | `ghcr.io/eriscs01/tribo-app:<tag>`                                 | Runs as `node` (uid 1000) on a read-only root filesystem with no capabilities; applies migrations at start                                                                |
-| `db`     | `postgres:18.6` (pinned by digest)                                 | On an empty volume, creates the two roles and the database from the bootstrap files in the release's app image (an image mount, so Docker Engine 28 or later is required) |
-| `tunnel` | `cloudflare/cloudflared` (pinned by digest), profile `tunnel` only | Cloudflare Tunnel mode                                                                                                                                                    |
+| Service  | Image                                                              | Notes                                                                                                                                                                                               |
+| -------- | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `proxy`  | `ghcr.io/eriscs01/tribo-proxy:<tag>`                               | Caddy with the Cloudflare DNS module and the built SPA. `/v1/*` and `/healthz` go to `app`; everything else is the SPA, with `index.html` for unknown paths                                         |
+| `app`    | `ghcr.io/eriscs01/tribo-app:<tag>`                                 | Runs as `node` (uid 1000) on a read-only root filesystem with no capabilities; applies migrations at start                                                                                          |
+| `db`     | `postgres:18.6` (pinned by digest)                                 | On an empty volume, creates the two roles and the database from the bootstrap files in the release's app image (the app image mounted twice, which needs the Docker Engine in `docker-minimum.env`) |
+| `tunnel` | `cloudflare/cloudflared` (pinned by digest), profile `tunnel` only | Cloudflare Tunnel mode                                                                                                                                                                              |
 
 Only `proxy` publishes ports (80, 443 and 443/udp). The database and the app are reachable only on the Compose network.
 
 ### Install a release (steps 6–8)
 
-1. Put `deploy/` from the release tag in `/opt/tribo` and work there.
+1. Put `deploy/` from the release tag in `/opt/tribo` and work there. Run `sh docker-check.sh`: it refuses a Docker Engine or Compose older than the release's `docker-minimum.env`, before anything starts.
 2. `cp .env.example .env`, then set `TRIBO_VERSION` (the release tag), `TRIBO_PUBLIC_URL`, `TRIBO_TLS_MODE`, `TRIBO_ACME_EMAIL` (acme modes) and `TRIBO_TRUSTED_PROXIES`. Compose refuses to start without the required ones and names the missing variable.
 3. Create the secrets in `/opt/tribo/secrets/`:
 
@@ -276,7 +278,7 @@ Only `proxy` publishes ports (80, 443 and 443/udp). The database and the app are
 
 ### Upgrade
 
-Set `TRIBO_VERSION` to the new tag, then `docker compose pull && docker compose up -d`. Migrations apply at app start under an advisory lock; they never need a down-migration, so rolling back is setting the old tag again.
+Set `TRIBO_VERSION` to the new tag, then `sh docker-check.sh && docker compose pull && docker compose up -d`. `docker-check.sh` refuses a Docker Engine or Compose older than `docker-minimum.env` in that release; upgrade them with `sudo apt-get install --only-upgrade docker-ce docker-ce-cli docker-compose-plugin` first. Migrations apply at app start under an advisory lock; they never need a down-migration, so rolling back is setting the old tag again.
 
 ### Releases
 
