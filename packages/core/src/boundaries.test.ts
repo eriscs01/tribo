@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 const require = createRequire(import.meta.url);
 const config = require('../../../.dependency-cruiser.cjs') as IConfiguration;
+
 const fixtures = fileURLToPath(new URL('../boundary-fixtures/', import.meta.url));
 
 describe('dependency-cruiser boundary rules', () => {

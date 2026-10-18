@@ -25,11 +25,12 @@ describe('closed value sets', () => {
     const fromDb: Record<string, string[]> = {};
     for (const { rel, def } of rows) {
       const m = IN_LIST.exec(def);
-      if (!m) continue;
-      const [, column, list] = m as unknown as [string, string, string];
-      fromDb[`${rel}.${column}`] = [...list.matchAll(LITERAL)].map(([, value = '']) =>
-        value.replaceAll("''", "'"),
-      );
+      if (m) {
+        const [, column, list] = m as unknown as [string, string, string];
+        fromDb[`${rel}.${column}`] = [...list.matchAll(LITERAL)].map(([, value = '']) =>
+          value.replaceAll("''", "'"),
+        );
+      }
     }
     expect(Object.keys(fromDb).length).toBeGreaterThan(0);
     expect(fromDb).toEqual(VALUE_SETS);

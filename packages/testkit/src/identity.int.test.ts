@@ -17,9 +17,13 @@ const PASSWORD = 'correct horse battery';
 let tdb: TestDatabase;
 let identity: IdentityService;
 let n = 0;
+const seq = () => {
+  n += 1;
+  return String(n);
+};
 
 const ctx = (): RequestContext => ({
-  requestId: `req-${String(++n)}`,
+  requestId: `req-${seq()}`,
   surface: 'web',
   userId: null,
 });
@@ -31,7 +35,7 @@ beforeAll(async () => {
 afterAll(() => tdb.destroy());
 
 /** An admin made the way `tribo admin create` makes one; returns its TOTP key too. */
-async function admin(username = `admin_${String(++n)}`) {
+async function admin(username = `admin_${seq()}`) {
   const enrolment = startTotpEnrolment('Tribo', username);
   const created = await identity.createAdmin(
     { requestId: `cli-${username}`, surface: 'system', userId: null },
@@ -139,9 +143,9 @@ describe('tribo admin create', () => {
       .where('user_id', '=', a.userId)
       .execute();
     expect(stored).toHaveLength(10);
-    for (const { code_hash } of stored) {
-      expect(code_hash).toMatch(/^\$argon2id\$/);
-      expect(a.recoveryCodes).not.toContain(code_hash);
+    for (const { code_hash: codeHash } of stored) {
+      expect(codeHash).toMatch(/^\$argon2id\$/);
+      expect(a.recoveryCodes).not.toContain(codeHash);
     }
   });
 
@@ -220,7 +224,7 @@ describe('sign-in', () => {
 
   it('signs in an account without MFA with its password alone', async () => {
     const u = await createUser(tdb.db, { password: PASSWORD });
-    const username = (await user(u.userId)).username;
+    const { username } = await user(u.userId);
     const { session } = await identity.login(ctx(), { username, password: PASSWORD }, client);
     expect(session).toMatchObject({ userId: u.userId, mfaVerified: false });
   });
@@ -272,7 +276,8 @@ describe('lockout', () => {
 
   it('locks the username for 15 minutes after 5 failures, even for the right password', async () => {
     const a = await admin();
-    for (let i = 0; i < 4; i++)
+    for (let i = 0; i < 4; i += 1)
+      // eslint-disable-next-line no-await-in-loop -- each failure must land before the next
       await expect(wrong(a.username)).rejects.toMatchObject({ code: 'unauthenticated' });
     expect(await user(a.userId)).toMatchObject({ failed_login_count: 4, locked_until: null });
 

@@ -58,9 +58,15 @@ await app.listen(config.listen);
 for (const signal of ['SIGTERM', 'SIGINT'] as const) {
   process.once(signal, () => {
     app.log.info({ signal }, 'shutting down');
-    void app
+    app
       .close()
       .then(close)
-      .then(() => process.exit(0));
+      .then(
+        () => process.exit(0),
+        (error: unknown) => {
+          app.log.error({ err: error }, 'shutdown failed');
+          process.exit(1);
+        },
+      );
   });
 }

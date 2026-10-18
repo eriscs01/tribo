@@ -29,9 +29,8 @@ const handOwned = new Set(
 
 const camel = (file: string) => `${file}Operations`;
 
-const written: string[] = [];
-for (const [file, ops] of byFile) {
-  if (handOwned.has(file)) continue;
+const generated = [...byFile].filter(([file]) => !handOwned.has(file));
+const writes = generated.map(([file, ops]) => {
   const entries = ops.map(
     (op) => `  defineOperation(${JSON.stringify({ ...op, status: 'planned' })}),`,
   );
@@ -45,9 +44,9 @@ for (const [file, ops] of byFile) {
     '] as const;',
     '',
   ].join('\n');
-  await writeFile(new URL(`src/operations/${file}.ts`, root), source);
-  written.push(file);
-}
+  return writeFile(new URL(`src/operations/${file}.ts`, root), source);
+});
+await Promise.all(writes);
 
 const files = [...byFile.keys()];
 const index = [
@@ -67,5 +66,5 @@ const kept =
     ? `; kept hand-owned ${[...handOwned].join(', ')} (update by hand; registry.test.ts checks them)`
     : '';
 console.log(
-  `wrote ${String(written.length)} registry files to ${fileURLToPath(new URL('src/operations/', root))}${kept}`,
+  `wrote ${String(generated.length)} registry files to ${fileURLToPath(new URL('src/operations/', root))}${kept}`,
 );

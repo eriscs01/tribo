@@ -60,10 +60,12 @@ describe('trips.list', () => {
   it('pages latest start first, ties by id, until nextCursor is null', async () => {
     const owner = await createUser(tdb.db);
     const starts = ['2026-11-01', '2026-12-24', '2026-11-11', '2026-11-11', '2027-01-05'];
-    const created = [];
-    for (const start of starts) {
-      created.push({ start, ...(await createTrip(tdb.db, { owner, start, end: '2027-02-01' })) });
-    }
+    const created = await Promise.all(
+      starts.map(async (start) => ({
+        start,
+        ...(await createTrip(tdb.db, { owner, start, end: '2027-02-01' })),
+      })),
+    );
     const expected = created
       .sort((a, b) => b.start.localeCompare(a.start) || b.tripId.localeCompare(a.tripId))
       .map((t) => t.tripId);
@@ -72,6 +74,7 @@ describe('trips.list', () => {
     const sizes: number[] = [];
     let cursor: string | undefined;
     do {
+      // eslint-disable-next-line no-await-in-loop -- each page needs the previous page's cursor
       const page = await trips.list(owner.userId, {
         limit: 2,
         ...(cursor === undefined ? {} : { cursor }),
