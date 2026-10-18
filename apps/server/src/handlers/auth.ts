@@ -42,5 +42,10 @@ export function authHandlers(identity: IdentityService, csrfSecret: Buffer): Han
     },
     'auth.mfa.setup': async (request, reply) =>
       reply.code(201).send(await identity.startMfaEnrolment(signedIn(request))),
+    // 1a takes no Idempotency-Key here: every confirm runs, none is replayed.
+    'auth.mfa.confirm': async (request, reply) =>
+      reply
+        .code(201)
+        .send(await identity.confirmMfa(requestContext(request), signedIn(request), request.body)),
   };
 }

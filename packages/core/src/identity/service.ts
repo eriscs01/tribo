@@ -1,10 +1,18 @@
-import { NewPassword, Username, type LoginInput } from '@tribo/contract';
+import {
+  MfaConfirmInput,
+  NewPassword,
+  Username,
+  type LoginInput,
+  type MfaConfirm,
+} from '@tribo/contract';
 import { open, seal, type FieldRef, type Keyring } from '@tribo/crypto';
 import { forModule, type DB, type ValueOf } from '@tribo/db';
 import { ApiError, validate, type RequestContext, type Tx } from '@tribo/platform';
 import type { Kysely } from 'kysely';
 import { recordEvent, recordWrite } from '../audit/service.js';
 import { createAccountPerson } from '../library/service.js';
+import { writeOperation } from '../write-operation.js';
+import { writePath } from '../write-path.js';
 import {
   burnPasswordCheck,
   hashSecret,
@@ -19,7 +27,7 @@ import {
   totpValid,
   verifySecret,
 } from './credentials.js';
-import { countsAsFailure, type LoginStep } from './policy.js';
+import { countsAsFailure, mfaConfirmRefusal, type LoginStep } from './policy.js';
 import * as repo from './repo.js';
 
 type PlatformRole = ValueOf<'tribo.users.platform_role'>;
@@ -73,7 +81,14 @@ export interface IdentityService {
    * shown once. invalid_transition once MFA is on (an admin MFA reset turns it off).
    */
   startMfaEnrolment(caller: SignedIn): Promise<{ key: string; uri: string }>;
+  /**
+   * auth.mfa.confirm: a code from the pending secret turns MFA on, replaces the recovery
+   * codes (returned once, never stored for replay) and marks this session MFA-verified.
+   */
+  confirmMfa(ctx: RequestContext, caller: SignedIn, body: unknown): Promise<MfaConfirm>;
 }
+
+const mfaConfirm = writeOperation('auth.mfa.confirm', MfaConfirmInput);
 
 const MFA_SECRET = (userId: string): FieldRef => ({
   table: 'users',
@@ -98,6 +113,7 @@ export function createIdentityService(
   issuer: string,
 ): IdentityService {
   const identity = forModule(db, 'identity');
+  const write = writePath(db);
 
   /** Records a refused sign-in (and counts it if it was a guess), then refuses it. */
   async function refuse(
@@ -287,6 +303,58 @@ export function createIdentityService(
       }
       return { key: enrolment.key, uri: enrolment.uri };
     },
+
+    confirmMfa: (ctx, caller, body) =>
+      write(ctx, {
+        operation: mfaConfirm,
+        target: caller,
+        body,
+        ifMatch: undefined,
+        // Self only: the target is the caller's own account, so there is nobody else to refuse.
+        authorize: () => Promise.resolve(),
+        load: async (tx, target) => {
+          const account = await repo.lockAccount(forModule(tx, 'identity'), target.userId);
+          if (!account) throw new ApiError('not_found');
+          return { tripId: null, counter: account.version, account };
+        },
+        mutate: async (tx, c, { account }, input) => {
+          const refusal = mfaConfirmRefusal({
+            mfaEnabled: account.mfa_enabled_at !== null,
+            hasPendingSecret: account.mfa_secret_enc !== null,
+          });
+          if (refusal) throw new ApiError(refusal);
+          const secret = open(
+            keys,
+            MFA_SECRET(account.id),
+            account.mfa_secret_enc ?? Buffer.alloc(0),
+          );
+          if (!totpValid(secret, input.code)) {
+            throw new ApiError('validation_failed', {
+              errors: [{ path: '/code', message: 'code does not match the pending secret' }],
+            });
+          }
+          const recoveryCodes = Array.from({ length: RECOVERY_CODE_COUNT }, newRecoveryCode);
+          const codeHashes = await Promise.all(recoveryCodes.map(hashSecret));
+
+          const txIdentity = forModule(tx, 'identity');
+          const enabled = await repo.enableMfa(txIdentity, {
+            userId: account.id,
+            expectedVersion: account.version,
+            by: c.userId,
+          });
+          await repo.replaceRecoveryCodes(txIdentity, account.id, codeHashes);
+          await repo.markSessionMfaVerified(txIdentity, caller.sessionId);
+          return {
+            action: 'mfa_enrol',
+            aggregate: 'user',
+            entityId: account.id,
+            tripId: null,
+            version: enabled.version,
+            snapshot: userSnapshot(enabled),
+            result: { recoveryCodes, redacted: false },
+          };
+        },
+      }),
   };
 }
 

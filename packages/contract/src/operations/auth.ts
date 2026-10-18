@@ -1,7 +1,7 @@
 // Generated from operations.csv by src/scripts/import-operations.ts. A story replaces an
 // entry's status with 'implemented' and adds its input and output schemas.
 import { LoginInput, Session } from '../account.js';
-import { MfaSetup } from '../mfa.js';
+import { MfaConfirm, MfaConfirmInput, MfaSetup } from '../mfa.js';
 import { defineOperation } from '../operation.js';
 
 export const authOperations = [
@@ -95,7 +95,9 @@ export const authOperations = [
     mcpTool: null,
     notes:
       'Confirm TOTP; returns 10 recovery codes; Codes shown once; Codes never stored for replay; a replay returns 200 with codes omitted and redacted = true (R2)',
-    status: 'planned',
+    status: 'implemented',
+    input: MfaConfirmInput,
+    output: MfaConfirm,
   }),
   defineOperation({
     id: 'auth.stepUp',

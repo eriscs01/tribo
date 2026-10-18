@@ -18,7 +18,7 @@
 - [x] `auth.mfa.setup` · Drop A · `POST /v1/auth/mfa/totp`
   - Start TOTP enrolment (secret); Secret shown once; No Idempotency-Key: each call replaces the pending secret (R2)
   - Roles: self. If-Match: `no`. Idempotency: never replayed.
-- [ ] `auth.mfa.confirm` · Drop A · `POST /v1/auth/mfa/totp/confirm`
+- [x] `auth.mfa.confirm` · Drop A · `POST /v1/auth/mfa/totp/confirm`
   - Confirm TOTP; returns 10 recovery codes; Codes shown once; Codes never stored for replay; a replay returns 200 with codes omitted and redacted = true (R2)
   - Roles: self. If-Match: `no`. Idempotency: creates (key).
   - Limit: Takes no Idempotency-Key in 1a: only expenses.create and files.upload honour it; this create follows in 1b.

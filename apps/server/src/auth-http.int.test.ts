@@ -2,7 +2,7 @@
 // auth column does not admit, and answers its contract schema. Their rules are proven
 // against the service in packages/testkit (auth-*.int.test.ts, me-*.int.test.ts).
 import { randomBytes } from 'node:crypto';
-import { CSRF_HEADER, MfaSetup, SESSION_COOKIE } from '@tribo/contract';
+import { CSRF_HEADER, MfaConfirm, MfaSetup, SESSION_COOKIE } from '@tribo/contract';
 import {
   createIdentityService,
   createItemsService,
@@ -10,7 +10,7 @@ import {
   writePath,
 } from '@tribo/core';
 import { AppKey, keyring } from '@tribo/crypto';
-import { createTestDatabase, createUser, type TestDatabase } from '@tribo/testkit';
+import { createTestDatabase, createUser, totpFor, type TestDatabase } from '@tribo/testkit';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { operationHandlers } from './handlers/index.js';
@@ -85,5 +85,49 @@ describe('auth.mfa.setup over HTTP', () => {
     const { cookies } = await signedIn();
     const forged = await app.inject({ method: 'POST', url: '/v1/auth/mfa/totp', cookies });
     expect(forged.statusCode).toBe(403);
+  });
+});
+
+describe('auth.mfa.confirm over HTTP', () => {
+  it('answers 201 with the recovery codes, and never replays them for an Idempotency-Key', async () => {
+    const caller = await signedIn();
+    const setup = await app.inject({ method: 'POST', url: '/v1/auth/mfa/totp', ...caller });
+    const { key } = MfaSetup.parse(setup.json());
+    const request = {
+      method: 'POST' as const,
+      url: '/v1/auth/mfa/totp/confirm',
+      cookies: caller.cookies,
+      headers: { ...caller.headers, 'idempotency-key': 'confirm-once' },
+      payload: { code: totpFor(key) },
+    };
+
+    const first = await app.inject(request);
+    expect(first.statusCode).toBe(201);
+    expect(MfaConfirm.parse(first.json())).toMatchObject({ redacted: false });
+
+    const repeat = await app.inject(request);
+    expect(repeat.statusCode).toBe(409);
+    expect(repeat.json()).toMatchObject({ code: 'invalid_transition' });
+    expect(repeat.body).not.toContain('recoveryCodes');
+  });
+
+  it('refuses a caller without a session, and a wrong code with validation_failed', async () => {
+    const anonymous = await app.inject({
+      method: 'POST',
+      url: '/v1/auth/mfa/totp/confirm',
+      payload: { code: '123456' },
+    });
+    expect(anonymous.statusCode).toBe(401);
+
+    const caller = await signedIn();
+    await app.inject({ method: 'POST', url: '/v1/auth/mfa/totp', ...caller });
+    const malformed = await app.inject({
+      method: 'POST',
+      url: '/v1/auth/mfa/totp/confirm',
+      ...caller,
+      payload: { code: 'abc' },
+    });
+    expect(malformed.statusCode).toBe(400);
+    expect(malformed.json()).toMatchObject({ code: 'validation_failed' });
   });
 });

@@ -203,3 +203,42 @@ export function setPendingMfaSecret(db: IdentityDb, userId: string, mfaSecretEnc
     .returning('id')
     .executeTakeFirst();
 }
+
+/** The caller's account row, locked for an MFA or password write. */
+export function lockAccount(db: IdentityDb, userId: string) {
+  return db
+    .selectFrom('tribo.users')
+    .select(['id', 'version', 'mfa_secret_enc', 'mfa_enabled_at'])
+    .where('id', '=', userId)
+    .where('deleted_at', 'is', null)
+    .forUpdate()
+    .executeTakeFirst();
+}
+
+/** Enables the pending TOTP secret, bumping the account's version. */
+export function enableMfa(
+  db: IdentityDb,
+  account: { userId: string; expectedVersion: number; by: string | null },
+) {
+  return db
+    .updateTable('tribo.users')
+    .set({
+      mfa_enabled_at: sql`now()`,
+      version: account.expectedVersion + 1,
+      updated_at: sql`now()`,
+      updated_by: account.by,
+    })
+    .where('id', '=', account.userId)
+    .where('version', '=', account.expectedVersion)
+    .returning(['id', 'username', 'platform_role', 'status', 'mfa_enabled_at', 'version'])
+    .executeTakeFirstOrThrow();
+}
+
+/** The session just proved a second factor. */
+export async function markSessionMfaVerified(db: IdentityDb, sessionId: string): Promise<void> {
+  await db
+    .updateTable('tribo.sessions')
+    .set({ mfa_verified_at: sql`now()` })
+    .where('id', '=', sessionId)
+    .execute();
+}

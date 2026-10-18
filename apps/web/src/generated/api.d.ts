@@ -1988,6 +1988,13 @@ export interface components {
             totp?: components["schemas"]["TotpCode"];
             recoveryCode?: string;
         };
+        MfaConfirm: {
+            recoveryCodes?: string[];
+            redacted: boolean;
+        };
+        MfaConfirmInput: {
+            code: components["schemas"]["TotpCode"];
+        };
         MfaSetup: {
             key: string;
             uri: string;
@@ -2855,15 +2862,19 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MfaConfirmInput"];
+            };
+        };
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["MfaConfirm"];
                 };
             };
             /** @description Error */

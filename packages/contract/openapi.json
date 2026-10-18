@@ -1447,12 +1447,12 @@
           }
         ],
         "responses": {
-          "501": {
-            "description": "Registered but not implemented yet (not_implemented)",
+          "201": {
+            "description": "OK",
             "content": {
-              "application/problem+json": {
+              "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Problem"
+                  "$ref": "#/components/schemas/MfaConfirm"
                 }
               }
             }
@@ -1469,7 +1469,7 @@
           }
         },
         "x-tribo": {
-          "status": "planned",
+          "status": "implemented",
           "slice": "1a",
           "drop": "A",
           "roles": "self",
@@ -1490,7 +1490,17 @@
               "maxLength": 255
             }
           }
-        ]
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MfaConfirmInput"
+              }
+            }
+          }
+        }
       }
     },
     "/v1/auth/password-reset": {
@@ -8579,6 +8589,36 @@
         "required": [
           "username",
           "password"
+        ],
+        "additionalProperties": false
+      },
+      "MfaConfirm": {
+        "type": "object",
+        "properties": {
+          "recoveryCodes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "redacted": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "redacted"
+        ],
+        "additionalProperties": false
+      },
+      "MfaConfirmInput": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "$ref": "#/components/schemas/TotpCode"
+          }
+        },
+        "required": [
+          "code"
         ],
         "additionalProperties": false
       },
