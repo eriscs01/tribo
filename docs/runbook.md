@@ -284,10 +284,10 @@ Set `TRIBO_VERSION` to the new tag, then `sh docker-check.sh && docker compose p
 
 Pushing a tag `vX.Y.Z` on `main` runs CI. Once every job passes, its "Publish" job pushes `ghcr.io/eriscs01/tribo-app:vX.Y.Z` and `ghcr.io/eriscs01/tribo-proxy:vX.Y.Z` (linux/amd64) and lists both digests in the run summary. The packages are public, so the host pulls them without credentials (set each package's visibility to public in GitHub once, after its first push).
 
-| Tag      | Date       | Notes                                                                                                                         |
-| -------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `v0.1.0` | 2026-10-18 | First release: Sprint 0 foundation (tasks 1–15 and 19), first images published to GHCR                                        |
-| `v0.2.0` | 2026-10-18 | Tasks 17–18, secrets fix, Docker minimums; first deploy on the reference host; walking skeleton checked by hand on 2026-10-18 |
+| Tag      | Date       | Notes                                                                                                                                                                                      |
+| -------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `v0.1.0` | 2026-10-18 | First release: Sprint 0 foundation (tasks 1–15 and 19), first images published to GHCR                                                                                                     |
+| `v0.2.0` | 2026-10-18 | Tasks 17–18, secrets fix, Docker minimums; first deploy on the reference host; walking skeleton checked by hand on 2026-10-18; first nightly backup and restore check passed on 2026-10-18 |
 
 ## Backups and restore (steps 10–11)
 
@@ -323,7 +323,7 @@ scp -r deploy/backup tribo@<ipv4>:/opt/tribo/
 ssh tribo@<ipv4> "echo 'restrict,command=\"/opt/tribo/backup/serve.sh\" $(cat ~/.ssh/tribo_backup.pub)' >>~/.ssh/authorized_keys"
 ```
 
-Add a host alias for the key to `~/.ssh/config`:
+Add a host alias for the key at the top of `~/.ssh/config`, above any `Host *` block:
 
 ```plain
 Host tribo-backup
@@ -331,7 +331,10 @@ Host tribo-backup
   User tribo
   IdentityFile ~/.ssh/tribo_backup
   IdentitiesOnly yes
+  IdentityAgent none
 ```
+
+ssh offers every `IdentityFile` that matches, in file order, and the keys in your agent before any of them. Your own login key also opens `tribo@<ipv4>`, so if ssh offers it first you get a full shell instead of `serve.sh`. Putting the alias first and turning off the agent for it make ssh offer the backup key alone first.
 
 Copy the settings and set `TRIBO_BACKUP_DIR` to a directory on the disk you own, such as `/Volumes/Backup/tribo`:
 
@@ -348,6 +351,8 @@ ssh tribo-backup status
 ```bash
 ssh tribo-backup id
 ```
+
+If `status` prints `command not found` and `id` prints a `uid=` line, ssh logged in with another key. `ssh -v tribo-backup true 2>&1 | grep 'Server accepts'` names it; fix the alias as above until it names `tribo_backup`.
 
 ufw admits at most 6 new SSH connections from one address in 30 seconds (step 3), and a backup opens up to three. If a command here fails with `Connection refused`, wait 30 seconds and run it again.
 
@@ -401,7 +406,17 @@ cd /opt/tribo && docker compose exec -T db pg_dump --username postgres --dbname 
 
 Run it on your own machine with Docker (Docker Desktop, OrbStack or Colima, with at least the Engine and Compose in `deploy/docker-minimum.env`; `restore.sh` runs `docker-check.sh` first), never on the host: `restore.sh` refuses a Docker engine that runs the production project `tribo`. The scratch project `tribo-restore` has its own volumes and network, fresh random database passwords, and publishes only `127.0.0.1:8443`. Its secrets and a copy of the app key live in `~/.local/state/tribo-restore/`, which only you can open, until `--down`. It runs the release the snapshot's manifest names (the images are linux/amd64, so they run emulated on Apple silicon).
 
-Export the app key from your password manager or offline storage (step 7) to a file only you can read, and set `TRIBO_APP_KEY_FILE` to it in `~/.config/tribo/backup.env`. Then restore the newest snapshot (pass a snapshot directory to restore another):
+Export the app key from your password manager or offline storage (step 7) to a file only you can read, and set `TRIBO_APP_KEY_FILE` to it in `~/.config/tribo/backup.env`. The file must hold the 32 raw bytes of `app_key` or their base64, 44 characters ending in `=`; raw bytes do not survive the clipboard, so keep a text copy as base64 (`openssl base64 -in app_key`). Check that it is the host's key: both commands print the same 8 characters (for a raw copy, drop `tr -d '\n' | base64 -d |`):
+
+```bash
+cat <key file> | tr -d '\n' | base64 -d | shasum -a 256 | cut -c1-8
+```
+
+```bash
+ssh tribo@<ipv4> 'sha256sum /opt/tribo/secrets/app_key' | cut -c1-8
+```
+
+Then restore the newest snapshot (pass a snapshot directory to restore another):
 
 ```bash
 sh deploy/backup/restore.sh
@@ -419,8 +434,9 @@ sh deploy/backup/restore.sh --down
 
 Record the check below, and repeat it every quarter and after any change to the backup scripts.
 
-| Date | Snapshot | Release | Chains | Notes |
-| ---- | -------- | ------- | ------ | ----- |
+| Date       | Snapshot            | Release  | Chains   | Notes                                                                                       |
+| ---------- | ------------------- | -------- | -------- | ------------------------------------------------------------------------------------------- |
+| 2026-10-18 | `2026-10-18T213114` | `v0.2.0` | 3 intact | First snapshot from the launchd job, restored on the operator's Mac (Colima, Apple silicon) |
 
 ## Walking skeleton check (step 12)
 
