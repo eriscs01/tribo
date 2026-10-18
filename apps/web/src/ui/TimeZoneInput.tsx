@@ -23,6 +23,7 @@ export function TimeZoneInput({ onChange, ...input }: TimeZoneInputProps) {
       />
       <datalist id={listId}>
         {ZONES.map((zone) => (
+          // eslint-disable-next-line jsx-a11y/control-has-associated-label -- a datalist suggestion, labelled by its value
           <option key={zone} value={zone} />
         ))}
       </datalist>

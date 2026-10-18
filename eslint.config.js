@@ -1,6 +1,7 @@
 import { readdirSync } from 'node:fs';
 import path from 'node:path';
 
+import { fixupPluginRules } from '@eslint/compat';
 import js from '@eslint/js';
 import { configs, helpers, plugins } from 'eslint-config-airbnb-extended';
 import prettier from 'eslint-config-prettier';
@@ -24,6 +25,17 @@ const workspaceDirs = ['apps', 'packages'].flatMap((group) =>
 const tsResolution = configs.base.typescript.find(
   (config) => config.settings?.['import-x/resolver-next'] !== undefined,
 )?.settings;
+/**
+ * eslint-plugin-react 7.37.5 and eslint-plugin-jsx-a11y 6.10.2 still call the context methods
+ * ESLint 10 removed (getFilename, getSourceCode, …); @eslint/compat restores them per rule.
+ */
+const fixedUp = (pluginConfig) => ({
+  ...pluginConfig,
+  plugins: Object.fromEntries(
+    Object.entries(pluginConfig.plugins).map(([name, plugin]) => [name, fixupPluginRules(plugin)]),
+  ),
+});
+
 const tsxResolution = tsResolution && {
   ...tsResolution,
   'import-x/extensions': [...tsResolution['import-x/extensions'], '.tsx'],
@@ -105,13 +117,25 @@ export default defineConfig(
       'import-x/no-unresolved': 'off',
     },
   },
-  // The SPA in the browser, with the Rules of Hooks. Airbnb's React config needs
-  // eslint-plugin-react, whose latest release (7.37.5) calls APIs ESLint 10 removed.
+  // The SPA in the browser: Airbnb's React, jsx-a11y and hooks rules, plus the React Compiler
+  // rules from eslint-plugin-react-hooks.
   {
     files: ['apps/web/**/*.{ts,tsx}'],
-    extends: [reactHooks.configs.flat['recommended-latest']],
+    extends: [
+      fixedUp(plugins.react),
+      fixedUp(plugins.reactA11y),
+      configs.react.recommended,
+      configs.react.typescript,
+      reactHooks.configs.flat['recommended-latest'],
+    ],
     languageOptions: { globals: globals.browser },
-    settings: tsxResolution,
+    settings: { ...tsxResolution, react: { version: '19.3' } },
+    rules: {
+      // tsconfig compiles JSX with the automatic runtime ("jsx": "react-jsx"), so React need not be in scope.
+      ...plugins.react.plugins.react.configs.flat['jsx-runtime'].rules,
+      // React 19 ignores defaultProps on function components; TypeScript's `?` already marks optional props.
+      'react/require-default-props': 'off',
+    },
   },
   {
     // Process entry points own the exit code and talk to the operator on stdout/stderr.

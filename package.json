@@ -27,6 +27,7 @@
     "dev:trust": "docker compose -f deploy/compose.dev.yml cp proxy:/data/caddy/pki/authorities/local/root.crt deploy/secrets/dev/caddy-root.crt && echo 'Trust it with: sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain deploy/secrets/dev/caddy-root.crt'"
   },
   "devDependencies": {
+    "@eslint/compat": "2.1.1",
     "@eslint/js": "10.0.1",
     "@types/node": "26.6.5",
     "dependency-cruiser": "18.6.0",
