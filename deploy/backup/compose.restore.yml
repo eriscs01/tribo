@@ -1,0 +1,23 @@
+# Scratch restore project (runbook step 11), layered on compose.yml by restore.sh:
+#   docker compose -p tribo-restore -f compose.yml -f backup/compose.restore.yml …
+# Its own project name gives it its own volumes and network; it publishes one port on
+# 127.0.0.1 only, and its secrets (restore.sh writes them) are fresh scratch passwords plus a
+# copy of your app key.
+services:
+  app:
+    # The release images are linux/amd64; on an arm64 machine they run emulated.
+    platform: linux/amd64
+  proxy:
+    platform: linux/amd64
+    ports: !override
+      - 127.0.0.1:${TRIBO_RESTORE_PORT:-8443}:${TRIBO_RESTORE_PORT:-8443}
+
+secrets:
+  app_key:
+    file: ${TRIBO_RESTORE_SECRETS:?run this project through restore.sh}/app_key
+  db_superuser_password:
+    file: ${TRIBO_RESTORE_SECRETS}/db_superuser_password
+  db_owner_password:
+    file: ${TRIBO_RESTORE_SECRETS}/db_owner_password
+  db_app_password:
+    file: ${TRIBO_RESTORE_SECRETS}/db_app_password
