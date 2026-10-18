@@ -1992,6 +1992,20 @@ export interface components {
             totp?: components["schemas"]["TotpCode"];
             recoveryCode?: string;
         };
+        MetaOpenapi: {
+            openapi: string;
+            info: {
+                title: string;
+                version: string;
+            } & {
+                [key: string]: unknown;
+            };
+            paths: {
+                [key: string]: unknown;
+            };
+        } & {
+            [key: string]: unknown;
+        };
         MfaConfirm: {
             recoveryCodes?: string[];
             redacted: boolean;
@@ -5171,13 +5185,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["MetaOpenapi"];
                 };
             };
             /** @description Error */

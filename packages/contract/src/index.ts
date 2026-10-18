@@ -4,6 +4,7 @@ export { MODULE_FILE } from './csv-row.js';
 export * from './errors.js';
 export * from './ids.js';
 export * from './item.js';
+export * from './meta.js';
 export * from './mfa.js';
 export * from './money.js';
 export * from './openapi.js';

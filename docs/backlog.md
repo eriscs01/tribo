@@ -254,6 +254,6 @@
 - [x] `meta.liveness` · Drop A · `GET /healthz`
   - Liveness for Compose/Caddy: 200 when DB reachable; No details returned; Decided (G13)
   - Roles: anyone. If-Match: `no`. Idempotency: safe to repeat.
-- [ ] `meta.openapi` · Drop A · `GET /v1/openapi.json`
+- [x] `meta.openapi` · Drop A · `GET /v1/openapi.json`
   - Generated OpenAPI 3.1 document; Decided (G13)
   - Roles: any signed-in user. If-Match: `no`. Idempotency: safe to repeat.

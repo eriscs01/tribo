@@ -2,6 +2,7 @@
 // entry's status with 'implemented' and adds its input and output schemas.
 import * as z from 'zod';
 import { defineOperation } from '../operation.js';
+import { MetaOpenapi } from '../meta.js';
 
 export const metaOperations = [
   defineOperation({
@@ -37,6 +38,7 @@ export const metaOperations = [
     mcpApproval: false,
     mcpTool: null,
     notes: 'Generated OpenAPI 3.1 document; Decided (G13)',
-    status: 'planned',
+    status: 'implemented',
+    output: MetaOpenapi,
   }),
 ] as const;

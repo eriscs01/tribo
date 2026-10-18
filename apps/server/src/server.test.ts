@@ -9,6 +9,7 @@ import {
   PageQuery,
   registry,
   SESSION_COOKIE,
+  toOpenApi,
   type Operation,
 } from '@tribo/contract';
 import type { FastifyInstance } from 'fastify';
@@ -144,6 +145,32 @@ describe('GET /healthz', () => {
     const res = await s.inject({ method: 'GET', url: '/healthz' });
     expect(res.statusCode).toBe(503);
     expect(res.body).toBe('');
+  });
+});
+
+// meta.openapi (Drop A): Generated OpenAPI 3.1 document; Decided (G13)
+describe('GET /v1/openapi.json', () => {
+  it('serves the committed OpenAPI document to any signed-in user', async () => {
+    const res = await (
+      await server()
+    ).inject({
+      method: 'GET',
+      url: '/v1/openapi.json',
+      cookies: { [SESSION_COOKIE]: 'session-token' },
+    });
+    expect(res.statusCode).toBe(200);
+    // toOpenApi(registry) is the committed openapi.json (contract openapi.test.ts).
+    expect(res.json()).toEqual(toOpenApi(registry));
+  });
+
+  it('refuses a caller who is not signed in with 401 unauthenticated', async () => {
+    const s = await server();
+    for (const cookies of [{}, { [SESSION_COOKIE]: 'expired-token' }]) {
+      // eslint-disable-next-line no-await-in-loop -- one refusal at a time
+      const res = await s.inject({ method: 'GET', url: '/v1/openapi.json', cookies });
+      expect(res.statusCode).toBe(401);
+      expect(res.json()).toMatchObject({ code: 'unauthenticated' });
+    }
   });
 });
 
