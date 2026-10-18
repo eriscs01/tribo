@@ -57,5 +57,7 @@ Set `TRIBO_VERSION` to the new tag, then `docker compose pull && docker compose 
 
 ## Releases
 
+Pushing a tag `vX.Y.Z` on `main` runs CI. Once every job passes, its "Publish" job pushes `ghcr.io/eriscs01/tribo-app:vX.Y.Z` and `ghcr.io/eriscs01/tribo-proxy:vX.Y.Z` (linux/amd64) and lists both digests in the run summary. The packages are public, so the host pulls them without credentials (set each package's visibility to public in GitHub once, after its first push).
+
 | Tag | Date | Notes |
 | --- | ---- | ----- |

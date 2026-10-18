@@ -1,0 +1,7 @@
+# Recorded exceptions for the osv-scanner step of CI's "Build and scan" job. Each one names
+# why it cannot reach a running Tribo and expires, so it is reviewed again.
+
+[[IgnoredVulns]]
+id = "GHSA-vfj7-8cjw-p6xm"
+ignoreUntil = 2026-12-31
+reason = "braces 3.0.3 (no fixed version) is dev-only, via eslint-config-airbnb-extended and kysely-codegen; it never parses user input and is not in either image."
