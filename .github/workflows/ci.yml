@@ -185,8 +185,6 @@ jobs:
       TRIBO_VERSION: ci
       TRIBO_PUBLIC_URL: https://tribo.localhost
       TRIBO_TLS_MODE: internal
-      COMPOSE_VERSION: v5.6.0
-      COMPOSE_SHA256: 40343e21ca777173e69cff5dbafeb37c6f81f3b0d57d9e597f036e95eb63e76a
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -194,6 +192,12 @@ jobs:
       - uses: ./.github/actions/setup
       # The test imports @tribo/contract and @tribo/testkit through their built dist.
       - run: pnpm build
+      # deploy/compose.yml mounts the app image twice (bootstrap and migrations), which needs
+      # Docker Engine 29.0 or later (moby/moby#50268); the runner ships 28.
+      - uses: docker/setup-docker-action@2bf61fb9464cc67f0cbdeabed6aa0380accd1c70 # v5.5.0
+        with:
+          version: v29.8.2
+      - run: docker version --format 'Docker Engine {{.Server.Version}}' && docker compose version
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - name: Build the app image
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
@@ -211,18 +215,9 @@ jobs:
           tags: ghcr.io/eriscs01/tribo-proxy:ci
           load: true
           cache-from: type=gha,scope=tribo-proxy
-      # The runner's own Compose is older than the host's (runbook step 4): it ignores the
-      # secrets' uid and mode and refuses two image mounts from one image. Use a current one.
-      - name: Install Docker Compose ${{ env.COMPOSE_VERSION }}
-        run: |
-          mkdir -p ~/.docker/cli-plugins
-          curl --fail --silent --show-error --location -o ~/.docker/cli-plugins/docker-compose \
-            "https://github.com/docker/compose/releases/download/$COMPOSE_VERSION/docker-compose-linux-x86_64"
-          echo "$COMPOSE_SHA256  $HOME/.docker/cli-plugins/docker-compose" | sha256sum --check --strict
-          chmod +x ~/.docker/cli-plugins/docker-compose
-          docker version --format 'Docker Engine {{.Server.Version}}'
-          docker compose version
-      # Throwaway secrets, made as the runbook makes them (step 7), for this run only.
+      # Throwaway secrets for this run only. Compose ignores the secrets' uid, gid and mode
+      # outside Swarm and bind-mounts the files as they are, so the db and app users must be
+      # able to read them.
       - name: Create the secrets
         working-directory: deploy
         run: |
@@ -231,7 +226,7 @@ jobs:
           for name in db_superuser_password db_owner_password db_app_password; do
             openssl rand -hex 32 >"secrets/$name"
           done
-          chmod 600 secrets/*
+          chmod 644 secrets/*
       # The two images just built are used as they are; only PostgreSQL is pulled.
       - name: Start the stack
         run: |
