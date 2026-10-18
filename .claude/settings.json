@@ -11,16 +11,13 @@
       "Read(**/.env.production)",
       "Read(**/app_key)",
       "Read(**/*.dump)",
-      "Read(**/*.sql.gz)"
-    ],
-    "ask": ["Bash(dangerouslyDisableSandbox:true)"]
+      "Read(**/*.sql.gz)",
+      "Read(~/.ssh/**)",
+      "Read(~/.aws/**)"
+    ]
   },
   "sandbox": {
-    "enabled": true,
-    "failIfUnavailable": true,
-    "filesystem": {
-      "denyRead": ["~/.ssh", "~/.aws"]
-    }
+    "enabled": false
   },
   "hooks": {
     "PreToolUse": [
