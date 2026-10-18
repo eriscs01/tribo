@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { useState, type SubmitEvent } from 'react';
+import { useId, useState, type SubmitEvent } from 'react';
 import { api, unwrap, type Schemas } from '../api/client';
 import { keys, type Trip } from '../api/queries';
 import { m, optionsOf } from '../messages';
@@ -49,6 +49,7 @@ const TIMINGS: [Timing, string][] = [
 export function AddItemForm({ trip }: { trip: Trip }) {
   const client = useQueryClient();
   const navigate = useNavigate();
+  const timingId = useId();
   const [form, setForm] = useState<ItemForm>({
     type: 'activity',
     title: '',
@@ -121,8 +122,9 @@ export function AddItemForm({ trip }: { trip: Trip }) {
         <legend>{m.addItem.timing}</legend>
         <div className="choices">
           {TIMINGS.map(([timing, label]) => (
-            <label key={timing} className="choice">
+            <label key={timing} className="choice" htmlFor={`${timingId}-${timing}`}>
               <input
+                id={`${timingId}-${timing}`}
                 type="radio"
                 name="timing"
                 value={timing}
