@@ -277,8 +277,9 @@ Set `TRIBO_VERSION` to the new tag, then `docker compose pull && docker compose 
 
 Pushing a tag `vX.Y.Z` on `main` runs CI. Once every job passes, its "Publish" job pushes `ghcr.io/eriscs01/tribo-app:vX.Y.Z` and `ghcr.io/eriscs01/tribo-proxy:vX.Y.Z` (linux/amd64) and lists both digests in the run summary. The packages are public, so the host pulls them without credentials (set each package's visibility to public in GitHub once, after its first push).
 
-| Tag | Date | Notes |
-| --- | ---- | ----- |
+| Tag      | Date       | Notes                                                                                  |
+| -------- | ---------- | -------------------------------------------------------------------------------------- |
+| `v0.1.0` | 2026-10-18 | First release: Sprint 0 foundation (tasks 1–15 and 19), first images published to GHCR |
 
 ## Walking skeleton check (step 12)
 
@@ -298,4 +299,4 @@ Sprint 0 task 18. Exit criteria 1–2 by hand on the reference host, over HTTPS,
    The last row is `trip:<uuid> | … | create | item | web`.
 
 6. **Verify.** `docker compose exec app tribo audit verify trip:<uuid>`, with the chain key from step 5, prints `… intact`. Then `docker compose exec app tribo audit verify` ends with `All <n> chains intact.` and exits 0.
-7. **Record.** Add the release tag and the date to the "Releases" table above, with the note "Walking skeleton checked by hand".
+7. **Record.** In the "Releases" table above, add "walking skeleton checked by hand on <date>" to the notes of the tag you checked.
