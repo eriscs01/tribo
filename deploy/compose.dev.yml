@@ -1,5 +1,6 @@
 # Local dev stack: `pnpm dev:up` (secrets are generated on first run).
-#   https://tribo.localhost → Caddy (internal CA) → app (watch mode) → PostgreSQL 18
+#   https://tribo.localhost → Caddy (internal CA) → /v1, /healthz: app (watch mode) → PostgreSQL 18
+#                                                 → everything else: web (Vite, hot reload)
 # The app runs from the repo bind mount with its own Linux node_modules in named volumes,
 # so the Mac's node_modules are never used inside the container.
 name: tribo-dev
@@ -66,6 +67,29 @@ services:
       retries: 10
       start_period: 300s
 
+  # The SPA through Vite's dev server. It starts after app, whose start installed and built
+  # the workspace into the shared node_modules volumes.
+  web:
+    image: tribo-dev-app
+    working_dir: /repo
+    command: [pnpm, --filter, '@tribo/web', dev]
+    environment:
+      TRIBO_WEB_POLL: '1'
+      TRIBO_WEB_HMR_PORT: ${TRIBO_DEV_HTTPS_PORT:-443}
+    volumes: *node-modules
+    depends_on:
+      app:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:5173/', { headers: { host: 'tribo.localhost' } }).then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
   seed:
     image: postgres:18.6
     secrets: [db_app_password]
@@ -92,6 +116,8 @@ services:
     depends_on:
       seed:
         condition: service_completed_successfully
+      web:
+        condition: service_healthy
 
 secrets:
   db_superuser_password:

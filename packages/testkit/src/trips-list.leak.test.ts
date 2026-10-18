@@ -1,5 +1,6 @@
 // trips.list against the oracle: every account sees exactly the trips it is an active
 // member of, and the harness fails when tribo.is_member stops checking that.
+import { PAGE_LIMIT_MAX } from '@tribo/contract';
 import { createTripsService, writePath } from '@tribo/core';
 import fc from 'fast-check';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -10,7 +11,7 @@ const options = leakRunOptions();
 
 /** trips.list through the service, one page large enough for any generated world. */
 const listTrips: ListRead = async (db, userId) => {
-  const page = await createTripsService(db, writePath(db)).list(userId, { limit: 200 });
+  const page = await createTripsService(db, writePath(db)).list(userId, { limit: PAGE_LIMIT_MAX });
   return page.items.map((t) => t.id);
 };
 

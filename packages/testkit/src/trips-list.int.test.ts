@@ -1,4 +1,5 @@
 // trips.list: the caller's member trips only, latest start first, in keyset pages.
+import { PAGE_LIMIT_MAX } from '@tribo/contract';
 import { createTripsService, writePath, type TripsService } from '@tribo/core';
 import { ApiError } from '@tribo/platform';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -15,7 +16,7 @@ beforeAll(async () => {
 afterAll(() => tdb.destroy());
 
 const ids = async (userId: string) =>
-  (await trips.list(userId, { limit: 200 })).items.map((t) => t.id);
+  (await trips.list(userId, { limit: PAGE_LIMIT_MAX })).items.map((t) => t.id);
 
 describe('trips.list', () => {
   it('lists trips the caller is an active member of, and no others', async () => {

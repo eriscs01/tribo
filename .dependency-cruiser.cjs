@@ -55,7 +55,7 @@ module.exports = {
     doNotFollow: { path: ['node_modules', '/dist/'] },
     exclude: { path: ['boundary-fixtures', '\\.typecheck\\.ts$'] },
     enhancedResolveOptions: {
-      extensions: ['.ts', '.js'],
+      extensions: ['.ts', '.tsx', '.js'],
       conditionNames: ['import', 'types', 'default'],
     },
   },

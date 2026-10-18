@@ -4,6 +4,7 @@ import path from 'node:path';
 import js from '@eslint/js';
 import { configs, helpers, plugins } from 'eslint-config-airbnb-extended';
 import prettier from 'eslint-config-prettier';
+import reactHooks from 'eslint-plugin-react-hooks';
 import { defineConfig } from 'eslint/config';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
@@ -16,6 +17,24 @@ const workspaceDirs = ['apps', 'packages'].flatMap((group) =>
     .map((entry) => `${group}/${entry.name}`),
 );
 
+/**
+ * Airbnb resolves TypeScript imports for .ts files only (its React config adds .tsx); the SPA
+ * gets the same resolver with .tsx added, so its imports are checked like everyone else's.
+ */
+const tsResolution = configs.base.typescript.find(
+  (config) => config.settings?.['import-x/resolver-next'] !== undefined,
+)?.settings;
+const tsxResolution = tsResolution && {
+  ...tsResolution,
+  'import-x/extensions': [...tsResolution['import-x/extensions'], '.tsx'],
+  'import-x/parsers': {
+    '@typescript-eslint/parser': [
+      ...tsResolution['import-x/parsers']['@typescript-eslint/parser'],
+      '.tsx',
+    ],
+  },
+};
+
 export default defineConfig(
   {
     ignores: [
@@ -23,6 +42,8 @@ export default defineConfig(
       '**/coverage/**',
       '**/src/generated/**',
       '**/boundary-fixtures/**',
+      // Other sessions' git worktrees: their own checkouts, linted there.
+      '.claude/worktrees/**',
       'deploy/secrets/**',
       'secrets/**',
     ],
@@ -42,7 +63,7 @@ export default defineConfig(
     languageOptions: {
       globals: globals.node,
       parserOptions: {
-        projectService: { allowDefaultProject: ['*.config.ts'] },
+        projectService: { allowDefaultProject: ['*.config.ts', 'apps/web/vite.config.ts'] },
         tsconfigRootDir: import.meta.dirname,
       },
     },
@@ -84,6 +105,14 @@ export default defineConfig(
       'import-x/no-unresolved': 'off',
     },
   },
+  // The SPA in the browser, with the Rules of Hooks. Airbnb's React config needs
+  // eslint-plugin-react, whose latest release (7.37.5) calls APIs ESLint 10 removed.
+  {
+    files: ['apps/web/**/*.{ts,tsx}'],
+    extends: [reactHooks.configs.flat['recommended-latest']],
+    languageOptions: { globals: globals.browser },
+    settings: tsxResolution,
+  },
   {
     // Process entry points own the exit code and talk to the operator on stdout/stderr.
     files: [
@@ -100,7 +129,8 @@ export default defineConfig(
       'import-x/no-extraneous-dependencies': [
         'error',
         {
-          devDependencies: helpers.getDevDepsList('typescript'),
+          // Airbnb's test globs stop at .ts; the SPA's component tests are .tsx.
+          devDependencies: [...helpers.getDevDepsList('typescript'), '**/*.test.tsx'],
           optionalDependencies: false,
           packageDir: [import.meta.dirname, path.join(import.meta.dirname, dir)],
         },

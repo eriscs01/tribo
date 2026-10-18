@@ -2,11 +2,12 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "rootDir": "src",
-    "outDir": "dist",
+    // Type output only; Vite writes the app itself to dist/app.
+    "outDir": "dist/types",
     "lib": ["es2024", "dom", "dom.iterable"],
     "module": "esnext",
     "moduleResolution": "bundler",
-    "types": [],
+    "types": ["vite/client", "vite-plugin-pwa/client"],
     "jsx": "react-jsx"
   },
   "include": ["src"],
