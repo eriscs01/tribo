@@ -1,6 +1,7 @@
 // Generated from operations.csv by src/scripts/import-operations.ts. A story replaces an
 // entry's status with 'implemented' and adds its input and output schemas.
 import { defineOperation } from '../operation.js';
+import { Person, PersonInput } from '../person.js';
 
 export const libraryOperations = [
   defineOperation({
@@ -53,7 +54,9 @@ export const libraryOperations = [
     mcpApproval: false,
     mcpTool: null,
     notes: 'Create placeholder person',
-    status: 'planned',
+    status: 'implemented',
+    input: PersonInput,
+    output: Person,
   }),
   defineOperation({
     id: 'library.people.get',

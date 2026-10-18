@@ -1944,7 +1944,18 @@ export interface components {
             token: string;
             newPassword: components["schemas"]["NewPassword"];
         };
+        Contacts: {
+            phone?: string;
+            /** Format: email */
+            email?: string;
+            messenger?: string;
+        };
         CurrencyCode: string;
+        EmergencyContact: {
+            name: string;
+            relation?: string;
+            phone: string;
+        };
         /** @enum {string} */
         ErrorCode: "unauthenticated" | "mfa_required" | "forbidden" | "not_found" | "validation_failed" | "if_match_required" | "version_conflict" | "idempotency_key_reused" | "capacity_exceeded" | "room_double_booked" | "driver_taken" | "invalid_transition" | "masked_field_write" | "rate_limited" | "file_too_large" | "file_type_not_allowed" | "file_purged" | "username_taken" | "invite_invalid" | "already_member" | "claim_conflict" | "person_has_account" | "owner_transfer_required" | "reset_link_used" | "currency_locked" | "trip_archived" | "trip_retired" | "approval_required" | "approval_not_pending" | "internal_error" | "not_implemented";
         /** Format: date-time */
@@ -1992,6 +2003,10 @@ export interface components {
             totp?: components["schemas"]["TotpCode"];
             recoveryCode?: string;
         };
+        MaskedValue: {
+            /** @constant */
+            masked: true;
+        };
         MetaOpenapi: {
             openapi: string;
             info: {
@@ -2021,6 +2036,25 @@ export interface components {
         PasswordChangeInput: {
             currentPassword: string;
             newPassword: components["schemas"]["NewPassword"];
+        };
+        Person: {
+            id: string;
+            displayName: string;
+            hasAccount: boolean;
+            contacts: components["schemas"]["Contacts"];
+            dietary: string | null;
+            drivingLicence: boolean;
+            emergencyContact: components["schemas"]["MaskedValue"] | null;
+            version: number;
+            createdAt: components["schemas"]["Instant"];
+            updatedAt: components["schemas"]["Instant"];
+        };
+        PersonInput: {
+            displayName: string;
+            contacts?: components["schemas"]["Contacts"];
+            dietary?: string;
+            drivingLicence?: boolean;
+            emergencyContact?: components["schemas"]["EmergencyContact"];
         };
         Problem: {
             type: string;
@@ -4146,15 +4180,19 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PersonInput"];
+            };
+        };
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["Person"];
                 };
             };
             /** @description Error */

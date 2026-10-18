@@ -5,6 +5,7 @@ import { SESSION_COOKIE } from '@tribo/contract';
 import {
   createIdentityService,
   createItemsService,
+  createLibraryService,
   createTripsService,
   writePath,
   type IdentityService,
@@ -76,6 +77,11 @@ describe('tribo admin create', () => {
         csrfSecret: csrf,
         trips: createTripsService(tdb.db, writePath(tdb.db)),
         items: createItemsService(tdb.db, writePath(tdb.db)),
+        library: createLibraryService(
+          tdb.db,
+          writePath(tdb.db),
+          keyring(new AppKey(randomBytes(32))),
+        ),
       }),
       ping: () => Promise.resolve(),
       logLevel: 'silent',

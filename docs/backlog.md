@@ -227,7 +227,7 @@
 - [ ] `library.search` · Drop A · `GET /v1/library/search`
   - Search people, places, vendors (trigram); People limited by person_visible
   - Roles: any signed-in user. If-Match: `no`. Idempotency: safe to repeat.
-- [ ] `library.people.create` · Drop A · `POST /v1/library/people`
+- [x] `library.people.create` · Drop A · `POST /v1/library/people`
   - Create placeholder person
   - Roles: any signed-in user. If-Match: `no`. Idempotency: creates (key).
   - Limit: Takes no Idempotency-Key in 1a: only expenses.create and files.upload honour it; this create follows in 1b.

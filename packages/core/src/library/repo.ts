@@ -1,7 +1,12 @@
-import type { ModuleDb } from '@tribo/db';
+import type { Contacts } from '@tribo/contract';
+import type { Json, ModuleDb } from '@tribo/db';
+import { sql } from 'kysely';
 
 /** The library module's database handle: only the tables it owns compile. Other modules call service.ts. */
 export type LibraryDb = ModuleDb<'library'>;
+
+/** A JSON value bound as jsonb; node-postgres would send a bare array as a PostgreSQL array. */
+const jsonb = (value: unknown) => sql<Json>`${JSON.stringify(value)}::jsonb`;
 
 /** An account's own person: user_id set forever, created by the account itself. */
 export function insertAccountPerson(db: LibraryDb, userId: string, displayName: string) {
@@ -19,5 +24,71 @@ export function findAccountPerson(db: LibraryDb, userId: string) {
     .select('id')
     .where('user_id', '=', userId)
     .where('deleted_at', 'is', null)
+    .executeTakeFirst();
+}
+
+/**
+ * A fresh row id, taken before the insert: a sensitive value is sealed to its row id (AAD),
+ * so the id must be known when the row is written.
+ */
+export async function newRowId(db: LibraryDb): Promise<string> {
+  const { rows } = await sql<{ id: string }>`SELECT uuidv7() AS id`.execute(db);
+  const id = rows[0]?.id;
+  if (id === undefined) throw new Error('uuidv7() returned no row');
+  return id;
+}
+
+/** The person fields a placeholder's creator, or an account for its own person, writes. */
+export interface PersonFields {
+  displayName: string;
+  contacts: Contacts;
+  dietary: string | null;
+  drivingLicence: boolean;
+  emergencyContactEnc: Buffer | null;
+}
+
+export async function insertPlaceholder(
+  db: LibraryDb,
+  person: PersonFields & { id: string; createdBy: string },
+): Promise<void> {
+  await db
+    .insertInto('tribo.persons')
+    .values({
+      id: person.id,
+      display_name: person.displayName,
+      contacts: jsonb(person.contacts),
+      dietary: person.dietary,
+      driving_licence: person.drivingLicence,
+      emergency_contact_enc: person.emergencyContactEnc,
+      created_by: person.createdBy,
+      updated_by: person.createdBy,
+    })
+    .execute();
+}
+
+const PERSON_COLUMNS = [
+  'p.id',
+  'p.user_id',
+  'p.display_name',
+  'p.contacts',
+  'p.dietary',
+  'p.driving_licence',
+  'p.emergency_contact_enc',
+  'p.created_by',
+  'p.erased_at',
+  'p.version',
+  'p.created_at',
+  'p.updated_at',
+] as const;
+
+export type PersonRow = NonNullable<Awaited<ReturnType<typeof findPerson>>>;
+
+/** A live person, for the writer that holds it or just created it. */
+export function findPerson(db: LibraryDb, personId: string) {
+  return db
+    .selectFrom('tribo.persons as p')
+    .select(PERSON_COLUMNS)
+    .where('p.id', '=', personId)
+    .where('p.deleted_at', 'is', null)
     .executeTakeFirst();
 }

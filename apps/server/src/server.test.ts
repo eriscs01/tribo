@@ -14,7 +14,13 @@ import {
 } from '@tribo/contract';
 import type { FastifyInstance } from 'fastify';
 import * as z from 'zod';
-import type { IdentityService, ItemsService, SignedIn, TripsService } from '@tribo/core';
+import type {
+  IdentityService,
+  ItemsService,
+  LibraryService,
+  SignedIn,
+  TripsService,
+} from '@tribo/core';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ApiError } from '@tribo/platform';
 import { ConfigError, loadConfig } from './config.js';
@@ -85,6 +91,7 @@ const PLANNED = '/v1/trips/trp_01h455vb4pex5vsknk084sn02q';
 const unused = () => Promise.reject(new Error('not used here'));
 const trips: TripsService = { create: unused, list: unused };
 const items: ItemsService = { create: unused, get: unused };
+const library: LibraryService = { createPerson: unused };
 
 let app: FastifyInstance | undefined;
 let lines: Record<string, unknown>[] = [];
@@ -105,7 +112,7 @@ async function server(overrides: Partial<ServerDeps> = {}) {
     logStream: stream,
     registry: testRegistry,
     handlers: {
-      ...operationHandlers({ identity, csrfSecret: secret, trips, items }),
+      ...operationHandlers({ identity, csrfSecret: secret, trips, items, library }),
       'test.ip': (request) => {
         request.log.info('handler ran');
         return Promise.resolve({ ip: request.ip });

@@ -8,14 +8,14 @@ import { buildServer } from './server.js';
 import { csrfSecret } from './session.js';
 
 const config = loadConfig(process.env);
-const { appKey, pool, identity, trips, items, close } = await openRuntime(config, 'tribo');
+const { appKey, pool, identity, trips, items, library, close } = await openRuntime(config, 'tribo');
 const csrf = csrfSecret(appKey);
 
 const app = await buildServer({
   trustedProxies: config.trustedProxies,
   csrfSecret: csrf,
   authenticate: (token) => identity.authenticate(token),
-  handlers: operationHandlers({ identity, csrfSecret: csrf, trips, items }),
+  handlers: operationHandlers({ identity, csrfSecret: csrf, trips, items, library }),
   logLevel: config.logLevel,
   ping: async () => {
     await pool.query('SELECT 1');

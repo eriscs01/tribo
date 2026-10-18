@@ -4007,12 +4007,12 @@
           }
         ],
         "responses": {
-          "501": {
-            "description": "Registered but not implemented yet (not_implemented)",
+          "201": {
+            "description": "OK",
             "content": {
-              "application/problem+json": {
+              "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Problem"
+                  "$ref": "#/components/schemas/Person"
                 }
               }
             }
@@ -4029,7 +4029,7 @@
           }
         },
         "x-tribo": {
-          "status": "planned",
+          "status": "implemented",
           "slice": "1a",
           "drop": "A",
           "roles": "any signed-in user",
@@ -4050,7 +4050,17 @@
               "maxLength": 255
             }
           }
-        ]
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PersonInput"
+              }
+            }
+          }
+        }
       }
     },
     "/v1/library/people/{personId}": {
@@ -8348,9 +8358,56 @@
         ],
         "additionalProperties": false
       },
+      "Contacts": {
+        "type": "object",
+        "properties": {
+          "phone": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 40
+          },
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "format": "email",
+            "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+          },
+          "messenger": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        "additionalProperties": false
+      },
       "CurrencyCode": {
         "type": "string",
         "pattern": "^[A-Z]{3}$"
+      },
+      "EmergencyContact": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "relation": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 60
+          },
+          "phone": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 40
+          }
+        },
+        "required": [
+          "name",
+          "phone"
+        ],
+        "additionalProperties": false
       },
       "ErrorCode": {
         "type": "string",
@@ -8616,6 +8673,19 @@
         ],
         "additionalProperties": false
       },
+      "MaskedValue": {
+        "type": "object",
+        "properties": {
+          "masked": {
+            "type": "boolean",
+            "const": true
+          }
+        },
+        "required": [
+          "masked"
+        ],
+        "additionalProperties": false
+      },
       "MetaOpenapi": {
         "type": "object",
         "properties": {
@@ -8721,6 +8791,95 @@
         "required": [
           "currentPassword",
           "newPassword"
+        ],
+        "additionalProperties": false
+      },
+      "Person": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^per_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "hasAccount": {
+            "type": "boolean"
+          },
+          "contacts": {
+            "$ref": "#/components/schemas/Contacts"
+          },
+          "dietary": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "drivingLicence": {
+            "type": "boolean"
+          },
+          "emergencyContact": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MaskedValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "createdAt": {
+            "$ref": "#/components/schemas/Instant"
+          },
+          "updatedAt": {
+            "$ref": "#/components/schemas/Instant"
+          }
+        },
+        "required": [
+          "id",
+          "displayName",
+          "hasAccount",
+          "contacts",
+          "dietary",
+          "drivingLicence",
+          "emergencyContact",
+          "version",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "PersonInput": {
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "contacts": {
+            "$ref": "#/components/schemas/Contacts"
+          },
+          "dietary": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "drivingLicence": {
+            "type": "boolean"
+          },
+          "emergencyContact": {
+            "$ref": "#/components/schemas/EmergencyContact"
+          }
+        },
+        "required": [
+          "displayName"
         ],
         "additionalProperties": false
       },
