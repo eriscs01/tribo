@@ -7,7 +7,10 @@ import { clearSessionCookie, csrfTokenFor, sessionTokenOf, setSessionCookie } fr
 
 const USER_AGENT_MAX = 512;
 
-/** auth.* over the web session cookie: sign-in, session, sign-out and TOTP enrolment. */
+/**
+ * auth.*: sign-in, session and sign-out over the web session cookie, TOTP enrolment, and
+ * the public reset-link password reset.
+ */
 export function authHandlers(identity: IdentityService, csrfSecret: Buffer): Handlers {
   const view = (session: SignedIn, token: string): Session => ({
     user: {

@@ -204,7 +204,7 @@ export function setPendingMfaSecret(db: IdentityDb, userId: string, mfaSecretEnc
     .executeTakeFirst();
 }
 
-/** The caller's account row, locked for an MFA or password write. */
+/** The caller's account row, locked for auth.mfa.confirm. */
 export function lockAccount(db: IdentityDb, userId: string) {
   return db
     .selectFrom('tribo.users')

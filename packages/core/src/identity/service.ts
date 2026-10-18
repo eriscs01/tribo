@@ -318,49 +318,6 @@ export function createIdentityService(
       return { key: enrolment.key, uri: enrolment.uri };
     },
 
-    async resetPassword(ctx, body) {
-      const input = validate(AuthPasswordResetInput, body);
-      const passwordHash = await hashSecret(input.newPassword);
-      await db.transaction().execute(async (tx) => {
-        const txIdentity = forModule(tx, 'identity');
-        const link = await repo.useResetLink(txIdentity, tokenHash(input.token));
-        if (!link) throw new ApiError('reset_link_used');
-        await repo.setPassword(txIdentity, link.user_id, passwordHash);
-        await repo.revokeSessions(txIdentity, link.user_id);
-        await repo.revokeResetLinks(txIdentity, link.user_id);
-        await recordEvent(
-          tx,
-          { ...ctx, userId: link.user_id },
-          { action: 'password_reset', entityType: 'user', entityId: link.user_id, tripId: null },
-        );
-      });
-    },
-
-    async changePassword(ctx, caller, body) {
-      const input = validate(PasswordChangeInput, body);
-      const account = await repo.findPasswordAccount(identity, caller.userId);
-      if (!account) throw new ApiError('unauthenticated');
-      if (account.locked) throw new ApiError('rate_limited');
-      if (!(await verifySecret(account.password_hash, input.currentPassword))) {
-        await repo.countFailedLogin(identity, account.id);
-        throw new ApiError('validation_failed', {
-          errors: [{ path: '/currentPassword', message: 'does not match the current password' }],
-        });
-      }
-      const passwordHash = await hashSecret(input.newPassword);
-      await db.transaction().execute(async (tx) => {
-        const txIdentity = forModule(tx, 'identity');
-        await repo.setPassword(txIdentity, account.id, passwordHash);
-        await repo.revokeSessions(txIdentity, account.id, caller.sessionId);
-        await recordEvent(tx, ctx, {
-          action: 'password_change',
-          entityType: 'user',
-          entityId: account.id,
-          tripId: null,
-        });
-      });
-    },
-
     confirmMfa: (ctx, caller, body) =>
       write(ctx, {
         operation: mfaConfirm,
@@ -412,6 +369,49 @@ export function createIdentityService(
           };
         },
       }),
+
+    async resetPassword(ctx, body) {
+      const input = validate(AuthPasswordResetInput, body);
+      const passwordHash = await hashSecret(input.newPassword);
+      await db.transaction().execute(async (tx) => {
+        const txIdentity = forModule(tx, 'identity');
+        const link = await repo.useResetLink(txIdentity, tokenHash(input.token));
+        if (!link) throw new ApiError('reset_link_used');
+        await repo.setPassword(txIdentity, link.user_id, passwordHash);
+        await repo.revokeSessions(txIdentity, link.user_id);
+        await repo.revokeResetLinks(txIdentity, link.user_id);
+        await recordEvent(
+          tx,
+          { ...ctx, userId: link.user_id },
+          { action: 'password_reset', entityType: 'user', entityId: link.user_id, tripId: null },
+        );
+      });
+    },
+
+    async changePassword(ctx, caller, body) {
+      const input = validate(PasswordChangeInput, body);
+      const account = await repo.findPasswordAccount(identity, caller.userId);
+      if (!account) throw new ApiError('unauthenticated');
+      if (account.locked) throw new ApiError('rate_limited');
+      if (!(await verifySecret(account.password_hash, input.currentPassword))) {
+        await repo.countFailedLogin(identity, account.id);
+        throw new ApiError('validation_failed', {
+          errors: [{ path: '/currentPassword', message: 'does not match the current password' }],
+        });
+      }
+      const passwordHash = await hashSecret(input.newPassword);
+      await db.transaction().execute(async (tx) => {
+        const txIdentity = forModule(tx, 'identity');
+        await repo.setPassword(txIdentity, account.id, passwordHash);
+        await repo.revokeSessions(txIdentity, account.id, caller.sessionId);
+        await recordEvent(tx, ctx, {
+          action: 'password_change',
+          entityType: 'user',
+          entityId: account.id,
+          tripId: null,
+        });
+      });
+    },
   };
 }
 
