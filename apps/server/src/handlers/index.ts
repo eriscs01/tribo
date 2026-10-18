@@ -27,7 +27,7 @@ export function operationHandlers(services: HandlerServices): Handlers {
     ...tripHandlers(services.trips),
     ...itemHandlers(services.items),
     ...libraryHandlers(services.library),
-    ...meHandlers(services.identity),
+    ...meHandlers(services.identity, services.library),
     ...metaHandlers(),
   };
 }

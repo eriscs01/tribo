@@ -7,6 +7,7 @@ export * from './ids.js';
 export * from './item.js';
 export * from './library.js';
 export * from './masked.js';
+export * from './me.js';
 export * from './meta.js';
 export * from './mfa.js';
 export * from './money.js';

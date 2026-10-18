@@ -2038,6 +2038,15 @@ export interface components {
             /** @constant */
             masked: true;
         };
+        Me: {
+            account: {
+                id: string;
+                username: components["schemas"]["Username"];
+                /** @enum {string} */
+                platformRole: "admin" | "user";
+            };
+            person: components["schemas"]["Person"];
+        };
         MetaOpenapi: {
             openapi: string;
             info: {
@@ -4993,13 +5002,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["Me"];
                 };
             };
             /** @description Error */

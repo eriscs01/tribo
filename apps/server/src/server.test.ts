@@ -95,6 +95,7 @@ const library: LibraryService = {
   search: unused,
   createPerson: unused,
   getPerson: unused,
+  ownPerson: unused,
   updatePerson: unused,
   createPlace: unused,
   createVendor: unused,

@@ -270,3 +270,26 @@ describe('library.search over HTTP', () => {
     });
   });
 });
+
+describe('me.get over HTTP', () => {
+  it('answers the account and its own person', async () => {
+    const ana = await signedInUser();
+    const res = await app.inject({ method: 'GET', url: '/v1/me', ...ana.auth });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({
+      account: {
+        id: expect.stringMatching(/^usr_/) as unknown,
+        username: ana.username,
+        platformRole: 'user',
+      },
+      person: {
+        id: expect.stringMatching(/^per_/) as unknown,
+        hasAccount: true,
+        emergencyContact: null,
+        version: 1,
+      },
+    });
+    const anonymous = await app.inject({ method: 'GET', url: '/v1/me' });
+    expect(anonymous.json()).toMatchObject({ code: 'unauthenticated' });
+  });
+});

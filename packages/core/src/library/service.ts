@@ -101,6 +101,8 @@ export interface LibraryService {
   createPerson(ctx: RequestContext, body: unknown): Promise<PersonRecord>;
   /** library.people.get: not_found unless tribo.person_visible lets the caller see it. */
   getPerson(userId: string, personId: string): Promise<PersonRecord>;
+  /** me.get: the account's own person; not_found if it has none (an erased account). */
+  ownPerson(userId: string): Promise<PersonRecord>;
   /** library.people.update: a placeholder, by its creator, under If-Match on its version. */
   updatePerson(
     ctx: RequestContext,
@@ -210,6 +212,14 @@ export function createLibraryService(
         .sort((a, b) => b.score - a.score || a.hit.name.localeCompare(b.hit.name))
         .slice(0, search.limit)
         .map(({ hit }) => hit);
+    },
+
+    async ownPerson(userId) {
+      const library = forModule(db, 'library');
+      const own = await findAccountPerson(library, userId);
+      const row = own && (await findPerson(library, own.id));
+      if (!row) throw new ApiError('not_found');
+      return personRecord(row);
     },
 
     async getPerson(userId, personId) {

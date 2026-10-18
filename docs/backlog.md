@@ -28,7 +28,7 @@
 
 ## Me
 
-- [ ] `me.get` · Drop A · `GET /v1/me`
+- [x] `me.get` · Drop A · `GET /v1/me`
   - Caller account + own person profile; Own sensitive fields masked; reveal via library.people.reveal
   - Roles: self. If-Match: `no`. Idempotency: safe to repeat.
 - [ ] `me.update` · Drop A · `PATCH /v1/me`

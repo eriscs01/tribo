@@ -5494,12 +5494,12 @@
           }
         ],
         "responses": {
-          "501": {
-            "description": "Registered but not implemented yet (not_implemented)",
+          "200": {
+            "description": "OK",
             "content": {
-              "application/problem+json": {
+              "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Problem"
+                  "$ref": "#/components/schemas/Me"
                 }
               }
             }
@@ -5516,7 +5516,7 @@
           }
         },
         "x-tribo": {
-          "status": "planned",
+          "status": "implemented",
           "slice": "1a",
           "drop": "A",
           "roles": "self",
@@ -8901,6 +8901,44 @@
         },
         "required": [
           "masked"
+        ],
+        "additionalProperties": false
+      },
+      "Me": {
+        "type": "object",
+        "properties": {
+          "account": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^usr_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+              },
+              "username": {
+                "$ref": "#/components/schemas/Username"
+              },
+              "platformRole": {
+                "type": "string",
+                "enum": [
+                  "admin",
+                  "user"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "username",
+              "platformRole"
+            ],
+            "additionalProperties": false
+          },
+          "person": {
+            "$ref": "#/components/schemas/Person"
+          }
+        },
+        "required": [
+          "account",
+          "person"
         ],
         "additionalProperties": false
       },
