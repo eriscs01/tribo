@@ -20,9 +20,10 @@ import {
 } from '@tribo/platform';
 import type { Kysely } from 'kysely';
 import { writeOperation } from '../write-operation.js';
-import { placeholderEditRefusal } from './policy.js';
+import { ownEditRefusal, placeholderEditRefusal, type EditablePerson } from './policy.js';
 import {
   findAccountPerson,
+  findOwnPerson,
   findPerson,
   findVisiblePerson,
   insertAccountPerson,
@@ -110,6 +111,12 @@ export interface LibraryService {
     body: unknown,
     ifMatch: number | undefined,
   ): Promise<PersonRecord>;
+  /** me.update: the caller's own person, under If-Match on its version. */
+  updateOwnPerson(
+    ctx: RequestContext,
+    body: unknown,
+    ifMatch: number | undefined,
+  ): Promise<PersonRecord>;
   /** library.places.create: any signed-in user adds to the one shared library (G11). */
   createPlace(ctx: RequestContext, body: unknown): Promise<PlaceRecord>;
   /** library.vendors.create: any signed-in user adds to the one shared library (G11). */
@@ -118,6 +125,7 @@ export interface LibraryService {
 
 const peopleCreate = writeOperation('library.people.create', PersonInput);
 const peopleUpdate = writeOperation('library.people.update', PersonPatch);
+const meUpdate = writeOperation('me.update', PersonPatch);
 const placesCreate = writeOperation('library.places.create', PlaceInput);
 const vendorsCreate = writeOperation('library.vendors.create', VendorInput);
 
@@ -215,9 +223,7 @@ export function createLibraryService(
     },
 
     async ownPerson(userId) {
-      const library = forModule(db, 'library');
-      const own = await findAccountPerson(library, userId);
-      const row = own && (await findPerson(library, own.id));
+      const row = await findOwnPerson(forModule(db, 'library'), userId);
       if (!row) throw new ApiError('not_found');
       return personRecord(row);
     },
@@ -260,10 +266,21 @@ export function createLibraryService(
         authorize: async (tx, userId) => {
           const row = await findVisiblePerson(forModule(tx, 'library'), userId, personId);
           if (!row) throw new ApiError('not_found');
-          const refusal = placeholderEditRefusal(
-            { userId: row.user_id, createdBy: row.created_by, erased: row.erased_at !== null },
-            userId,
-          );
+          const refusal = placeholderEditRefusal(editable(row), userId);
+          if (refusal) throw new ApiError(refusal);
+          return row.id;
+        },
+      }),
+
+    updateOwnPerson: (ctx, body, ifMatch) =>
+      editPerson(ctx, {
+        operation: meUpdate,
+        body,
+        ifMatch,
+        authorize: async (tx, userId) => {
+          const row = await findOwnPerson(forModule(tx, 'library'), userId);
+          if (!row) throw new ApiError('not_found');
+          const refusal = ownEditRefusal(editable(row));
           if (refusal) throw new ApiError(refusal);
           return row.id;
         },
@@ -378,6 +395,10 @@ function placeRecord(row: PlaceRow): PlaceRecord {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+}
+
+function editable(row: PersonRow): EditablePerson {
+  return { userId: row.user_id, createdBy: row.created_by, erased: row.erased_at !== null };
 }
 
 /**

@@ -83,6 +83,16 @@ const PERSON_COLUMNS = [
 
 export type PersonRow = NonNullable<Awaited<ReturnType<typeof findPerson>>>;
 
+/** An account's own live person, with every field. */
+export function findOwnPerson(db: LibraryDb, userId: string) {
+  return db
+    .selectFrom('tribo.persons as p')
+    .select(PERSON_COLUMNS)
+    .where('p.user_id', '=', userId)
+    .where('p.deleted_at', 'is', null)
+    .executeTakeFirst();
+}
+
 /** A live person, locked until commit, for the write that changes it. */
 export function lockPerson(db: LibraryDb, personId: string) {
   return findLivePerson(db, personId).forUpdate().executeTakeFirst();

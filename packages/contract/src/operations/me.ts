@@ -3,6 +3,7 @@
 import { defineOperation } from '../operation.js';
 import { Me } from '../me.js';
 import { PasswordChangeInput } from '../password.js';
+import { PersonPatch } from '../person.js';
 
 export const meOperations = [
   defineOperation({
@@ -40,7 +41,9 @@ export const meOperations = [
     mcpTool: null,
     notes:
       'Edit own profile (name, contacts, dietary, emergency contact, licence); masked_field_write on masked fields',
-    status: 'planned',
+    status: 'implemented',
+    input: PersonPatch,
+    output: Me,
   }),
   defineOperation({
     id: 'me.password.change',

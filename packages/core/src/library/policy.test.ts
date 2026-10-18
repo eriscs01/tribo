@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { placeholderEditRefusal } from './policy.js';
+import { ownEditRefusal, placeholderEditRefusal } from './policy.js';
 
 const ANA = 'ana';
 const placeholder = { userId: null, createdBy: ANA, erased: false };
@@ -19,5 +19,13 @@ describe('placeholderEditRefusal', () => {
     expect(placeholderEditRefusal({ ...placeholder, userId: 'ben' }, ANA)).toBe(
       'person_has_account',
     );
+  });
+});
+
+describe('ownEditRefusal', () => {
+  it('lets an account edit its own person, but not an erased one', () => {
+    const own = { userId: ANA, createdBy: ANA, erased: false };
+    expect(ownEditRefusal(own)).toBeNull();
+    expect(ownEditRefusal({ ...own, erased: true })).toBe('forbidden');
   });
 });

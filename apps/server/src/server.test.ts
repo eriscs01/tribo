@@ -97,6 +97,7 @@ const library: LibraryService = {
   getPerson: unused,
   ownPerson: unused,
   updatePerson: unused,
+  updateOwnPerson: unused,
   createPlace: unused,
   createVendor: unused,
 };

@@ -31,7 +31,7 @@
 - [x] `me.get` · Drop A · `GET /v1/me`
   - Caller account + own person profile; Own sensitive fields masked; reveal via library.people.reveal
   - Roles: self. If-Match: `no`. Idempotency: safe to repeat.
-- [ ] `me.update` · Drop A · `PATCH /v1/me`
+- [x] `me.update` · Drop A · `PATCH /v1/me`
   - Edit own profile (name, contacts, dietary, emergency contact, licence); masked_field_write on masked fields
   - Roles: self. If-Match: `version`. Idempotency: safe to repeat.
 - [x] `me.password.change` · Drop A · `POST /v1/me/password`

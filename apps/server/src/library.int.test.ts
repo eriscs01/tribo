@@ -293,3 +293,32 @@ describe('me.get over HTTP', () => {
     expect(anonymous.json()).toMatchObject({ code: 'unauthenticated' });
   });
 });
+
+describe('me.update over HTTP', () => {
+  it('edits the own person under If-Match and answers the whole Me', async () => {
+    const ana = await signedInUser();
+    const patch = (ifMatch: string, payload: Record<string, unknown>) =>
+      app.inject({
+        method: 'PATCH',
+        url: '/v1/me',
+        cookies: ana.auth.cookies,
+        headers: { ...ana.auth.headers, 'if-match': ifMatch },
+        payload,
+      });
+    const ok = await patch('"1"', {
+      dietary: 'Vegan',
+      emergencyContact: { name: 'Rosa Reyes', phone: '+63 917 555 0106' },
+    });
+    expect(ok.statusCode).toBe(200);
+    expect(ok.json()).toMatchObject({
+      account: { username: ana.username },
+      person: { dietary: 'Vegan', emergencyContact: { masked: true }, version: 2 },
+    });
+    // Echoing the read back is refused rather than overwriting the real value.
+    const echoed = await patch('"2"', { emergencyContact: { masked: true } });
+    expect([echoed.statusCode, echoed.json<{ code: string }>().code]).toEqual([
+      409,
+      'masked_field_write',
+    ]);
+  });
+});

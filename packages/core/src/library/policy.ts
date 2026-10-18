@@ -16,3 +16,8 @@ export function placeholderEditRefusal(person: EditablePerson, callerId: string)
   if (person.createdBy !== callerId || person.erased) return 'forbidden';
   return null;
 }
+
+/** me.update: an account edits its own person, unless erasure has made it a tombstone. */
+export function ownEditRefusal(person: EditablePerson): ErrorCode | null {
+  return person.erased ? 'forbidden' : null;
+}

@@ -1,6 +1,6 @@
 import { encodeTypeId, ID_PREFIX, type Me } from '@tribo/contract';
 import type { IdentityService, LibraryService, PersonRecord, SignedIn } from '@tribo/core';
-import { requestContext, signedIn } from '../context.js';
+import { ifMatch, requestContext, signedIn } from '../context.js';
 import type { Handlers } from '../routes.js';
 import { personView } from './library.js';
 
@@ -23,6 +23,12 @@ export function meHandlers(identity: IdentityService, library: LibraryService): 
       const caller = signedIn(request);
       return meView(caller, await library.ownPerson(caller.userId));
     },
+
+    'me.update': async (request) =>
+      meView(
+        signedIn(request),
+        await library.updateOwnPerson(requestContext(request), request.body, ifMatch(request)),
+      ),
 
     'me.password.change': async (request, reply) => {
       await identity.changePassword(requestContext(request), signedIn(request), request.body);
