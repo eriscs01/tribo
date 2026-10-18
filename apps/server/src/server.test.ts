@@ -6,6 +6,7 @@ import { PassThrough } from 'node:stream';
 import {
   defineOperation,
   encodeTypeId,
+  PageQuery,
   registry,
   SESSION_COOKIE,
   type Operation,
@@ -19,6 +20,7 @@ import { ConfigError, loadConfig } from './config.js';
 import { authHandlers } from './handlers/auth.js';
 import { itemHandlers } from './handlers/items.js';
 import { tripHandlers } from './handlers/trips.js';
+import { parsedQuery } from './routes.js';
 import { buildServer, type ServerDeps } from './server.js';
 import { csrfTokenFor, setSessionCookie } from './session.js';
 
@@ -37,7 +39,18 @@ const testRegistry: Operation[] = [
   testOp('test.login', 'POST', '/v1/test/login', ['public']),
   testOp('test.write', 'POST', '/v1/test/write', ['session', 'pat:write']),
   testOp('test.me', 'GET', '/v1/test/me', ['session']),
+  defineOperation({
+    ...testOp('test.query', 'GET', '/v1/test/query', ['public']),
+    query: PageQuery,
+  }),
+  defineOperation({
+    ...testOp('test.plannedQuery', 'GET', '/v1/test/planned-query', ['public']),
+    status: 'planned',
+    query: PageQuery,
+  }),
 ];
+/** Queries the test.query handler saw; empty when validation stopped the request first. */
+const queriesSeen: PageQuery[] = [];
 
 const alice: SignedIn = {
   sessionId: '019a0f3c-5b2e-7c41-9d3a-6e8f1a2b3c4d',
@@ -104,6 +117,10 @@ async function server(overrides: Partial<ServerDeps> = {}) {
       },
       'test.write': () => Promise.resolve({ ok: true }),
       'test.me': (request) => Promise.resolve({ userId: request.signedIn?.userId }),
+      'test.query': (request) => {
+        queriesSeen.push(parsedQuery(request, PageQuery));
+        return Promise.resolve({ ok: true });
+      },
     },
     ...overrides,
   });
@@ -387,6 +404,29 @@ describe('auth handlers', () => {
     expect(res.statusCode).toBe(204);
     expect(loggedOut).toContain('session-token');
     expect(String(res.headers['set-cookie'])).toMatch(new RegExp(`^${SESSION_COOKIE}=;`));
+  });
+});
+
+describe('declared query', () => {
+  it('is validated before the handler runs, and the handler gets the parsed value', async () => {
+    queriesSeen.length = 0;
+    const s = await server();
+    const refused = await s.inject({ method: 'GET', url: '/v1/test/query?limit=0&sort=name' });
+    expect(refused.statusCode).toBe(400);
+    expect(refused.json()).toMatchObject({ code: 'validation_failed' });
+    expect(queriesSeen).toEqual([]);
+
+    const ok = await s.inject({ method: 'GET', url: '/v1/test/query?limit=7' });
+    expect(ok.statusCode).toBe(200);
+    expect(queriesSeen).toEqual([{ limit: 7 }]);
+  });
+
+  it('is not validated on a planned stub, which answers 501', async () => {
+    const res = await (
+      await server()
+    ).inject({ method: 'GET', url: '/v1/test/planned-query?limit=0' });
+    expect(res.statusCode).toBe(501);
+    expect(res.json()).toMatchObject({ code: 'not_implemented' });
   });
 });
 

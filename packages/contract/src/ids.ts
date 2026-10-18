@@ -59,6 +59,9 @@ const SUFFIX_PATTERN = '[0-7][0-9a-hjkmnp-tv-z]{25}';
 const SUFFIX = new RegExp(`^${SUFFIX_PATTERN}$`);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/** A database id in its canonical hyphenated form, as it travels inside the server. */
+export const Uuid = z.string().regex(UUID, 'expected a UUID');
+
 export class TypeIdError extends Error {
   override name = 'TypeIdError';
 }

@@ -1,5 +1,5 @@
 import * as z from 'zod';
-import { ID_PREFIX, typeId } from './ids.js';
+import { ID_PREFIX, typeId, Uuid } from './ids.js';
 import { CurrencyCode } from './money.js';
 import { page } from './page.js';
 import { Instant, TimeZone } from './time.js';
@@ -50,3 +50,9 @@ export type Trip = z.infer<typeof Trip>;
 export const TripPage = page(Trip, 'TripPage');
 
 export type TripPage = z.infer<typeof TripPage>;
+
+/**
+ * The sort key a trips.list cursor carries: the last row's start date and id. Clients see
+ * only the opaque cursor, so this stays out of the OpenAPI document.
+ */
+export const TripCursorKey = z.tuple([z.iso.date(), Uuid]);
