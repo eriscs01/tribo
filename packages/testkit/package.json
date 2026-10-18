@@ -7,6 +7,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./totp": {
+      "types": "./dist/totp.d.ts",
+      "default": "./dist/totp.js"
     }
   },
   "dependencies": {

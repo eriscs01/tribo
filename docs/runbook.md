@@ -280,3 +280,23 @@ Pushing a tag `vX.Y.Z` on `main` runs CI. Once every job passes, its "Publish" j
 | Tag      | Date       | Notes                                                                                  |
 | -------- | ---------- | -------------------------------------------------------------------------------------- |
 | `v0.1.0` | 2026-10-18 | First release: Sprint 0 foundation (tasks 1–15 and 19), first images published to GHCR |
+
+## Walking skeleton check (step 12)
+
+Sprint 0 task 18. Exit criteria 1–2 by hand on the reference host, over HTTPS, after a release is installed (steps 6–9). CI job "End to end" runs the same steps on every pull request, on `main` and on release tags (`apps/e2e/src/walking-skeleton.spec.ts`); this check proves them on the real host, certificate and DNS. Work in `/opt/tribo` on the droplet, and use a phone or laptop browser for the web steps. Use invented trip data only.
+
+1. **Admin and TOTP (exit criterion 1).** If step 9 already made the first admin, sign in with that account at step 2 and skip this one. Otherwise run `docker compose exec app tribo admin create <username> "<display name>"`. Type a password (12–128 characters) twice. Add the printed key or `otpauth://` URI to your authenticator app, then type the six-digit code it shows. The command prints 10 recovery codes: store them in your password manager.
+2. **Sign in.** Open `${TRIBO_PUBLIC_URL}` in the browser: it shows "Sign in". Enter the username, the password and the current authenticator code, then "Sign in". "My trips" opens and the header shows "Signed in as <username>".
+3. **Trip (exit criterion 2).** "New trip": name `Siargao surf week`, first day `2026-11-10`, last day `2026-11-16`, currency `PHP`, time zone `Asia/Manila`; "Create trip". The trip page opens with that name.
+4. **Item.** Under "Add an item", title `Island hopping`, then "Add item". The item page opens. Reload it: the title is still there and "Visible to" says "Everyone on the trip". Follow "Back to Siargao surf week", then "All trips": the trip is in the list.
+5. **Audit chain.** On the droplet, look up the trip's chain and the item's event:
+
+   ```bash
+   docker compose exec -T db psql -U tribo_app -d tribo -c \
+     "SELECT chain_key, seq, action, entity_type, surface FROM audit.audit_events WHERE trip_id = (SELECT id FROM tribo.trips WHERE name = 'Siargao surf week' ORDER BY created_at DESC LIMIT 1) ORDER BY seq"
+   ```
+
+   The last row is `trip:<uuid> | … | create | item | web`.
+
+6. **Verify.** `docker compose exec app tribo audit verify trip:<uuid>`, with the chain key from step 5, prints `… intact`. Then `docker compose exec app tribo audit verify` ends with `All <n> chains intact.` and exits 0.
+7. **Record.** In the "Releases" table above, add "walking skeleton checked by hand on <date>" to the notes of the tag you checked.
