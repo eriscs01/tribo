@@ -10,7 +10,7 @@ Sprint 0 task 15. Steps 1–5 give a hardened Ubuntu host in Singapore with a Di
 | ----------------- | ---------------------------------------------------------------------------------------------------------- |
 | `<host>`          | The Tribo host name, e.g. `tribo.example.com`                                                              |
 | `<ipv4>` `<ipv6>` | The droplet's public addresses, from step 1                                                                |
-| `<my-ip>/32`      | Your own public IPv4 (`curl -4 https://ifconfig.me`); use `0.0.0.0/0,::/0` if it changes often             |
+| `<my-ip>/32`      | Your own public IPv4 (`curl -4 https://ifconfig.me`); see step 3 if your ISP changes it                    |
 | `<key-id>`        | Your SSH key's ID or fingerprint in DigitalOcean (`doctl compute ssh-key list`); add one in step 1 if none |
 
 The provisioning files are in `deploy/provision/`. Both are idempotent and hold no keys, IPs or account IDs:
@@ -28,7 +28,7 @@ The provisioning files are in `deploy/provision/`. Both are idempotent and hold 
 | Authentication | SSH key only                                                           | DigitalOcean installs the key for root, and `provision.sh` moves it to the sudo user and closes root login                                        |
 | IPv6           | On (`--enable-ipv6`)                                                   | Gives the AAAA record in step 5. It is off by default                                                                                             |
 | Monitoring     | On (`--enable-monitoring`, free)                                       | CPU, memory and disk graphs and alert policies. It is off by default                                                                              |
-| Droplet agent  | Default (on)                                                           | Keeps the browser Droplet Console as the way back in if your IP changes and the firewall locks you out                                            |
+| Droplet agent  | Default (on)                                                           | Gives the browser Droplet Console. It connects over SSH, so limiting 22 may block it                                                              |
 | Backups        | Off                                                                    | Task 17 pulls nightly dumps to a disk you own. DigitalOcean backups cost a percentage of the droplet price and are optional                       |
 | Cloud Firewall | `tribo-ref-fw`, applied by tag `tribo` (free)                          | The firewall covers the droplet from first boot. It drops traffic before the droplet, so ports Docker publishes past ufw stay closed here too     |
 | Host firewall  | ufw with the same rules                                                | Second layer, as the design requires                                                                                                              |
@@ -75,14 +75,14 @@ doctl compute droplet get tribo-ref --format Name,Status,Region,SizeSlug,Image,T
 
 ### Step 2. Access
 
-On a droplet created with the user data, `provision.sh` has already run with its defaults; wait about five minutes after creation. Run it over SSH in two cases: on a droplet created without the user data, and to restrict 22 in ufw to your IP, since user data takes no parameters. `<login>` is `root` until the first run and `tribo` after it:
+On a droplet created with the user data, `provision.sh` has already run with its defaults; wait about five minutes after creation. Run it over SSH on a droplet created without the user data, or with `--ssh-from` to restrict 22 in ufw when your IP is fixed (step 3). `<login>` is `root` until the first run and `tribo` after it:
 
 ```bash
 scp deploy/provision/provision.sh <login>@<ipv4>:
 ```
 
 ```bash
-ssh <login>@<ipv4> sudo sh provision.sh --ssh-from <my-ip>/32
+ssh <login>@<ipv4> sudo sh provision.sh
 ```
 
 Keep your current session open until the checks below pass from a second terminal. Check, on your machine:
@@ -111,7 +111,17 @@ Expect `active`, `APT::Periodic::Unattended-Upgrade "1";` and no errors. If some
 
 ### Step 3. Firewall
 
-The Cloud Firewall comes from step 1. To change the SSH source later, rerun `do-firewall.sh --ssh-from … --apply` and `provision.sh --ssh-from …`.
+The Cloud Firewall comes from step 1. Restrict SSH to your IP in the layer you can change without SSH:
+
+- **Your IP changes (most home ISPs):** restrict 22 in the Cloud Firewall only and leave ufw's 22 open (the `provision.sh` default). When your IP changes, SSH times out; update the Cloud Firewall from your machine, then connect:
+
+  ```bash
+  sh deploy/provision/do-firewall.sh --ssh-from "$(curl -4s https://ifconfig.me)/32" --apply
+  ```
+
+  Restricting ufw as well would need SSH to undo after an IP change, which locks you out; the browser Droplet Console may not get in either.
+
+- **Your IP is fixed:** also pass `--ssh-from <my-ip>/32` to `provision.sh`, so both layers restrict 22.
 
 Without `doctl`, set it in the control panel: Networking → Firewalls → Create Firewall, name `tribo-ref-fw`.
 
