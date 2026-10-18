@@ -83,20 +83,20 @@ tribo/
 
 ## CI pipeline
 
-GitHub Actions on every push and pull request; jobs 2–8 run in parallel after install, job 9 after job 8, and `main` requires all of them.
+GitHub Actions (`.github/workflows/ci.yml`) on every push and pull request; jobs 1–6 run in parallel, job 7 after job 6, and `main` requires jobs 1–7 by name. Each job starts with the shared install step (`.github/actions/setup`): a frozen `pnpm install` that fails when the lockfile is out of date, with the pnpm store cached on the lockfile.
 
 | # | Job | Fails when |
 | --- | --- | --- |
-| 1 | Install | Lockfile out of date (pnpm cache keyed on the lockfile) |
-| 2 | Lint and format | ESLint, Prettier or dependency-cruiser boundary rules fail |
-| 3 | Typecheck | `tsc -b` fails, including cross-module table access |
-| 4 | Unit | Vitest fails (policy matrix, envelope, money rounding as they land) |
-| 5 | Integration | Vitest with Testcontainers PostgreSQL 18 and both roles fails: migrations, write-path rollback, append-only audit, chain verification |
-| 6 | Contract | Generated `openapi.json` differs from the committed one without an approved update; a route or tool lacks an operation id; the registry and `operations.csv` disagree |
-| 7 | Leak properties | fast-check finds a private row reaching another user (fixed seed on pushes, random seeds nightly) |
-| 8 | Build and scan | App or Caddy image fails to build; osv-scanner or Trivy reports a high or critical finding without a recorded exception |
-| 9 | End to end | Playwright walking-skeleton test fails against the Compose stack (on `main` and on release tags) |
-| 10 | Publish | On a release tag only: push both images to GHCR with the tag and digest |
+| 1 | Lint and format | ESLint, Prettier or dependency-cruiser boundary rules fail |
+| 2 | Typecheck | `tsc -b` fails, including cross-module table access, or the SPA fails to build |
+| 3 | Unit | Vitest fails (policy matrix, envelope, money rounding as they land), including the contract checks: generated `openapi.json` differs from the committed one without an approved update; a route or tool lacks an operation id; the registry and `operations.csv` disagree |
+| 4 | Integration | Vitest with Testcontainers PostgreSQL 18 and both roles fails: migrations, write-path rollback, append-only audit, chain verification |
+| 5 | Leak properties | fast-check finds a private row reaching another user (fixed seed; random seeds run nightly, below) |
+| 6 | Build and scan | App or Caddy image fails to build; osv-scanner or Trivy reports a high or critical finding without a recorded exception |
+| 7 | End to end | Playwright walking-skeleton test fails against the Compose stack, on every pull request and push (after job 6) |
+| 8 | Publish | On a release tag only, after jobs 1–7 pass: push both images to GHCR with the tag and digest |
+
+A nightly workflow (`.github/workflows/nightly.yml`) runs the leak properties with a random seed, prints the seed in its log and run summary, and opens an issue when it fails; `TRIBO_LEAK_SEED=<seed> pnpm test:leak` reproduces a failure. It is not a required check, so a new seed's finding never blocks an unrelated pull request.
 
 Deploys stay manual: the operator pulls a tagged release on the host.
 
