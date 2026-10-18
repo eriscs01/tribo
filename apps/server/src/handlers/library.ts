@@ -1,6 +1,6 @@
 import { encodeTypeId, ID_PREFIX, MASKED, type Person } from '@tribo/contract';
 import type { LibraryService, PersonRecord } from '@tribo/core';
-import { requestContext } from '../context.js';
+import { pathId, requestContext, signedIn } from '../context.js';
 import type { Handlers } from '../routes.js';
 
 export function personView(person: PersonRecord): Person {
@@ -24,5 +24,8 @@ export function libraryHandlers(library: LibraryService): Handlers {
       const person = await library.createPerson(requestContext(request), request.body);
       return reply.code(201).send(personView(person));
     },
+
+    'library.people.get': async (request) =>
+      personView(await library.getPerson(signedIn(request).userId, pathId(request, 'personId'))),
   };
 }

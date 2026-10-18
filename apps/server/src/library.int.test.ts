@@ -118,3 +118,31 @@ describe('library.people.create over HTTP', () => {
     expect(res.json()).toMatchObject({ code: 'unauthenticated' });
   });
 });
+
+describe('library.people.get over HTTP', () => {
+  it('answers the person the caller created, and not_found to anyone else', async () => {
+    const ana = await signedInUser();
+    const ben = await signedInUser();
+    const created = await app.inject({
+      method: 'POST',
+      url: '/v1/library/people',
+      ...ana.auth,
+      payload: { displayName: 'Carla Cruz' },
+    });
+    const person = created.json<{ id: string }>();
+    const read = await app.inject({
+      method: 'GET',
+      url: `/v1/library/people/${person.id}`,
+      ...ana.auth,
+    });
+    expect(read.statusCode).toBe(200);
+    expect(read.json()).toEqual(person);
+    const urls = [`/v1/library/people/${person.id}`, '/v1/library/people/per_nope'];
+    const responses = await Promise.all(
+      urls.map((url) => app.inject({ method: 'GET', url, ...ben.auth })),
+    );
+    responses.forEach((res, i) => {
+      expect(res.json(), urls[i]).toMatchObject({ code: 'not_found' });
+    });
+  });
+});

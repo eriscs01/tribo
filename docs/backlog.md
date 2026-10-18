@@ -231,7 +231,7 @@
   - Create placeholder person
   - Roles: any signed-in user. If-Match: `no`. Idempotency: creates (key).
   - Limit: Takes no Idempotency-Key in 1a: only expenses.create and files.upload honour it; this create follows in 1b.
-- [ ] `library.people.get` · Drop A · `GET /v1/library/people/{personId}`
+- [x] `library.people.get` · Drop A · `GET /v1/library/people/{personId}`
   - Person detail; person_visible; emergency contact masked; Merged id resolves to the survivor
   - Roles: any signed-in user. If-Match: `no`. Idempotency: safe to repeat.
 - [ ] `library.people.update` · Drop A · `PATCH /v1/library/people/{personId}`

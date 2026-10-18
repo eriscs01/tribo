@@ -74,7 +74,8 @@ export const libraryOperations = [
     mcpTool: null,
     notes:
       'Person detail; person_visible; emergency contact masked; Merged id resolves to the survivor',
-    status: 'planned',
+    status: 'implemented',
+    output: Person,
   }),
   defineOperation({
     id: 'library.people.update',

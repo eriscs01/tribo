@@ -92,3 +92,21 @@ export function findPerson(db: LibraryDb, personId: string) {
     .where('p.deleted_at', 'is', null)
     .executeTakeFirst();
 }
+
+/**
+ * The person if tribo.person_visible lets this account see it. A merged id resolves to its
+ * survivor first (merges keep chains one hop), and the survivor must be visible itself.
+ */
+export function findVisiblePerson(db: LibraryDb, userId: string, personId: string) {
+  return db
+    .selectFrom('tribo.persons as p')
+    .select(PERSON_COLUMNS)
+    .where('p.id', '=', (eb) =>
+      eb
+        .selectFrom('tribo.persons as m')
+        .select((m) => m.fn.coalesce('m.merged_into', 'm.id').as('id'))
+        .where('m.id', '=', personId),
+    )
+    .where(sql<boolean>`tribo.person_visible(${userId}, p.id)`)
+    .executeTakeFirst();
+}

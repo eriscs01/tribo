@@ -13,6 +13,7 @@ import { writeOperation } from '../write-operation.js';
 import {
   findAccountPerson,
   findPerson,
+  findVisiblePerson,
   insertAccountPerson,
   insertPlaceholder,
   newRowId,
@@ -37,6 +38,8 @@ export interface PersonRecord {
 export interface LibraryService {
   /** library.people.create: a placeholder traveller the caller creates and alone edits. */
   createPerson(ctx: RequestContext, body: unknown): Promise<PersonRecord>;
+  /** library.people.get: not_found unless tribo.person_visible lets the caller see it. */
+  getPerson(userId: string, personId: string): Promise<PersonRecord>;
 }
 
 const peopleCreate = writeOperation('library.people.create', PersonInput);
@@ -49,7 +52,7 @@ const EMERGENCY_CONTACT = (personId: string): FieldRef => ({
 
 /** `write` is core's write path (writePath in write-path.ts), passed in to keep imports acyclic. */
 export function createLibraryService(
-  _db: Kysely<DB>,
+  db: Kysely<DB>,
   write: WritePath,
   keys: Keyring,
 ): LibraryService {
@@ -57,6 +60,12 @@ export function createLibraryService(
     contact === null ? null : sealJson(keys, EMERGENCY_CONTACT(personId), contact);
 
   return {
+    async getPerson(userId, personId) {
+      const row = await findVisiblePerson(forModule(db, 'library'), userId, personId);
+      if (!row) throw new ApiError('not_found');
+      return personRecord(row);
+    },
+
     createPerson: (ctx, body) =>
       write(ctx, {
         operation: peopleCreate,
