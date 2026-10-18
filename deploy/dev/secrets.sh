@@ -1,7 +1,7 @@
 #!/bin/sh
 # Creates random dev secrets in deploy/secrets/dev/ on first run; never overwrites.
-# Dev only: files are world-readable so the postgres and app containers can read the bind
-# mounts. Production secrets are created by the runbook with mode 600.
+# Files are world-readable so the postgres and app containers can read the bind mounts, as
+# in production; there the secrets directory is 700 (docs/runbook.md, step 7).
 set -eu
 dir="$(dirname "$0")/../secrets/dev"
 mkdir -p "$dir"

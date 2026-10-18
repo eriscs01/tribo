@@ -238,15 +238,15 @@ Only `proxy` publishes ports (80, 443 and 443/udp). The database and the app are
 3. Create the secrets in `/opt/tribo/secrets/`:
 
    ```bash
-   mkdir -p secrets && cd secrets
+   mkdir -p secrets && chmod 700 secrets && cd secrets
    openssl rand -out app_key 32
    for name in db_superuser_password db_owner_password db_app_password; do openssl rand -hex 32 >"$name"; done
-   chmod 600 *
+   chmod 644 *
    ```
 
    Copy `app_key` off the box now (password manager or offline storage): without it, sensitive fields in any backup are unreadable. `db_superuser_password` is the `postgres` role's password, used only by the database container.
 
-   Add the mode's own secrets, also mode 600:
+   Add the mode's own secrets, also mode 644:
 
    | Mode                  | Files                                                                               |
    | --------------------- | ----------------------------------------------------------------------------------- |
@@ -254,9 +254,14 @@ Only `proxy` publishes ports (80, 443 and 443/udp). The database and the app are
    | `origin-cert`         | `origin_cert` and `origin_key`: a Cloudflare Origin CA certificate and its key, PEM |
    | `tunnel` profile      | `tunnel_token`: the token of a remotely managed tunnel                              |
 
-   Compose mounts each secret into its container owned by that container's user with mode 400, so the host files can stay 600 and owned by the operator.
+   Compose bind-mounts each secret file into its container as it is on the host: it ignores a secret's `uid`, `gid` and `mode` outside Swarm. The containers run as other users (`postgres` is uid 999, the app's `node` is 1000), so the files must be readable by all (644). The directory is 700, so no other user on the host can reach them, and each container sees only the secrets it mounts. With mode 600 the database's init script stops at `Permission denied`.
 
-4. `docker compose pull && docker compose up -d`, then `docker compose logs -f proxy` until the certificate is issued (acme modes), and open `${TRIBO_PUBLIC_URL}/healthz` from a phone on mobile data. It answers `{"status":"ok"}`.
+   Check, before the first start: `ls -ld . && ls -l` shows `drwx------` for the directory and `-rw-r--r--` for each file.
+
+4. `docker compose pull && docker compose up -d --wait`, then `docker compose logs -f proxy` until the certificate is issued (acme modes), and open `${TRIBO_PUBLIC_URL}/healthz` from a phone on mobile data. It answers `{"status":"ok"}`.
+
+   If `db` stays unhealthy on the first start, read why with `docker compose logs db | grep 'tribo init'`. The init script runs only on an empty volume, so after fixing the cause (usually the secrets' modes), delete the half-made volume and start again with `docker compose down -v && docker compose up -d --wait`. Do this only on a first install: `down -v` deletes the database.
+
 5. First admin (step 9): `docker compose exec app tribo admin create <username>`; scan the TOTP code and store the recovery codes.
 
 ### Mode notes
