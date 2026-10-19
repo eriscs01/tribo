@@ -1,4 +1,5 @@
 import * as z from 'zod';
+import { honoursIdempotencyKey } from './drop-limits.js';
 import { ErrorCode } from './errors.js';
 import { PATH_PARAM_PREFIX, typeIdPattern } from './ids.js';
 import { pathParams, type AuthMode, type Operation } from './operation.js';
@@ -108,7 +109,8 @@ function parameters(op: Operation, components: Components): Json[] {
       schema: { type: 'string' },
     });
   }
-  if (op.idempotent === 'key') {
+  // The CSV's `key` is the design; the header is declared only where this release honours it.
+  if (honoursIdempotencyKey(op)) {
     params.push({
       name: 'Idempotency-Key',
       in: 'header',

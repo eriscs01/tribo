@@ -2463,10 +2463,7 @@ export interface operations {
     "admin.clients.add": {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Replays the stored response for 24 hours per caller */
-                "Idempotency-Key"?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -2687,10 +2684,7 @@ export interface operations {
     "admin.users.create": {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Replays the stored response for 24 hours per caller */
-                "Idempotency-Key"?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -2818,10 +2812,7 @@ export interface operations {
     "admin.users.resetLink": {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Replays the stored response for 24 hours per caller */
-                "Idempotency-Key"?: string;
-            };
+            header?: never;
             path: {
                 userId: string;
             };
@@ -3069,10 +3060,7 @@ export interface operations {
     "auth.mfa.confirm": {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Replays the stored response for 24 hours per caller */
-                "Idempotency-Key"?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -3655,10 +3643,7 @@ export interface operations {
     "invites.accept": {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Replays the stored response for 24 hours per caller */
-                "Idempotency-Key"?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -3913,10 +3898,7 @@ export interface operations {
     "checklist.add": {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Replays the stored response for 24 hours per caller */
-                "Idempotency-Key"?: string;
-            };
+            header?: never;
             path: {
                 itemId: string;
             };
@@ -4212,10 +4194,7 @@ export interface operations {
     "tickets.create": {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Replays the stored response for 24 hours per caller */
-                "Idempotency-Key"?: string;
-            };
+            header?: never;
             path: {
                 itemId: string;
             };
@@ -4277,10 +4256,7 @@ export interface operations {
     "units.create": {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Replays the stored response for 24 hours per caller */
-                "Idempotency-Key"?: string;
-            };
+            header?: never;
             path: {
                 itemId: string;
             };
@@ -4340,10 +4316,7 @@ export interface operations {
     "library.people.create": {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Replays the stored response for 24 hours per caller */
-                "Idempotency-Key"?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -4539,10 +4512,7 @@ export interface operations {
     "library.places.create": {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Replays the stored response for 24 hours per caller */
-                "Idempotency-Key"?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -4735,10 +4705,7 @@ export interface operations {
     "library.templates.create": {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Replays the stored response for 24 hours per caller */
-                "Idempotency-Key"?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -4866,10 +4833,7 @@ export interface operations {
     "library.templates.apply": {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Replays the stored response for 24 hours per caller */
-                "Idempotency-Key"?: string;
-            };
+            header?: never;
             path: {
                 templateId: string;
             };
@@ -4929,10 +4893,7 @@ export interface operations {
     "library.vendors.create": {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Replays the stored response for 24 hours per caller */
-                "Idempotency-Key"?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -5278,10 +5239,7 @@ export interface operations {
     "tokens.create": {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Replays the stored response for 24 hours per caller */
-                "Idempotency-Key"?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -5563,10 +5521,7 @@ export interface operations {
     "trips.create": {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Replays the stored response for 24 hours per caller */
-                "Idempotency-Key"?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -5799,10 +5754,7 @@ export interface operations {
     "trips.clone": {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Replays the stored response for 24 hours per caller */
-                "Idempotency-Key"?: string;
-            };
+            header?: never;
             path: {
                 tripId: string;
             };
@@ -6056,10 +6008,7 @@ export interface operations {
     "invites.create": {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Replays the stored response for 24 hours per caller */
-                "Idempotency-Key"?: string;
-            };
+            header?: never;
             path: {
                 tripId: string;
             };
@@ -6160,10 +6109,7 @@ export interface operations {
     "items.create": {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Replays the stored response for 24 hours per caller */
-                "Idempotency-Key"?: string;
-            };
+            header?: never;
             path: {
                 tripId: string;
             };
@@ -6260,10 +6206,7 @@ export interface operations {
     "members.add": {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Replays the stored response for 24 hours per caller */
-                "Idempotency-Key"?: string;
-            };
+            header?: never;
             path: {
                 tripId: string;
             };

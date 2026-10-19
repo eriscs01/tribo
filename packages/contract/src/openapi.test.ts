@@ -3,6 +3,7 @@ import { Validator } from '@seriousme/openapi-schema-validator';
 import * as z from 'zod';
 import { describe, expect, it } from 'vitest';
 import { toOpenApi } from './openapi.js';
+import { IDEMPOTENCY_KEY_OPERATIONS } from './drop-limits.js';
 import { defineOperation } from './operation.js';
 import { registry } from './operations/index.js';
 import { Money } from './money.js';
@@ -49,6 +50,18 @@ describe('toOpenApi', () => {
     const single = toOpenApi([op]);
     expect((await new Validator().validate(single)).valid).toBe(true);
     expect(JSON.stringify(single)).toContain('"local"');
+  });
+
+  it('declares Idempotency-Key only on the operations that honour it in 1a', () => {
+    const paths = doc.paths as Record<string, Record<string, { parameters?: { name: string }[] }>>;
+    const declaring = registry
+      .filter((op) =>
+        paths[op.path]?.[op.method.toLowerCase()]?.parameters?.some(
+          (p) => p.name === 'Idempotency-Key',
+        ),
+      )
+      .map((op) => op.id);
+    expect(declaring.sort()).toEqual([...IDEMPOTENCY_KEY_OPERATIONS].sort());
   });
 
   it('answers 204 for an implemented operation without output', () => {
