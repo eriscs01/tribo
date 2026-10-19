@@ -1,0 +1,37 @@
+# Migration lint (`pnpm lint:migrations`, part of `pnpm lint`). Reads the numbered files from
+# 0002 on: 0000 and 0001 are merged and the bootstrap runs once as superuser, so they are
+# not linted. Migrations are expand/contract (docs/design/technical-design.md, "Operations"):
+# a rollback must never need a down-migration, so the rules that ban dropping or renaming a
+# column or table, changing a type or adding NOT NULL without a default stay on. The contract
+# step of a pair silences its one rule in the file with `-- squawk-ignore <rule>` and a reason.
+
+pg_version = "18.0"
+
+# packages/db/src/migrate.ts wraps each file and its schema_migrations row in one transaction.
+assume_in_transaction = true
+
+excluded_paths = [
+  "packages/db/migrations/0000_*.sql",
+  "packages/db/migrations/0001_*.sql",
+]
+
+# Every excluded rule needs the reason it does not fit this project.
+excluded_rules = [
+  # The runner takes the advisory lock and applies files at app start, on a single-host Compose
+  # stack, before the server listens: nothing else holds a conflicting lock, so waiting for one
+  # is correct and a timeout would only fail the start.
+  "require-lock-timeout",
+  "require-statement-timeout",
+  # Same reason: no traffic competes with the table scan that validating a constraint needs, and
+  # NOT VALID plus VALIDATE CONSTRAINT would be two statements in the same transaction anyway.
+  "constraint-missing-not-valid",
+  # Ids are uuid (UUIDv7). The int columns are small bounded counters and limits (version,
+  # retention days) that cannot approach 2^31, so bigint would only widen them.
+  "prefer-bigint-over-int",
+  "prefer-bigint-over-smallint",
+  # CREATE INDEX CONCURRENTLY cannot run inside a transaction, and the runner always uses one.
+  "require-concurrent-index-creation",
+  # Domains carry the value rules once (one-owner rule: the database declares what one row
+  # can express), so a domain with a CHECK is the project's way to declare a value set.
+  "ban-create-domain-with-constraint",
+]

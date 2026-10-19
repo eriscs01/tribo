@@ -199,6 +199,9 @@ importers:
       prettier:
         specifier: 3.9.10
         version: 3.9.10
+      squawk-cli:
+        specifier: 2.68.0
+        version: 2.68.0
       typescript:
         specifier: 6.0.3
         version: 6.0.3
@@ -1805,6 +1808,45 @@ packages:
   '@seriousme/openapi-schema-validator@2.11.0':
     resolution: {integrity: sha512-DL8TjmjkUS76OaK/TinoRtf6PrirsWfMZiv62ifP9eq3UOpoLqSGZKpCErxMzz0i1pjECSPYY+qZ1SRYEgiEvg==}
     hasBin: true
+
+  '@squawk-cli/darwin-arm64@2.68.0':
+    resolution: {integrity: sha512-MDe5/uRqkoBvU4MVzPwRJZHoRxZ78vNhyYeoy/0mZKhZz64xH6zQozoJBM7W9pspHGjBQ2u+tEVf30gurBGS9A==}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@squawk-cli/darwin-x64@2.68.0':
+    resolution: {integrity: sha512-NTuclGY2a/9H6jfGbxot401sdQH3su4MbQeBNrXY/EeH3CUKQtOXSyI6vMvR4wQut6lc/uU3TpofK2CVM8YpEA==}
+    cpu: [x64]
+    os: [darwin]
+
+  '@squawk-cli/linux-arm64-musl@2.68.0':
+    resolution: {integrity: sha512-JbvhsK9WxLWN0eDUO8skclUKhn9qIcYPmAakiFrmnAKqvhCzwzBvVnQX1E5Y+BduaFJpap36eJq/4gEzVSHJ/g==}
+    cpu: [arm64]
+    os: [linux]
+    libc: [musl]
+
+  '@squawk-cli/linux-arm64@2.68.0':
+    resolution: {integrity: sha512-//HDEdhO4QSFY8VPvPfYBEcSgXaa4wyycyLSvdvJ9uC03REGy+0UvYZyGZy1qOwnoIoVr8aWukZ9b68Lsz0mtg==}
+    cpu: [arm64]
+    os: [linux]
+    libc: [glibc]
+
+  '@squawk-cli/linux-x64-musl@2.68.0':
+    resolution: {integrity: sha512-kBwXlCFhIRNaJaLN+gtI9pi4zS6p1QgVvD2Gf5yyQ3Z3tv5dzCZ0FcMETcxwE2CW+2Wa1lnevy0OUWktc0+Btw==}
+    cpu: [x64]
+    os: [linux]
+    libc: [musl]
+
+  '@squawk-cli/linux-x64@2.68.0':
+    resolution: {integrity: sha512-by8mRyKmVCrJ42fV3/wcAD8KdsupMHWIT/9ubmwxKHrl9TDetDgOtOo4xQKfND5n2RH5yBBsjgW1ailOgSl3QQ==}
+    cpu: [x64]
+    os: [linux]
+    libc: [glibc]
+
+  '@squawk-cli/win32-x64@2.68.0':
+    resolution: {integrity: sha512-++jd0uZ1UatYzdBz4wao8Ip525xjDTbvx+pJK+A21yeKfXZQTaB0RJXsIae7cofSFOgRAXvwVzlzK8PWzlpjsg==}
+    cpu: [x64]
+    os: [win32]
 
   '@stylistic/eslint-plugin@5.10.0':
     resolution: {integrity: sha512-nPK52ZHvot8Ju/0A4ucSX1dcPV2/1clx0kLcH5wDmrE4naKso7TUC/voUyU1O9OTKTrR6MYip6LP0ogEMQ9jPQ==}
@@ -4318,6 +4360,10 @@ packages:
     resolution: {integrity: sha512-UcjcJOWknrNkF6PLX83qcHM6KHgVKNkV62Y8a5uYDVv9ydGQVwAHMKqHdJje1VTWpljG0WYpCDhrCdAOYH4TWg==}
     engines: {node: '>= 10.x'}
 
+  squawk-cli@2.68.0:
+    resolution: {integrity: sha512-hH+pvEPxPutJ1zDDP1DOY5sJv7wAngPAEW33Flta18yB1+/nLifbRTYpMvHHXtNneJIPZHHo941sc/mPzP8wQw==}
+    hasBin: true
+
   ssh-remote-port-forward@1.0.4:
     resolution: {integrity: sha512-x0LV1eVDwjf1gmG7TTnfqIzf+3VPRz7vrNIjX6oYLbeCrf/PeVY6hkT68Mg+q02qXxQhrLjB0jfgvhevoCRmLQ==}
 
@@ -6244,6 +6290,27 @@ snapshots:
       ajv-draft-04: 1.0.0(ajv@8.20.0)
       ajv-formats: 3.0.1
       yaml: 2.9.1
+
+  '@squawk-cli/darwin-arm64@2.68.0':
+    optional: true
+
+  '@squawk-cli/darwin-x64@2.68.0':
+    optional: true
+
+  '@squawk-cli/linux-arm64-musl@2.68.0':
+    optional: true
+
+  '@squawk-cli/linux-arm64@2.68.0':
+    optional: true
+
+  '@squawk-cli/linux-x64-musl@2.68.0':
+    optional: true
+
+  '@squawk-cli/linux-x64@2.68.0':
+    optional: true
+
+  '@squawk-cli/win32-x64@2.68.0':
+    optional: true
 
   '@stylistic/eslint-plugin@5.10.0(eslint@10.13.0(supports-color@7.2.0))':
     dependencies:
@@ -9006,6 +9073,16 @@ snapshots:
   split-ca@1.0.1: {}
 
   split2@4.2.0: {}
+
+  squawk-cli@2.68.0:
+    optionalDependencies:
+      '@squawk-cli/darwin-arm64': 2.68.0
+      '@squawk-cli/darwin-x64': 2.68.0
+      '@squawk-cli/linux-arm64': 2.68.0
+      '@squawk-cli/linux-arm64-musl': 2.68.0
+      '@squawk-cli/linux-x64': 2.68.0
+      '@squawk-cli/linux-x64-musl': 2.68.0
+      '@squawk-cli/win32-x64': 2.68.0
 
   ssh-remote-port-forward@1.0.4:
     dependencies:

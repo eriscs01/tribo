@@ -27,7 +27,7 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup
-      # ESLint, Prettier and the dependency-cruiser module boundary rules.
+      # ESLint, Prettier, the dependency-cruiser module boundary rules and squawk over the migrations.
       - run: pnpm lint
 
   typecheck:
