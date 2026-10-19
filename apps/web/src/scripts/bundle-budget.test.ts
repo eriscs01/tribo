@@ -31,6 +31,16 @@ describe('initial JavaScript', () => {
     expect(await initialJsFiles(dist)).toEqual(['assets/index-A.js', 'assets/vendor-B.js']);
   });
 
+  it('reads tags and attributes whatever their case', async () => {
+    await writeFile(
+      join(dist, 'index.html'),
+      page(
+        '<SCRIPT TYPE="module" SRC="/assets/a.js"></SCRIPT><LINK REL="ModulePreload" HREF="/assets/b.js">',
+      ),
+    );
+    expect(await initialJsFiles(dist)).toEqual(['assets/a.js', 'assets/b.js']);
+  });
+
   it('is measured gzipped, summed over the initial files', async () => {
     const a = randomBytes(5000).toString('base64');
     const b = 'x'.repeat(50_000);

@@ -12,15 +12,16 @@ const gzipped = promisify(gzip);
 /** 200 KB as Vite prints it (1 kB = 1000 bytes), gzipped. */
 export const BUDGET_BYTES = 200_000;
 
-const TAG = /<(script|link)\b[^>]*>/g;
-const attr = (tag: string, name: string) => new RegExp(`\\b${name}="([^"]*)"`).exec(tag)?.[1];
+const TAG = /<(script|link)\b[^>]*>/gi;
+const attr = (tag: string, name: string) => new RegExp(`\\b${name}="([^"]*)"`, 'i').exec(tag)?.[1];
 
 /** The JavaScript files index.html loads at start, relative to the build directory. */
 export async function initialJsFiles(dist: string): Promise<string[]> {
   const html = await readFile(join(dist, 'index.html'), 'utf8');
-  const urls = [...html.matchAll(TAG)].flatMap(([tag, name]) => {
+  const urls = [...html.matchAll(TAG)].flatMap(([tag, tagName = '']) => {
+    const name = tagName.toLowerCase();
     const url = name === 'script' ? attr(tag, 'src') : attr(tag, 'href');
-    const initial = name === 'script' || attr(tag, 'rel') === 'modulepreload';
+    const initial = name === 'script' || attr(tag, 'rel')?.toLowerCase() === 'modulepreload';
     return url !== undefined && initial ? [url.replace(/^\//, '')] : [];
   });
   if (urls.length === 0) throw new Error(`${join(dist, 'index.html')} names no script`);
