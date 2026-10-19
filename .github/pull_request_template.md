@@ -38,6 +38,22 @@ raised. A test added only to raise coverage, with no rule to assert, is a findin
 - [ ] Each module boundary the change crosses has a test through the real services
 - [ ] `pnpm test:coverage` passes its floors, and no test exists only to raise the number
 
+## Debuggability
+
+<!--
+Review `git diff origin/main...HEAD` with the debuggability skill (.claude/skills/debuggability).
+For each entry point, error path, job or command the change adds or alters, say what a
+production problem would leave behind: its request id, the log line on success, refusal and
+failure (operation id, error code, level), and the test that reads that line. List each
+finding as `<file>:<line> — <gap>: <what an operator could not see or what leaks> → <change>`
+and how it was handled: fixed in this PR, or a follow-up. Name the runbook section added or
+changed for a new failure mode, job or command. Write "No findings" if there are none.
+-->
+
+- [ ] Every refusal and failure the change adds leaves a log line with the request id, the operation id and the error code, and no values or secrets
+- [ ] No error is swallowed, and the request id is carried across every module or job boundary crossed
+- [ ] The runbook covers any new failure mode, job or command
+
 ## Checks
 
 - [ ] `pnpm lint && pnpm typecheck && pnpm test` pass locally
