@@ -9778,6 +9778,14 @@
           },
           "timezone": {
             "$ref": "#/components/schemas/TimeZone"
+          },
+          "destinations": {
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^plc_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+            }
           }
         },
         "required": [

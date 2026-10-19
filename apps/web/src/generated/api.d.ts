@@ -2234,6 +2234,7 @@ export interface components {
             endDate: string;
             currency: components["schemas"]["CurrencyCode"];
             timezone: components["schemas"]["TimeZone"];
+            destinations?: string[];
         };
         TripPage: {
             items: components["schemas"]["Trip"][];
