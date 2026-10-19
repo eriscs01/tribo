@@ -1,0 +1,52 @@
+# Weekly version updates. The repo pins exact versions (package.json, Dockerfiles, workflow
+# SHAs); Dependabot keeps writing exact ones. Security updates are a repo setting and
+# are not limited by the open-pull-request caps here.
+version: 2
+updates:
+  # pnpm workspace: the root manifest, pnpm-lock.yaml and every apps/* and packages/* manifest.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    versioning-strategy: increase
+    groups:
+      npm-minor-patch:
+        update-types: [minor, patch]
+
+  # Action SHAs in .github/workflows and the local actions under .github/actions.
+  - package-ecosystem: github-actions
+    directories:
+      - /
+      - /.github/actions/*
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      actions-minor-patch:
+        update-types: [minor, patch]
+
+  # Base images pinned by tag and digest in the Dockerfiles under deploy/ (deploy/dev/app.Dockerfile
+  # is matched by its name). Dependabot reads literal FROM lines only: the images the production
+  # Dockerfiles take through ARG are not seen, so they are bumped by hand with the Trivy results.
+  - package-ecosystem: docker
+    directories:
+      - /deploy/app
+      - /deploy/caddy
+      - /deploy/dev
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      docker-minor-patch:
+        update-types: [minor, patch]
+
+  # Literal image references in deploy/compose.yml (PostgreSQL, cloudflared).
+  - package-ecosystem: docker-compose
+    directory: /deploy
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      compose-minor-patch:
+        update-types: [minor, patch]
