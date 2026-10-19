@@ -199,6 +199,24 @@ describe('GET /healthz', () => {
     expect(line).toMatchObject({ level: 40, operationId: 'meta.liveness', dbCode: 'ECONNREFUSED' });
     expect(JSON.stringify(line)).not.toContain('10.0.0.5');
   });
+
+  // Compose probes every 10 s; two lines a probe would crowd the 5 × 20 MB log buffer.
+  it('writes no request lines for a healthy probe, but still logs other requests', async () => {
+    const s = await server();
+    const probe = await s.inject({ method: 'GET', url: '/healthz' });
+    expect(probe.statusCode).toBe(200);
+    expect(lines.filter((l) => l.requestId === probe.headers['x-request-id'])).toEqual([]);
+    const other = await s.inject({ method: 'GET', url: '/v1/test/ip' });
+    expect(lines.filter((l) => l.requestId === other.headers['x-request-id'])).not.toEqual([]);
+  });
+
+  it('keeps the completed line, with its status, for a failing probe', async () => {
+    const s = await server({ ping: () => Promise.reject(new Error('down')) });
+    const res = await s.inject({ method: 'GET', url: '/healthz' });
+    const probeLines = lines.filter((l) => l.requestId === res.headers['x-request-id']);
+    expect(probeLines.map((l) => l.msg)).toEqual(['database unreachable', 'request completed']);
+    expect(probeLines[1]).toMatchObject({ operationId: 'meta.liveness', res: { statusCode: 503 } });
+  });
 });
 
 // meta.openapi (Drop A): Generated OpenAPI 3.1 document; Decided (G13)
