@@ -33,7 +33,7 @@ export function personView(person: PersonRecord): Person {
   };
 }
 
-export function placeView(place: PlaceRecord): Place {
+function placeView(place: PlaceRecord): Place {
   return {
     ...place,
     id: encodeTypeId(ID_PREFIX.place, place.id),
@@ -42,7 +42,7 @@ export function placeView(place: PlaceRecord): Place {
   };
 }
 
-export function vendorView(vendor: VendorRecord): Vendor {
+function vendorView(vendor: VendorRecord): Vendor {
   return {
     ...vendor,
     id: encodeTypeId(ID_PREFIX.vendor, vendor.id),

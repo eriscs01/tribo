@@ -32,10 +32,6 @@ export async function burnPasswordCheck(secret: string): Promise<void> {
   await verifySecret(await decoy, secret);
 }
 
-/** Length rules only (NIST SP 800-63B): at least 12 characters, at most 128. */
-export const PASSWORD_MIN = 12;
-export const PASSWORD_MAX = 128;
-
 // --- Opaque tokens (sessions; later reset links and PATs) -----------------------------
 
 /** A 256-bit random token for the client, and the SHA-256 the database keeps. */

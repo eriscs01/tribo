@@ -9,7 +9,7 @@ export function problemOf(reply: FastifyReply): ErrorCode | undefined {
   return problems.get(reply);
 }
 
-export function sendProblem(
+function sendProblem(
   reply: FastifyReply,
   request: FastifyRequest,
   code: ErrorCode,

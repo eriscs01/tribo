@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
 /** A representation's entity tag: the SHA-256 of the bytes sent (rule 4: freshness is derived). */
-export function representationTag(body: string): string {
+function representationTag(body: string): string {
   return `"${createHash('sha256').update(body).digest('base64url')}"`;
 }
 

@@ -2,7 +2,8 @@
 
 Read [CLAUDE.md](CLAUDE.md) first: the one-owner rule, the repo layout and the working rules
 (one task per branch and PR, `main` protected, merged migrations never edited) apply to every
-change. The design lives in [docs/design/](docs/design/).
+change. The design lives in [docs/design/](docs/design/); decisions taken while building that
+it does not settle are in [docs/decisions/](docs/decisions/), and a PR that makes one adds its entry.
 
 ## Slice 1a stories
 

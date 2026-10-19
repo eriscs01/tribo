@@ -10,9 +10,12 @@
   "scripts": {
     "build": "tsc -b",
     "build:web": "pnpm --filter @tribo/web build:app",
+    "check:bundle": "pnpm --filter @tribo/web check:bundle",
     "typecheck": "tsc -b",
     "clean": "tsc -b --clean",
-    "lint": "eslint . && prettier --check . \"!deploy/secrets/**\" \"!secrets/**\" && depcruise apps packages --config .dependency-cruiser.cjs",
+    "lint:migrations": "squawk --config .squawk.toml \"packages/db/migrations/*.sql\"",
+    "lint:unused": "knip",
+    "lint": "eslint . && prettier --check . \"!deploy/secrets/**\" \"!secrets/**\" && depcruise apps packages --config .dependency-cruiser.cjs && pnpm lint:migrations && pnpm lint:unused",
     "format": "prettier --write .",
     "test": "vitest run",
     "test:unit": "vitest run --project unit",
@@ -41,7 +44,9 @@
     "eslint-config-prettier": "10.1.8",
     "eslint-plugin-react-hooks": "7.1.1",
     "globals": "17.13.0",
+    "knip": "6.38.0",
     "prettier": "3.9.10",
+    "squawk-cli": "2.68.0",
     "typescript": "6.0.3",
     "typescript-eslint": "8.71.2",
     "vitest": "5.0.5"

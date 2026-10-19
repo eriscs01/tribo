@@ -131,7 +131,7 @@ export interface ItemsService {
 }
 
 /** The caller's attendee row after items.rsvp. */
-export interface RsvpRecord {
+interface RsvpRecord {
   itemId: string;
   membershipId: string;
   rsvp: 'yes' | 'no' | 'maybe';

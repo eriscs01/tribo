@@ -7,7 +7,7 @@ import type { Release } from './config.js';
  * Values that must never reach a log line: credentials, codes, tokens and sensitive fields,
  * wherever they appear in a logged object (request bodies are not logged at all).
  */
-export const REDACT_PATHS = [
+const REDACT_PATHS = [
   'req.headers.authorization',
   'req.headers.cookie',
   `req.headers["${CSRF_HEADER}"]`,

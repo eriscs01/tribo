@@ -52,7 +52,7 @@ export interface Config {
 }
 
 /** Reads one Docker secret file. Errors name the file, never its content. */
-export function readSecret(dir: string, name: string): string {
+function readSecret(dir: string, name: string): string {
   let value: string;
   try {
     // eslint-disable-next-line n/no-sync -- config is read once, before the server starts

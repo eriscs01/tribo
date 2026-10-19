@@ -10,9 +10,6 @@
       "path": "../contract"
     },
     {
-      "path": "../crypto"
-    },
-    {
       "path": "../db"
     }
   ]

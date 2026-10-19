@@ -144,6 +144,7 @@ export default defineConfig(
       'apps/server/src/main.ts',
       'packages/*/src/bin/**',
       'packages/*/src/scripts/**',
+      'apps/web/src/scripts/check-bundle.ts',
     ],
     rules: { 'no-console': 'off', 'n/no-process-exit': 'off' },
   },

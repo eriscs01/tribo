@@ -1,0 +1,34 @@
+// Unused files, exports and dependencies (`pnpm lint:unused`, part of `pnpm lint`). Entry
+// points that knip's plugins already find (package.json bin and exports, vite, vitest and
+// the test files) are not repeated: apps/server main.ts and cli.ts (start script, bin) and apps/web
+// main.tsx (index.html) are among them. What is listed here is what only the repo knows.
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "workspaces": {
+    "packages/contract": {
+      // pnpm new:op and the contract build run these.
+      "entry": ["src/scripts/*.ts"],
+    },
+    "packages/db": {
+      "entry": ["src/bin/*.ts"],
+    },
+    "packages/story-kit": {
+      // pnpm new:op and pnpm backlog run these.
+      "entry": ["src/scripts/*.ts"],
+    },
+    "packages/core": {
+      // Compile-time proofs that tsc checks and nothing imports.
+      "entry": ["src/*.typecheck.ts"],
+    },
+  },
+  "ignore": [
+    // Text fixtures that boundaries.test.ts feeds to dependency-cruiser; they are never imported.
+    "packages/core/boundary-fixtures/**",
+    // The layout's modules whose stories are still to come (Drop B and 1b): the scaffold of
+    // service, repo and policy is in place and each file is imported once its first story lands.
+    "packages/core/src/audit/policy.ts",
+    "packages/core/src/documents/*.ts",
+    "packages/core/src/expenses/policy.ts",
+    "packages/core/src/itinerary/*.ts",
+  ],
+}
