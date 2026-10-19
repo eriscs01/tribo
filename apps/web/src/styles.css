@@ -250,6 +250,12 @@ button:disabled {
   color: var(--danger);
 }
 
+/* The request id a user quotes when reporting the problem: one tap selects all of it. */
+.notice-reference {
+  font-size: 0.875em;
+  user-select: all;
+}
+
 .cards {
   list-style: none;
   padding: 0;

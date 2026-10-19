@@ -1,7 +1,7 @@
 #!/bin/sh
-# PreToolUse hook: refuse `gh pr create` until the PR body reports both reviews the working
-# rules ask for: the `## Design principles` and `## Test-driven development` sections of
-# .github/pull_request_template.md, whether the body is passed inline (--body, -b, a heredoc
+# PreToolUse hook: refuse `gh pr create` until the PR body reports the three reviews the
+# working rules ask for: the `## Design principles`, `## Test-driven development` and
+# `## Debuggability` sections of .github/pull_request_template.md, whether the body is passed inline (--body, -b, a heredoc
 # on --body-file -) or as a file.
 input=$(cat)
 cmd=$(printf '%s' "$input" | jq -r '.tool_input.command // empty')
@@ -52,6 +52,18 @@ Missing `## Test-driven development`. Review the branch's tests:
    test only where a rule is unproven, never just to raise the number.
 3. Fill the PR body's `## Test-driven development` section (.github/pull_request_template.md)
    with the boundaries proven, each finding and how it was handled, and the coverage summary.
+MSG
+fi
+if ! has_section 'Debuggability'; then
+  missing=1
+  cat >&2 <<'MSG'
+Missing `## Debuggability`. Review the branch for what a production problem leaves behind:
+1. Run the debuggability skill over `git diff origin/main...HEAD`: every refusal and failure
+   logs a line with the request id, the operation id and the error code (no values), no
+   error is swallowed, and the request id crosses every module and job boundary.
+2. Add or update the runbook entry for any new failure mode, job or command.
+3. Fill the PR body's `## Debuggability` section (.github/pull_request_template.md) with each
+   finding and how it was handled (or "No findings").
 MSG
 fi
 if [ "$missing" -eq 0 ]; then exit 0; fi

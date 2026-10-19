@@ -1,7 +1,14 @@
 import { forModule, type DB } from '@tribo/db';
 import { ApiError, type RequestContext, type Tx, type WriteRecord } from '@tribo/platform';
 import type { Kysely } from 'kysely';
-import { insertEvent, insertSnapshot, listChains, verifyChain, type EventRecord } from './repo.js';
+import {
+  eventsOfRequest,
+  insertEvent,
+  insertSnapshot,
+  listChains,
+  verifyChain,
+  type EventRecord,
+} from './repo.js';
 
 export type { EventRecord } from './repo.js';
 
@@ -40,6 +47,38 @@ export async function recordEvent(tx: Tx, ctx: RequestContext, event: EventRecor
     if (isConstraint(error, 'trip_retired')) throw new ApiError('trip_retired');
     throw error;
   }
+}
+
+/** One audit event as `tribo audit request` lists it: ids and metadata, never values. */
+export interface RequestEvent {
+  occurredAt: Date;
+  chainKey: string;
+  seq: number;
+  action: string;
+  entityType: string;
+  entityId: string | null;
+  versionAfter: number | null;
+  surface: string;
+  actorUserId: string | null;
+}
+
+/**
+ * `tribo audit request <id>`: the events one request wrote, so its log lines (which carry
+ * the same request id) and what it changed can be read side by side.
+ */
+export async function requestEvents(db: Kysely<DB>, requestId: string): Promise<RequestEvent[]> {
+  const rows = await eventsOfRequest(forModule(db, 'audit'), requestId);
+  return rows.map((row) => ({
+    occurredAt: row.occurred_at,
+    chainKey: row.chain_key,
+    seq: Number(row.seq),
+    action: row.action,
+    entityType: row.entity_type,
+    entityId: row.entity_id,
+    versionAfter: row.version_after,
+    surface: row.surface,
+    actorUserId: row.actor_user_id,
+  }));
 }
 
 export interface ChainReport {

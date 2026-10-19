@@ -2,6 +2,13 @@ import { problem, PROBLEM_CONTENT_TYPE, type ErrorCode, type Problem } from '@tr
 import { ApiError } from '@tribo/platform';
 import type { FastifyError, FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 
+/** The problem code each reply answered with, for the request's log line. */
+const problems = new WeakMap<FastifyReply, ErrorCode>();
+
+export function problemOf(reply: FastifyReply): ErrorCode | undefined {
+  return problems.get(reply);
+}
+
 export function sendProblem(
   reply: FastifyReply,
   request: FastifyRequest,
@@ -9,6 +16,7 @@ export function sendProblem(
   extra: Pick<Problem, 'detail' | 'errors'> = {},
 ) {
   const body = problem(code, request.id, { ...extra, instance: request.url.split('?')[0] ?? '' });
+  problems.set(reply, code);
   return reply.code(body.status).type(PROBLEM_CONTENT_TYPE).send(body);
 }
 

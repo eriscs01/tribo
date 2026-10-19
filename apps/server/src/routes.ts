@@ -63,6 +63,9 @@ export function mountRegistry(
       method: op.method,
       url: op.path.replace(/\{(\w+)\}/g, ':$1'),
       config: { operation: op },
+      // Every line the request logs names its operation, from the first one on.
+      childLoggerFactory: (logger, bindings, options) =>
+        logger.child({ ...bindings, operationId: op.id }, options),
       ...(handler && query
         ? {
             preValidation: (

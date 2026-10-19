@@ -6,6 +6,15 @@ export class ConfigError extends Error {
   override name = 'ConfigError';
 }
 
+/** The build that is running: its release tag and commit. */
+export interface Release {
+  version: string;
+  commit: string;
+}
+
+/** What a build that CI did not name (a local or test run) reports. */
+export const DEV_RELEASE: Release = { version: 'dev', commit: 'unknown' };
+
 const Env = z.object({
   TRIBO_PUBLIC_URL: z.url({ protocol: /^https$/ }),
   TRIBO_LISTEN_HOST: z.string().default('0.0.0.0'),
@@ -21,6 +30,9 @@ const Env = z.object({
    * and passes one client IP on; the app is never published directly.
    */
   TRIBO_APP_TRUSTED_PROXIES: z.string().default('loopback,uniquelocal'),
+  /** Baked into the image by its build (deploy/app/Dockerfile); a local run is dev. */
+  TRIBO_RELEASE_VERSION: z.string().min(1).default(DEV_RELEASE.version),
+  TRIBO_RELEASE_COMMIT: z.string().min(1).default(DEV_RELEASE.commit),
 });
 
 export interface Config {
@@ -36,6 +48,7 @@ export interface Config {
   };
   appKeyFile: string;
   trustedProxies: string[];
+  release: Release;
 }
 
 /** Reads one Docker secret file. Errors name the file, never its content. */
@@ -80,5 +93,6 @@ export function loadConfig(env: NodeJS.ProcessEnv): Config {
     trustedProxies: e.TRIBO_APP_TRUSTED_PROXIES.split(',')
       .map((s) => s.trim())
       .filter((s) => s !== ''),
+    release: { version: e.TRIBO_RELEASE_VERSION, commit: e.TRIBO_RELEASE_COMMIT },
   };
 }

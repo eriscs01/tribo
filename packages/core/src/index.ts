@@ -30,4 +30,9 @@ export {
   type PlaceRecord,
   type VendorRecord,
 } from './library/service.js';
-export { verifyChains, type ChainReport } from './audit/service.js';
+export {
+  requestEvents,
+  verifyChains,
+  type ChainReport,
+  type RequestEvent,
+} from './audit/service.js';

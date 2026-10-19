@@ -3,12 +3,15 @@ import { loadMigrations, migrate } from '@tribo/db';
 import pg from 'pg';
 import { buildApp } from './app.js';
 import { loadConfig } from './config.js';
+import { exitOnProcessFailure } from './process-failures.js';
 import { openRuntime } from './runtime.js';
 
 const config = loadConfig(process.env);
 const runtime = await openRuntime(config, 'tribo');
 const { appKey, pool, close } = runtime;
 const app = await buildApp(runtime, config);
+exitOnProcessFailure(process, app.log);
+// Like every line, this one names the release (logger.ts); it is the one to look for first.
 app.log.info(
   {
     keyVersion: appKey.version,
@@ -19,8 +22,9 @@ app.log.info(
 );
 // A dropped idle connection (database restart) must not kill the process: the pool opens
 // a new one on the next query, and /healthz reports 503 until the database is back.
+// (`code` is a redacted field name, so the driver's error code goes in dbCode.)
 pool.on('error', (error) => {
-  app.log.warn({ code: (error as { code?: string }).code }, 'idle database connection lost');
+  app.log.warn({ dbCode: (error as { code?: string }).code }, 'idle database connection lost');
 });
 
 const owner = new pg.Client({

@@ -242,6 +242,9 @@ jobs:
           tags: ghcr.io/eriscs01/tribo-app:ci
           load: true
           cache-from: type=gha,scope=tribo-app
+          build-args: |
+            TRIBO_RELEASE_VERSION=ci
+            TRIBO_RELEASE_COMMIT=${{ github.sha }}
       - name: Build the proxy image
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
@@ -270,6 +273,11 @@ jobs:
             "$TRIBO_PUBLIC_URL/healthz"
       - run: pnpm --filter @tribo/e2e exec playwright install --with-deps chromium
       - run: pnpm test:e2e
+      # The release reaches the running app from the build: the start-up line and the CLI.
+      - name: The app names its release
+        run: |
+          docker compose logs --no-color app | grep '"msg":"starting"' | grep -F "\"commit\":\"$GITHUB_SHA\""
+          docker compose exec -T app tribo release show | grep -Fx "Tribo ci ($GITHUB_SHA)"
       - name: Save the stack's logs
         if: failure()
         run: |
@@ -316,6 +324,9 @@ jobs:
           tags: ${{ env.REGISTRY }}/tribo-app:${{ github.ref_name }}
           push: true
           cache-from: type=gha,scope=tribo-app
+          build-args: |
+            TRIBO_RELEASE_VERSION=${{ github.ref_name }}
+            TRIBO_RELEASE_COMMIT=${{ github.sha }}
       - name: Push the proxy image
         id: proxy
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0

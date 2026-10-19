@@ -3,6 +3,7 @@ import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
+import { setTimeout as sleep } from 'node:timers/promises';
 import {
   defineOperation,
   encodeTypeId,
@@ -25,6 +26,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { ApiError } from '@tribo/platform';
 import { ConfigError, loadConfig } from './config.js';
 import { operationHandlers } from './handlers/index.js';
+import { currentRequestId } from './request-scope.js';
 import { parsedQuery } from './routes.js';
 import { buildServer, type ServerDeps } from './server.js';
 import { csrfTokenFor, setSessionCookie } from './session.js';
@@ -44,6 +46,9 @@ const testRegistry: Operation[] = [
   testOp('test.login', 'POST', '/v1/test/login', ['public']),
   testOp('test.write', 'POST', '/v1/test/write', ['session', 'pat:write']),
   testOp('test.me', 'GET', '/v1/test/me', ['session']),
+  testOp('test.slowRead', 'GET', '/v1/test/slow-read', ['public']),
+  testOp('test.slowWrite', 'POST', '/v1/test/slow-write', ['public']),
+  testOp('test.scope', 'GET', '/v1/test/scope', ['public']),
   defineOperation({
     ...testOp('test.query', 'GET', '/v1/test/query', ['public']),
     query: PageQuery,
@@ -148,6 +153,13 @@ async function server(overrides: Partial<ServerDeps> = {}) {
       },
       'test.write': () => Promise.resolve({ ok: true }),
       'test.me': (request) => Promise.resolve({ userId: request.signedIn?.userId }),
+      // Over the 300 ms read budget, under the 500 ms write budget.
+      'test.slowRead': () => sleep(320).then(() => ({ ok: true })),
+      'test.slowWrite': () => sleep(320).then(() => ({ ok: true })),
+      'test.scope': async () => {
+        await sleep(1);
+        return { requestId: currentRequestId() };
+      },
       'test.query': (request) => {
         queriesSeen.push(parsedQuery(request, PageQuery));
         return Promise.resolve({ ok: true });
@@ -170,11 +182,17 @@ describe('GET /healthz', () => {
     expect(res.json()).toEqual({ status: 'ok' });
   });
 
-  it('answers 503 with an empty body when it is not', async () => {
-    const s = await server({ ping: () => Promise.reject(new Error('ECONNREFUSED 10.0.0.5')) });
+  it('answers 503 with an empty body when it is not, and logs why without the address', async () => {
+    const down = Object.assign(new Error('connect ECONNREFUSED 10.0.0.5:5432'), {
+      code: 'ECONNREFUSED',
+    });
+    const s = await server({ ping: () => Promise.reject(down) });
     const res = await s.inject({ method: 'GET', url: '/healthz' });
     expect(res.statusCode).toBe(503);
     expect(res.body).toBe('');
+    const line = lines.find((l) => l.msg === 'database unreachable');
+    expect(line).toMatchObject({ level: 40, operationId: 'meta.liveness', dbCode: 'ECONNREFUSED' });
+    expect(JSON.stringify(line)).not.toContain('10.0.0.5');
   });
 });
 
@@ -504,6 +522,78 @@ describe('registry coverage at start', () => {
 });
 
 describe('logging', () => {
+  const linesOf = (requestId: unknown) => lines.filter((l) => l.requestId === requestId);
+
+  it('names the operation from the registry on every request log line', async () => {
+    const s = await server();
+    const res = await s.inject({ method: 'GET', url: '/v1/test/ip' });
+    const requestLines = linesOf(res.headers['x-request-id']);
+    expect(requestLines.map((l) => l.msg)).toEqual(
+      expect.arrayContaining(['incoming request', 'handler ran', 'request completed']),
+    );
+    for (const line of requestLines) expect(line.operationId).toBe('test.ip');
+  });
+
+  it('logs a refusal at info with its code, status and operation, and none of the values sent', async () => {
+    const s = await server();
+    const res = await s.inject({
+      method: 'POST',
+      url: '/v1/auth/login',
+      payload: { username: 'ana', password: 'not-the-password-417' },
+    });
+    expect(res.statusCode).toBe(401);
+    const refused = linesOf(res.headers['x-request-id']).find((l) => l.msg === 'request refused');
+    expect(refused).toMatchObject({
+      level: 30,
+      operationId: 'auth.login',
+      problem: 'unauthenticated',
+      status: 401,
+    });
+    expect(JSON.stringify(lines)).not.toMatch(/not-the-password-417|"ana"/);
+  });
+
+  it('logs an unhandled error at error with its stack, and the failed request at warn', async () => {
+    const s = await server();
+    const res = await s.inject({ method: 'GET', url: '/v1/test/boom' });
+    const requestLines = linesOf(res.headers['x-request-id']);
+    const unhandled = requestLines.find((l) => l.msg === 'unhandled error');
+    expect(unhandled).toMatchObject({ level: 50, operationId: 'test.boom' });
+    expect((unhandled?.err as { stack?: string } | undefined)?.stack).toMatch(/at /);
+    expect(requestLines.find((l) => l.msg === 'request failed')).toMatchObject({
+      level: 40,
+      problem: 'internal_error',
+      status: 500,
+    });
+  });
+
+  it('warns about a read over 300 ms, but not a write under 500 ms', async () => {
+    const s = await server();
+    const read = await s.inject({ method: 'GET', url: '/v1/test/slow-read' });
+    const slow = linesOf(read.headers['x-request-id']).find((l) => l.msg === 'slow request');
+    expect(slow).toMatchObject({ level: 40, operationId: 'test.slowRead', budgetMs: 300 });
+    expect(slow?.responseTime).toBeGreaterThan(300);
+
+    const write = await s.inject({ method: 'POST', url: '/v1/test/slow-write', payload: {} });
+    expect(write.statusCode).toBe(200);
+    expect(linesOf(write.headers['x-request-id']).map((l) => l.msg)).not.toContain('slow request');
+    const fast = await s.inject({ method: 'GET', url: '/v1/test/ip' });
+    expect(linesOf(fast.headers['x-request-id']).map((l) => l.msg)).not.toContain('slow request');
+  });
+
+  it('keeps the request id in scope across awaits, for process-level failures', async () => {
+    const s = await server();
+    const res = await s.inject({ method: 'GET', url: '/v1/test/scope' });
+    expect(res.json()).toEqual({ requestId: res.headers['x-request-id'] });
+    expect(currentRequestId()).toBeUndefined();
+  });
+
+  it('names the running release on every line', async () => {
+    const s = await server({ release: { version: 'v9.8.7', commit: '0123abc' } });
+    await s.inject({ method: 'GET', url: '/v1/test/ip' });
+    expect(lines.length).toBeGreaterThan(0);
+    for (const line of lines) expect(line).toMatchObject({ release: 'v9.8.7', commit: '0123abc' });
+  });
+
   it('redacts secrets in logged objects', async () => {
     const s = await server();
     s.log.info({ password: 'hunter2', body: { totpCode: '123456', token: 'abc' } }, 'redaction');
@@ -530,6 +620,17 @@ describe('config', () => {
     expect(config.publicUrl.origin).toBe('https://tribo.example.org');
     expect(config.db).toMatchObject({ host: 'db', port: 5432, appPassword: 'app-pw' });
     expect(config.trustedProxies).toEqual(['loopback', 'uniquelocal']);
+    expect(config.release).toEqual({ version: 'dev', commit: 'unknown' });
+  });
+
+  it('reads the release the image was built from', async () => {
+    const config = loadConfig({
+      TRIBO_PUBLIC_URL: 'https://tribo.example.org',
+      TRIBO_SECRETS_DIR: await secrets(),
+      TRIBO_RELEASE_VERSION: 'v0.3.0',
+      TRIBO_RELEASE_COMMIT: '56d5481',
+    });
+    expect(config.release).toEqual({ version: 'v0.3.0', commit: '56d5481' });
   });
 
   it('fails with the variable name, never its value', () => {

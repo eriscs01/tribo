@@ -65,6 +65,28 @@ export async function insertEvent(
     .execute();
 }
 
+/** The events one request wrote, in the order they were recorded (metadata only). */
+export function eventsOfRequest(db: AuditDb, requestId: string) {
+  return db
+    .selectFrom('audit.audit_events')
+    .select([
+      'occurred_at',
+      'chain_key',
+      'seq',
+      'action',
+      'entity_type',
+      'entity_id',
+      'version_after',
+      'surface',
+      'actor_user_id',
+    ])
+    .where('request_id', '=', requestId)
+    .orderBy('occurred_at')
+    .orderBy('chain_key')
+    .orderBy('seq')
+    .execute();
+}
+
 /** Every chain with its length and head seq, in key order; or just the one asked for. */
 export function listChains(db: AuditDb, chainKey?: string) {
   let query = db
