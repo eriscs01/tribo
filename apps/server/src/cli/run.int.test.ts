@@ -122,6 +122,22 @@ describe('tribo audit request <request id>', () => {
     expect(cli.errors).toEqual([]);
   });
 
+  it('shows an event with no entity, version or actor as - and system', async () => {
+    const cli = harness();
+    // A sign-in with an unknown username: an auth-chain event naming no user and no version.
+    await expect(
+      cli.services.identity.login(
+        { requestId: 'req-join-0003', surface: 'web', userId: null },
+        { username: 'nobody-here', password: 'whatever it is' },
+        { ip: null, userAgent: null },
+      ),
+    ).rejects.toThrow('unauthenticated');
+    expect(await cli.run(['audit', 'request', 'req-join-0003'])).toBe(0);
+    expect(cli.said).toEqual([
+      expect.stringMatching(/^\S+Z {2}auth:\S+ #\d+ {2}login_failed user - - {2}web {2}system$/),
+    ]);
+  });
+
   it('refuses an id with no events, and a missing id', async () => {
     const cli = harness();
     expect(await cli.run(['audit', 'request', 'req-never-seen'])).toBe(1);

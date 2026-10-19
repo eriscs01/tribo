@@ -18,7 +18,6 @@ export class RequestLog extends LogController {
     metadata?: Record<string, unknown>,
   ): void {
     super.requestCompleted(error, request, reply, metadata);
-    if (this.isLogDisabled(request)) return;
     const status = reply.statusCode;
     const problem = problemOf(reply);
     if (problem !== undefined) {

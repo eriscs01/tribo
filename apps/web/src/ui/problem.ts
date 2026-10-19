@@ -13,9 +13,7 @@ export function problemMessage(error: unknown): string {
 
 /** The request id of a problem the API answered, which its server log lines carry too. */
 export function problemReference(error: unknown): string | undefined {
-  return error instanceof ApiProblem && error.problem.requestId !== ''
-    ? error.problem.requestId
-    : undefined;
+  return error instanceof ApiProblem ? error.problem.requestId : undefined;
 }
 
 export function fieldErrorsOf(error: unknown): Record<string, string> {

@@ -44,10 +44,10 @@ export default defineConfig({
       // Floors, not targets: raise them when coverage rises, never lower them to merge. A line
       // counts as covered only when a test that asserts its rule runs it (CLAUDE.md, tests).
       thresholds: {
-        statements: 93,
-        branches: 85,
-        functions: 96,
-        lines: 95,
+        statements: 94,
+        branches: 87,
+        functions: 97,
+        lines: 96,
         'packages/core/src/**': { statements: 94, branches: 89, functions: 99, lines: 97 },
       },
     },
