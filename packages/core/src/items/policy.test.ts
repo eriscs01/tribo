@@ -4,6 +4,7 @@ import {
   canDeleteItem,
   canListItems,
   canNarrowVisibility,
+  canRevealItem,
   canRsvpItem,
   canUpdateItem,
 } from './policy.js';
@@ -71,5 +72,15 @@ describe('canRsvpItem', () => {
     expect(canRsvpItem('organizer')).toBe(true);
     expect(canRsvpItem('member')).toBe(true);
     expect(canRsvpItem('viewer')).toBe(false);
+  });
+});
+
+describe('canRevealItem', () => {
+  it('lets owners and organizers reveal any item, members only their own, never viewers', () => {
+    expect(canRevealItem(editor('owner'))).toBe(true);
+    expect(canRevealItem(editor('organizer'))).toBe(true);
+    expect(canRevealItem(editor('member', true))).toBe(true);
+    expect(canRevealItem(editor('member', false, true))).toBe(false);
+    expect(canRevealItem(editor('viewer', true))).toBe(false);
   });
 });

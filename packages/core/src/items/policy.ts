@@ -52,3 +52,12 @@ const ITEMS_RSVP_ROLES: ReadonlySet<TripRole> = new Set(['owner', 'organizer', '
 export function canRsvpItem(role: TripRole): boolean {
   return ITEMS_RSVP_ROLES.has(role);
 }
+
+/**
+ * items.reveal: owners and organizers reveal any item's sensitive fields, members only on
+ * items they own (being assigned is not enough); never viewers.
+ */
+export function canRevealItem(editor: ItemEditor): boolean {
+  if (ITEM_EDITORS.has(editor.role)) return true;
+  return editor.role === 'member' && editor.owns;
+}

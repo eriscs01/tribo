@@ -177,3 +177,31 @@ export const ItemRsvp = z
   .meta({ id: 'ItemRsvp' });
 
 export type ItemRsvp = z.infer<typeof ItemRsvp>;
+
+/** The item fields a reveal can show: the ones every read masks. */
+export const ItemRevealField = z.enum(['bookingRef', 'cardLast4']).meta({ id: 'ItemRevealField' });
+
+export type ItemRevealField = z.infer<typeof ItemRevealField>;
+
+/** items.reveal: which masked fields to show; each call is its own audited reveal (R2). */
+export const ItemRevealInput = z
+  .strictObject({
+    fields: z
+      .array(ItemRevealField)
+      .min(1)
+      .max(2)
+      .refine((f) => new Set(f).size === f.length, 'each field once'),
+  })
+  .meta({ id: 'ItemRevealInput' });
+
+export type ItemRevealInput = z.infer<typeof ItemRevealInput>;
+
+/** The plaintext of the fields asked for (null when none is stored); never cached offline. */
+export const ItemReveal = z
+  .strictObject({
+    bookingRef: z.string().nullable().optional(),
+    cardLast4: z.string().nullable().optional(),
+  })
+  .meta({ id: 'ItemReveal' });
+
+export type ItemReveal = z.infer<typeof ItemReveal>;

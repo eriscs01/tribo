@@ -103,6 +103,7 @@ const items: ItemsService = {
   update: unused,
   delete: unused,
   rsvp: unused,
+  reveal: unused,
 };
 const library: LibraryService = {
   search: unused,

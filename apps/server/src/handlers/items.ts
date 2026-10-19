@@ -94,5 +94,14 @@ export function itemHandlers(items: ItemsService): Handlers {
         boardVersion: answer.boardVersion,
       };
     },
+    // Revealed values are never cached, offline or anywhere else.
+    'items.reveal': async (request, reply) => {
+      const shown = await items.reveal(
+        requestContext(request),
+        pathId(request, 'itemId'),
+        request.body,
+      );
+      return reply.header('cache-control', 'no-store').send(shown);
+    },
   };
 }

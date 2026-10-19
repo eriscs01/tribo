@@ -4,13 +4,16 @@ import {
   ItemInput,
   itemTimeProblem,
   ItemPatch,
+  ItemRevealInput,
   ItemRsvpInput,
   NoBody,
   Uuid,
   type ItemListQuery,
+  type ItemReveal,
+  type ItemRevealField,
   type MaskedValue,
 } from '@tribo/contract';
-import { seal, type Keyring } from '@tribo/crypto';
+import { open, seal, type Keyring } from '@tribo/crypto';
 import { forModule, type DB, type ValueOf } from '@tribo/db';
 import {
   ApiError,
@@ -19,9 +22,11 @@ import {
   invalidCursor,
   type RequestContext,
   type Tx,
+  validate,
   type WritePath,
 } from '@tribo/platform';
 import type { Kysely } from 'kysely';
+import { recordEvent } from '../audit/service.js';
 import { allActiveMemberships, callerMembership, type CallerMembership } from '../trips/service.js';
 import { writeOperation } from '../write-operation.js';
 import {
@@ -29,6 +34,7 @@ import {
   canDeleteItem,
   canListItems,
   canNarrowVisibility,
+  canRevealItem,
   canRsvpItem,
   canUpdateItem,
   type ItemEditor,
@@ -109,6 +115,12 @@ export interface ItemsService {
    * bumping board_version, never the item version. Takes no If-Match: the answer is theirs.
    */
   rsvp(ctx: RequestContext, itemId: string, body: unknown): Promise<RsvpRecord>;
+  /**
+   * items.reveal: the plaintext of the masked fields asked for, with a reveal audit event
+   * naming the field paths, never the values. A read, so it works on archived trips; a
+   * retired trip refuses the event, and with it the reveal (trip_retired).
+   */
+  reveal(ctx: RequestContext, itemId: string, body: unknown): Promise<ItemReveal>;
 }
 
 /** The caller's attendee row after items.rsvp. */
@@ -118,6 +130,15 @@ export interface RsvpRecord {
   rsvp: 'yes' | 'no' | 'maybe';
   boardVersion: number;
 }
+
+/** The sealed column behind each field a reveal can show. */
+const SEALED_COLUMN = {
+  bookingRef: 'booking_ref_enc',
+  cardLast4: 'card_last4_enc',
+} as const satisfies Record<ItemRevealField, string>;
+
+/** Where one item's sealed value lives: it opens only for that row and column (AAD). */
+const sealedField = (rowId: string, column: string) => ({ table: 'items', column, rowId });
 
 const itemsCreate = writeOperation('items.create', ItemInput);
 const itemsUpdate = writeOperation('items.update', ItemPatch);
@@ -251,7 +272,7 @@ export function createItemsService(db: Kysely<DB>, write: WritePath, keys: Keyri
             sharedWith = await listShares(items, row.id);
           }
           const sealed = (column: string, value: string | null) =>
-            value === null ? null : seal(keys, { table: 'items', column, rowId: row.id }, value);
+            value === null ? null : seal(keys, sealedField(row.id, column), value);
           const { cost, bookingRef, cardLast4 } = patch;
           await checkedTimes(() =>
             updateItem(
@@ -267,10 +288,10 @@ export function createItemsService(db: Kysely<DB>, write: WritePath, keys: Keyri
                 ...(cost === undefined ? {} : { cost: unmasked(cost) }),
                 ...(bookingRef === undefined
                   ? {}
-                  : { bookingRefEnc: sealed('booking_ref_enc', unmasked(bookingRef)) }),
+                  : { bookingRefEnc: sealed(SEALED_COLUMN.bookingRef, unmasked(bookingRef)) }),
                 ...(cardLast4 === undefined
                   ? {}
-                  : { cardLast4Enc: sealed('card_last4_enc', unmasked(cardLast4)) }),
+                  : { cardLast4Enc: sealed(SEALED_COLUMN.cardLast4, unmasked(cardLast4)) }),
               },
               userId,
             ),
@@ -298,6 +319,29 @@ export function createItemsService(db: Kysely<DB>, write: WritePath, keys: Keyri
         },
       });
     },
+
+    // Not the write path: a reveal changes nothing and has no counter, and an archived
+    // trip still allows it. It runs in one transaction so the event and the answer go together.
+    reveal: (ctx, itemId, body) =>
+      db.transaction().execute(async (tx) => {
+        const { row, editor } = await actingEditor(tx, ctx, itemId);
+        if (!canRevealItem(editor)) throw new ApiError('forbidden');
+        const { fields } = validate(ItemRevealInput, body);
+        await recordEvent(tx, ctx, {
+          action: 'reveal',
+          entityType: 'item',
+          entityId: row.id,
+          tripId: row.trip_id,
+          reason: fields.map((f) => `/${f}`).join(','),
+        });
+        const shown: ItemReveal = {};
+        for (const f of fields) {
+          const column = SEALED_COLUMN[f];
+          const enc = row[column];
+          shown[f] = enc === null ? null : open(keys, sealedField(row.id, column), enc).toString();
+        }
+        return shown;
+      }),
 
     rsvp(ctx, itemId, body) {
       let acting: ActingEditor | undefined;
@@ -375,6 +419,7 @@ export function createItemsService(db: Kysely<DB>, write: WritePath, keys: Keyri
 /** The caller acting on one item they can see: account, membership and standing on it. */
 interface ActingEditor {
   userId: string;
+  row: ItemRow;
   membership: CallerMembership;
   editor: ItemEditor;
 }
@@ -391,7 +436,12 @@ async function actingEditor(tx: Tx, ctx: RequestContext, itemId: string): Promis
   if (!row || !membership) throw new ApiError('not_found');
   const owns = row.owner_membership_id === membership.id;
   const assigned = !owns && (await isAssignee(items, row.id, membership.id));
-  return { userId: ctx.userId, membership, editor: { role: membership.role, owns, assigned } };
+  return {
+    userId: ctx.userId,
+    row,
+    membership,
+    editor: { role: membership.role, owns, assigned },
+  };
 }
 
 /** The write path's load for one item: the live row, locked until commit. */

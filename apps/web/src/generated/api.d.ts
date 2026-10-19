@@ -2013,6 +2013,15 @@ export interface components {
             bookingRef?: (components["schemas"]["MaskedValue"] | string) | null;
             cardLast4?: (components["schemas"]["MaskedValue"] | string) | null;
         };
+        ItemReveal: {
+            bookingRef?: string | null;
+            cardLast4?: string | null;
+        };
+        /** @enum {string} */
+        ItemRevealField: "bookingRef" | "cardLast4";
+        ItemRevealInput: {
+            fields: components["schemas"]["ItemRevealField"][];
+        };
         ItemRsvp: {
             itemId: string;
             membershipId: string;
@@ -4108,15 +4117,19 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ItemRevealInput"];
+            };
+        };
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["ItemReveal"];
                 };
             };
             /** @description Error */

@@ -3559,12 +3559,12 @@
           }
         ],
         "responses": {
-          "501": {
-            "description": "Registered but not implemented yet (not_implemented)",
+          "201": {
+            "description": "OK",
             "content": {
-              "application/problem+json": {
+              "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Problem"
+                  "$ref": "#/components/schemas/ItemReveal"
                 }
               }
             }
@@ -3581,7 +3581,7 @@
           }
         },
         "x-tribo": {
-          "status": "planned",
+          "status": "implemented",
           "slice": "1a",
           "drop": "A",
           "roles": "owner, organizer, member (own items)",
@@ -3601,7 +3601,17 @@
               "pattern": "^itm_[0-7][0-9a-hjkmnp-tv-z]{25}$"
             }
           }
-        ]
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ItemRevealInput"
+              }
+            }
+          }
+        }
       }
     },
     "/v1/items/{itemId}/rsvp": {
@@ -8948,6 +8958,48 @@
             ]
           }
         },
+        "additionalProperties": false
+      },
+      "ItemReveal": {
+        "type": "object",
+        "properties": {
+          "bookingRef": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "cardLast4": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "ItemRevealField": {
+        "type": "string",
+        "enum": [
+          "bookingRef",
+          "cardLast4"
+        ]
+      },
+      "ItemRevealInput": {
+        "type": "object",
+        "properties": {
+          "fields": {
+            "minItems": 1,
+            "maxItems": 2,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ItemRevealField"
+            }
+          }
+        },
+        "required": [
+          "fields"
+        ],
         "additionalProperties": false
       },
       "ItemRsvp": {

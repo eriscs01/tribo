@@ -223,3 +223,29 @@ describe('items.rsvp over HTTP', () => {
     });
   });
 });
+
+describe('items.reveal over HTTP', () => {
+  it('answers the plaintext with Cache-Control: no-store; a viewer gets 403', async () => {
+    const w = await world();
+    const set = await app.inject({
+      method: 'PATCH',
+      url: `/v1/items/${w.itemPath}`,
+      cookies: w.owner.auth.cookies,
+      headers: { ...w.owner.auth.headers, 'if-match': '"1"' },
+      payload: { bookingRef: 'BH-2026-11' },
+    });
+    expect(set.statusCode).toBe(200);
+    const reveal = (user: typeof w.owner) =>
+      app.inject({
+        method: 'POST',
+        url: `/v1/items/${w.itemPath}/reveal`,
+        ...user.auth,
+        payload: { fields: ['bookingRef', 'cardLast4'] },
+      });
+    const shown = await reveal(w.owner);
+    expect(shown.statusCode).toBe(200);
+    expect(shown.headers['cache-control']).toBe('no-store');
+    expect(shown.json()).toEqual({ bookingRef: 'BH-2026-11', cardLast4: null });
+    expect((await reveal(w.viewer)).statusCode).toBe(403);
+  });
+});

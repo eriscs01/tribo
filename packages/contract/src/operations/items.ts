@@ -8,6 +8,8 @@ import {
   ItemPatch,
   ItemRsvpInput,
   ItemRsvp,
+  ItemRevealInput,
+  ItemReveal,
 } from '../item.js';
 import { defineOperation } from '../operation.js';
 
@@ -145,7 +147,9 @@ export const itemsOperations = [
     mcpTool: 'reveal_fields',
     notes:
       'Plaintext of bookingRef, cardLast4; Audited reveal (field paths only); never cached offline; write scope (G15); MCP approval (1b); No Idempotency-Key: each call is its own audited reveal (R2); MCP: tool returns approvalId, after approval the client calls again with approvalId within 10 min, single use (R15); Allowed on archived trips (a read, audited); refused with trip_retired after retirement',
-    status: 'planned',
+    status: 'implemented',
+    input: ItemRevealInput,
+    output: ItemReveal,
   }),
   defineOperation({
     id: 'overlays.get',
