@@ -3,7 +3,7 @@ import type { TripRecord, TripsService } from '@tribo/core';
 import { ifMatch, pathId, requestContext, signedIn } from '../context.js';
 import { parsedQuery, type Handlers } from '../routes.js';
 
-export function tripView(trip: TripRecord): Trip {
+function tripView(trip: TripRecord): Trip {
   return {
     id: encodeTypeId(ID_PREFIX.trip, trip.id),
     name: trip.name,

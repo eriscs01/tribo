@@ -10,7 +10,6 @@ import { api, ApiProblem, readCsrfTokenFrom, unwrap, type Schemas } from './clie
 export type Session = Schemas['Session'];
 export type Trip = Schemas['Trip'];
 export type TripPage = Schemas['TripPage'];
-export type Item = Schemas['Item'];
 
 /** Query keys, in one place so writes invalidate exactly what they change. */
 export const keys = {

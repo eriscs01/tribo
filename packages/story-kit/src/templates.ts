@@ -66,7 +66,7 @@ export function handlerFile(story: Story, fn: string): string {
 }
 
 /** The tests the definition of done asks for, as todos the story turns into tests. */
-export function specs(story: Story): string[] {
+function specs(story: Story): string[] {
   const { op, tripRoles } = story;
   const out: string[] = [];
   if (tripRoles) {

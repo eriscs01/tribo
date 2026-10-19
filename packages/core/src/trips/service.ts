@@ -47,8 +47,6 @@ import {
   type TripRow,
 } from './repo.js';
 
-export type { TripRole } from './repo.js';
-
 /** A trip's status as the API shows it: `archived` is derived from archived_at (R40). */
 export type TripStatus = ValueOf<'tribo.trips.status'> | 'archived';
 

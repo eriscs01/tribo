@@ -5,7 +5,7 @@ import { sql } from 'kysely';
 export type ItemsDb = ModuleDb<'items'>;
 
 /** A timed value as written on the ground, or an all-day date. */
-export type StoredTime = { local: string; tz: string } | { date: string };
+type StoredTime = { local: string; tz: string } | { date: string };
 
 export interface NewItem {
   tripId: string;

@@ -40,7 +40,7 @@ export function readCsrfTokenFrom(source: () => string | null) {
   csrfToken = source;
 }
 
-export const csrfMiddleware: Middleware = {
+const csrfMiddleware: Middleware = {
   onRequest({ request }) {
     const token = UNSAFE.has(request.method) ? csrfToken() : null;
     if (token !== null) request.headers.set(CSRF_HEADER, token);

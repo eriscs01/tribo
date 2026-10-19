@@ -66,7 +66,7 @@ export interface Story {
 
 const pascal = (word: string) => word.charAt(0).toUpperCase() + word.slice(1);
 
-export function singular(word: string): string {
+function singular(word: string): string {
   if (word === 'people') return 'person';
   if (word.endsWith('ies')) return `${word.slice(0, -3)}y`;
   if (word.endsWith('s') && !word.endsWith('ss')) return word.slice(0, -1);
