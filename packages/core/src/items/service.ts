@@ -4,6 +4,7 @@ import {
   ItemInput,
   itemTimeProblem,
   ItemPatch,
+  NoBody,
   Uuid,
   type ItemListQuery,
   type MaskedValue,
@@ -24,6 +25,7 @@ import { allActiveMemberships, callerMembership, type CallerMembership } from '.
 import { writeOperation } from '../write-operation.js';
 import {
   canCreateItem,
+  canDeleteItem,
   canListItems,
   canNarrowVisibility,
   canUpdateItem,
@@ -39,6 +41,7 @@ import {
   listVisibleItems,
   lockItem,
   replaceShares,
+  softDeleteItem,
   updateItem,
   type ItemRow,
 } from './repo.js';
@@ -86,10 +89,21 @@ export interface ItemsService {
     body: unknown,
     ifMatch: number | undefined,
   ): Promise<ItemRecord>;
+  /**
+   * items.delete: soft-deletes the item under If-Match; its children drop out with it, and
+   * items.restore (1b) brings both back.
+   */
+  delete(
+    ctx: RequestContext,
+    itemId: string,
+    body: unknown,
+    ifMatch: number | undefined,
+  ): Promise<void>;
 }
 
 const itemsCreate = writeOperation('items.create', ItemInput);
 const itemsUpdate = writeOperation('items.update', ItemPatch);
+const itemsDelete = writeOperation('items.delete', NoBody);
 
 /**
  * `write` is core's write path (writePath in write-path.ts), passed in to keep imports
@@ -261,6 +275,36 @@ export function createItemsService(db: Kysely<DB>, write: WritePath, keys: Keyri
             version: updated.version,
             snapshot: itemSnapshot(updated, sharedWith),
             result: itemRecord(updated, membership),
+          };
+        },
+      });
+    },
+
+    delete(ctx, itemId, body, ifMatch) {
+      let acting: ActingEditor | undefined;
+      return write(ctx, {
+        operation: itemsDelete,
+        target: { itemId },
+        body,
+        ifMatch,
+        authorize: async (tx, c, target) => {
+          acting = await actingEditor(tx, c, target.itemId);
+          if (!canDeleteItem(acting.editor)) throw new ApiError('forbidden');
+        },
+        load: lockedItem,
+        mutate: async (tx, _c, { row }) => {
+          if (!acting) throw new Error('items.delete mutated before authorize');
+          const items = forModule(tx, 'items');
+          const version = await softDeleteItem(items, row.id, acting.userId);
+          return {
+            action: 'delete',
+            aggregate: 'item',
+            entityId: row.id,
+            tripId: row.trip_id,
+            version,
+            // The item as it was: restore copies this snapshot forward.
+            snapshot: itemSnapshot(row, await listShares(items, row.id)),
+            result: undefined,
           };
         },
       });

@@ -114,7 +114,7 @@
 - [x] `items.update` · Drop A · `PATCH /v1/items/{itemId}`
   - Merge-patch item, visibility, sharedWith; masked_field_write; going private: item owner or organizer; If-Match = item version; board saves and RSVPs never conflict; trip_archived on archived trips (R29); sharedWith = membership ids of the trip; owner = callers membership (rule 3)
   - Roles: owner, organizer, member (own/assigned). If-Match: `version`. Idempotency: safe to repeat.
-- [ ] `items.delete` · Drop A · `DELETE /v1/items/{itemId}`
+- [x] `items.delete` · Drop A · `DELETE /v1/items/{itemId}`
   - Soft-delete item and children; Undo via items.restore (1b); MCP approval; trip_archived on archived trips (R29)
   - Roles: owner, organizer, member (own). If-Match: `version`. Idempotency: safe to repeat.
 - [ ] `items.rsvp` · Drop A · `PUT /v1/items/{itemId}/rsvp`

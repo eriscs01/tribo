@@ -2879,15 +2879,8 @@
           }
         ],
         "responses": {
-          "501": {
-            "description": "Registered but not implemented yet (not_implemented)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
+          "204": {
+            "description": "No content"
           },
           "default": {
             "description": "Error",
@@ -2901,7 +2894,7 @@
           }
         },
         "x-tribo": {
-          "status": "planned",
+          "status": "implemented",
           "slice": "1a",
           "drop": "A",
           "roles": "owner, organizer, member (own)",

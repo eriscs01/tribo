@@ -158,6 +158,30 @@ export async function updateItem(
     .execute();
 }
 
+/**
+ * Stamps deleted_at and bumps the version; the item's children need no stamp of their own,
+ * since tribo.item_visible hides them with it. Returns the new version.
+ */
+export async function softDeleteItem(
+  db: ItemsDb,
+  itemId: string,
+  deletedBy: string,
+): Promise<number> {
+  const row = await db
+    .updateTable('tribo.items')
+    .set((eb) => ({
+      deleted_at: sql<Date>`now()`,
+      deleted_by: deletedBy,
+      updated_at: sql<Date>`now()`,
+      updated_by: deletedBy,
+      version: eb('version', '+', 1),
+    }))
+    .where('id', '=', itemId)
+    .returning('version')
+    .executeTakeFirstOrThrow();
+  return row.version;
+}
+
 /** The memberships an item is shared with, in id order. */
 export async function listShares(db: ItemsDb, itemId: string): Promise<string[]> {
   const rows = await db

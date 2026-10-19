@@ -39,3 +39,9 @@ export function canUpdateItem(editor: ItemEditor): boolean {
 export function canNarrowVisibility(editor: ItemEditor): boolean {
   return editor.owns || ITEM_EDITORS.has(editor.role);
 }
+
+/** items.delete: owners and organizers delete any item; members only their own (an assignee may not). */
+export function canDeleteItem(editor: ItemEditor): boolean {
+  if (ITEM_EDITORS.has(editor.role)) return true;
+  return editor.role === 'member' && editor.owns;
+}

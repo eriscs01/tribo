@@ -3738,14 +3738,12 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description No content */
+            204: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
+                content?: never;
             };
             /** @description Error */
             default: {

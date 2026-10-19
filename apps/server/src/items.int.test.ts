@@ -175,3 +175,26 @@ describe('items.update over HTTP', () => {
     });
   });
 });
+
+describe('items.delete over HTTP', () => {
+  it('answers 204 under If-Match, 428 without, 403 to a viewer; the item is gone after', async () => {
+    const w = await world();
+    const del = (user: typeof w.owner, headers: Record<string, string> = {}) =>
+      app.inject({
+        method: 'DELETE',
+        url: `/v1/items/${w.itemPath}`,
+        cookies: user.auth.cookies,
+        headers: { ...user.auth.headers, ...headers },
+      });
+    expect((await del(w.viewer, { 'if-match': '"1"' })).statusCode).toBe(403);
+    expect((await del(w.owner)).statusCode).toBe(428);
+    const gone = await del(w.owner, { 'if-match': '"1"' });
+    expect([gone.statusCode, gone.body]).toEqual([204, '']);
+    const read = await app.inject({
+      method: 'GET',
+      url: `/v1/items/${w.itemPath}`,
+      ...w.owner.auth,
+    });
+    expect(read.statusCode).toBe(404);
+  });
+});

@@ -71,5 +71,14 @@ export function itemHandlers(items: ItemsService): Handlers {
           ifMatch(request),
         ),
       ),
+    'items.delete': async (request, reply) => {
+      await items.delete(
+        requestContext(request),
+        pathId(request, 'itemId'),
+        request.body,
+        ifMatch(request),
+      );
+      return reply.code(204).send();
+    },
   };
 }

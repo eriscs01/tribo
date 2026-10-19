@@ -99,7 +99,7 @@ export const itemsOperations = [
     mcpTool: 'delete_item',
     notes:
       'Soft-delete item and children; Undo via items.restore (1b); MCP approval; trip_archived on archived trips (R29)',
-    status: 'planned',
+    status: 'implemented',
   }),
   defineOperation({
     id: 'items.rsvp',

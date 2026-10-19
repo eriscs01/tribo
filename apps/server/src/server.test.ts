@@ -96,7 +96,13 @@ const trips: TripsService = {
   update: unused,
   delete: unused,
 };
-const items: ItemsService = { create: unused, get: unused, list: unused, update: unused };
+const items: ItemsService = {
+  create: unused,
+  get: unused,
+  list: unused,
+  update: unused,
+  delete: unused,
+};
 const library: LibraryService = {
   search: unused,
   createPerson: unused,

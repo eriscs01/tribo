@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { canCreateItem, canListItems, canNarrowVisibility, canUpdateItem } from './policy.js';
+import {
+  canCreateItem,
+  canDeleteItem,
+  canListItems,
+  canNarrowVisibility,
+  canUpdateItem,
+} from './policy.js';
 
 describe('canCreateItem', () => {
   it('lets owners, organizers and members add items, never viewers', () => {
@@ -45,5 +51,15 @@ describe('canNarrowVisibility', () => {
     expect(canNarrowVisibility(editor('organizer'))).toBe(true);
     expect(canNarrowVisibility(editor('owner'))).toBe(true);
     expect(canNarrowVisibility(editor('member', false, true))).toBe(false);
+  });
+});
+
+describe('canDeleteItem', () => {
+  it('lets owners and organizers delete any item, members only their own, never viewers', () => {
+    expect(canDeleteItem(editor('owner'))).toBe(true);
+    expect(canDeleteItem(editor('organizer'))).toBe(true);
+    expect(canDeleteItem(editor('member', true))).toBe(true);
+    expect(canDeleteItem(editor('member', false, true))).toBe(false);
+    expect(canDeleteItem(editor('viewer', true))).toBe(false);
   });
 });
