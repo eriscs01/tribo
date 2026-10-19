@@ -26,7 +26,7 @@ export function composeServices(db: Kysely<DB>, appKey: AppKey, publicUrl: URL) 
     issuer,
     identity: createIdentityService(db, keys, issuer),
     trips: createTripsService(db, write),
-    items: createItemsService(db, write),
+    items: createItemsService(db, write, keys),
     library: createLibraryService(db, write, keys),
     verifyAudit: (chainKey?: string) => verifyChains(db, chainKey),
     /** Resolves once the database answers a query. */

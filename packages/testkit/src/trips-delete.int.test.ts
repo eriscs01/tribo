@@ -22,6 +22,7 @@ import {
   type TripRole,
   type UserFixture,
 } from './factories.js';
+import { testKeys } from './keys.js';
 
 let tdb: TestDatabase;
 let trips: TripsService;
@@ -30,7 +31,7 @@ let items: ItemsService;
 beforeAll(async () => {
   tdb = await createTestDatabase();
   trips = createTripsService(tdb.db, writePath(tdb.db));
-  items = createItemsService(tdb.db, writePath(tdb.db));
+  items = createItemsService(tdb.db, writePath(tdb.db), testKeys());
 });
 afterAll(() => tdb.destroy());
 

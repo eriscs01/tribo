@@ -28,6 +28,8 @@ export interface EventRecord {
   versionBefore?: number | null;
   versionAfter?: number | null;
   restoredFrom?: number;
+  /** For a reveal, the field paths shown (never their values); for break-glass, the reason. */
+  reason?: string;
 }
 
 /** The chain, seq, hashes and occurred_at are set by the insert trigger, never here. */
@@ -53,6 +55,7 @@ export async function insertEvent(
       version_before: record.versionBefore ?? null,
       version_after: record.versionAfter ?? null,
       restored_from: record.restoredFrom ?? null,
+      reason: record.reason ?? null,
       // Placeholders the BEFORE INSERT trigger overwrites; the columns are NOT NULL.
       chain_key: '',
       seq: 0,

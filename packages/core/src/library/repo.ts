@@ -17,13 +17,16 @@ export function insertAccountPerson(db: LibraryDb, userId: string, displayName: 
     .executeTakeFirstOrThrow();
 }
 
-/** The live person of an account, or undefined (an erased or deleted account has none). */
+/**
+ * The account's own person. Only merged placeholders are ever soft-deleted, and
+ * tribo.is_member and tribo.item_visible ignore persons.deleted_at, so this does too:
+ * a membership check here never disagrees with the visibility predicates.
+ */
 export function findAccountPerson(db: LibraryDb, userId: string) {
   return db
     .selectFrom('tribo.persons')
     .select('id')
     .where('user_id', '=', userId)
-    .where('deleted_at', 'is', null)
     .executeTakeFirst();
 }
 

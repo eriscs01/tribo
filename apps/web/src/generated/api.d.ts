@@ -1976,6 +1976,9 @@ export interface components {
             visibility: components["schemas"]["ItemVisibility"];
             ownerMembershipId: string;
             tags: string[];
+            cost: (components["schemas"]["Money"] | components["schemas"]["MaskedValue"]) | null;
+            bookingRef: components["schemas"]["MaskedValue"] | null;
+            cardLast4: components["schemas"]["MaskedValue"] | null;
             version: number;
             boardVersion: number;
             createdAt: components["schemas"]["Instant"];
@@ -1990,6 +1993,43 @@ export interface components {
             visibility?: components["schemas"]["ItemVisibility"];
             sharedWith?: string[];
             tags?: string[];
+        };
+        ItemPage: {
+            items: components["schemas"]["Item"][];
+            nextCursor: string | null;
+        };
+        ItemPatch: {
+            title?: string;
+            status?: components["schemas"]["ItemStatus"];
+            start?: components["schemas"]["TimeInput"] | null;
+            end?: components["schemas"]["TimeInput"] | null;
+            visibility?: components["schemas"]["ItemVisibility"];
+            sharedWith?: string[];
+            tags?: string[];
+            cost?: (components["schemas"]["MaskedValue"] | {
+                amountMinor: number;
+                currency: components["schemas"]["CurrencyCode"];
+            }) | null;
+            bookingRef?: (components["schemas"]["MaskedValue"] | string) | null;
+            cardLast4?: (components["schemas"]["MaskedValue"] | string) | null;
+        };
+        ItemReveal: {
+            bookingRef?: string | null;
+            cardLast4?: string | null;
+        };
+        /** @enum {string} */
+        ItemRevealField: "bookingRef" | "cardLast4";
+        ItemRevealInput: {
+            fields: components["schemas"]["ItemRevealField"][];
+        };
+        ItemRsvp: {
+            itemId: string;
+            membershipId: string;
+            rsvp: components["schemas"]["RsvpAnswer"];
+            boardVersion: number;
+        };
+        ItemRsvpInput: {
+            rsvp: components["schemas"]["RsvpAnswer"];
         };
         /** @enum {string} */
         ItemStatus: "draft" | "planned" | "booked" | "confirmed" | "open" | "done" | "cancelled";
@@ -2072,6 +2112,10 @@ export interface components {
             key: string;
             uri: string;
         };
+        Money: {
+            amountMinor: number;
+            currency: components["schemas"]["CurrencyCode"];
+        };
         NewPassword: string;
         OpeningHours: {
             /** @enum {string} */
@@ -2146,6 +2190,8 @@ export interface components {
                 message: string;
             }[];
         };
+        /** @enum {string} */
+        RsvpAnswer: "yes" | "no" | "maybe";
         Session: {
             user: {
                 id: string;
@@ -3712,14 +3758,12 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description No content */
+            204: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
+                content?: never;
             };
             /** @description Error */
             default: {
@@ -3744,15 +3788,19 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ItemPatch"];
+            };
+        };
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["Item"];
                 };
             };
             /** @description Error */
@@ -4069,15 +4117,19 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ItemRevealInput"];
+            };
+        };
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["ItemReveal"];
                 };
             };
             /** @description Error */
@@ -4100,15 +4152,19 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ItemRsvpInput"];
+            };
+        };
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["ItemRsvp"];
                 };
             };
             /** @description Error */
@@ -6065,7 +6121,14 @@ export interface operations {
     };
     "items.list": {
         parameters: {
-            query?: never;
+            query?: {
+                limit?: number;
+                cursor?: string;
+                type?: components["schemas"]["ItemType"];
+                from?: string;
+                to?: string;
+                assignee?: "me";
+            };
             header?: never;
             path: {
                 tripId: string;
@@ -6074,13 +6137,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["ItemPage"];
                 };
             };
             /** @description Error */

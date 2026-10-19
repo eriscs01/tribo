@@ -2798,12 +2798,12 @@
           }
         ],
         "responses": {
-          "501": {
-            "description": "Registered but not implemented yet (not_implemented)",
+          "200": {
+            "description": "OK",
             "content": {
-              "application/problem+json": {
+              "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Problem"
+                  "$ref": "#/components/schemas/Item"
                 }
               }
             }
@@ -2820,7 +2820,7 @@
           }
         },
         "x-tribo": {
-          "status": "planned",
+          "status": "implemented",
           "slice": "1a",
           "drop": "A",
           "roles": "owner, organizer, member (own/assigned)",
@@ -2849,7 +2849,17 @@
               "type": "string"
             }
           }
-        ]
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ItemPatch"
+              }
+            }
+          }
+        }
       },
       "delete": {
         "operationId": "items.delete",
@@ -2869,15 +2879,8 @@
           }
         ],
         "responses": {
-          "501": {
-            "description": "Registered but not implemented yet (not_implemented)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
+          "204": {
+            "description": "No content"
           },
           "default": {
             "description": "Error",
@@ -2891,7 +2894,7 @@
           }
         },
         "x-tribo": {
-          "status": "planned",
+          "status": "implemented",
           "slice": "1a",
           "drop": "A",
           "roles": "owner, organizer, member (own)",
@@ -3556,12 +3559,12 @@
           }
         ],
         "responses": {
-          "501": {
-            "description": "Registered but not implemented yet (not_implemented)",
+          "201": {
+            "description": "OK",
             "content": {
-              "application/problem+json": {
+              "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Problem"
+                  "$ref": "#/components/schemas/ItemReveal"
                 }
               }
             }
@@ -3578,7 +3581,7 @@
           }
         },
         "x-tribo": {
-          "status": "planned",
+          "status": "implemented",
           "slice": "1a",
           "drop": "A",
           "roles": "owner, organizer, member (own items)",
@@ -3598,7 +3601,17 @@
               "pattern": "^itm_[0-7][0-9a-hjkmnp-tv-z]{25}$"
             }
           }
-        ]
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ItemRevealInput"
+              }
+            }
+          }
+        }
       }
     },
     "/v1/items/{itemId}/rsvp": {
@@ -3620,12 +3633,12 @@
           }
         ],
         "responses": {
-          "501": {
-            "description": "Registered but not implemented yet (not_implemented)",
+          "200": {
+            "description": "OK",
             "content": {
-              "application/problem+json": {
+              "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Problem"
+                  "$ref": "#/components/schemas/ItemRsvp"
                 }
               }
             }
@@ -3642,7 +3655,7 @@
           }
         },
         "x-tribo": {
-          "status": "planned",
+          "status": "implemented",
           "slice": "1a",
           "drop": "A",
           "roles": "owner, organizer, member (self)",
@@ -3662,7 +3675,17 @@
               "pattern": "^itm_[0-7][0-9a-hjkmnp-tv-z]{25}$"
             }
           }
-        ]
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ItemRsvpInput"
+              }
+            }
+          }
+        }
       }
     },
     "/v1/items/{itemId}/tickets": {
@@ -7619,12 +7642,12 @@
           }
         ],
         "responses": {
-          "501": {
-            "description": "Registered but not implemented yet (not_implemented)",
+          "200": {
+            "description": "OK",
             "content": {
-              "application/problem+json": {
+              "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Problem"
+                  "$ref": "#/components/schemas/ItemPage"
                 }
               }
             }
@@ -7641,7 +7664,7 @@
           }
         },
         "x-tribo": {
-          "status": "planned",
+          "status": "implemented",
           "slice": "1a",
           "drop": "A",
           "roles": "owner, organizer, member, viewer",
@@ -7659,6 +7682,64 @@
             "schema": {
               "type": "string",
               "pattern": "^trp_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/ItemType"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+            }
+          },
+          {
+            "name": "assignee",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "const": "me"
             }
           }
         ]
@@ -8612,6 +8693,43 @@
               "type": "string"
             }
           },
+          "cost": {
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/Money"
+                  },
+                  {
+                    "$ref": "#/components/schemas/MaskedValue"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "bookingRef": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MaskedValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cardLast4": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MaskedValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "version": {
             "type": "integer",
             "minimum": 1,
@@ -8640,6 +8758,9 @@
           "visibility",
           "ownerMembershipId",
           "tags",
+          "cost",
+          "bookingRef",
+          "cardLast4",
           "version",
           "boardVersion",
           "createdAt",
@@ -8691,6 +8812,233 @@
         "required": [
           "type",
           "title"
+        ],
+        "additionalProperties": false
+      },
+      "ItemPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Item"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "additionalProperties": false
+      },
+      "ItemPatch": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "status": {
+            "$ref": "#/components/schemas/ItemStatus"
+          },
+          "start": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TimeInput"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "end": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TimeInput"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "visibility": {
+            "$ref": "#/components/schemas/ItemVisibility"
+          },
+          "sharedWith": {
+            "maxItems": 200,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^mem_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+            }
+          },
+          "tags": {
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 40
+            }
+          },
+          "cost": {
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/MaskedValue"
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "amountMinor": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "currency": {
+                        "$ref": "#/components/schemas/CurrencyCode"
+                      }
+                    },
+                    "required": [
+                      "amountMinor",
+                      "currency"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "bookingRef": {
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/MaskedValue"
+                  },
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cardLast4": {
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/MaskedValue"
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^\\d{4}$"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "ItemReveal": {
+        "type": "object",
+        "properties": {
+          "bookingRef": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "cardLast4": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "ItemRevealField": {
+        "type": "string",
+        "enum": [
+          "bookingRef",
+          "cardLast4"
+        ]
+      },
+      "ItemRevealInput": {
+        "type": "object",
+        "properties": {
+          "fields": {
+            "minItems": 1,
+            "maxItems": 2,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ItemRevealField"
+            }
+          }
+        },
+        "required": [
+          "fields"
+        ],
+        "additionalProperties": false
+      },
+      "ItemRsvp": {
+        "type": "object",
+        "properties": {
+          "itemId": {
+            "type": "string",
+            "pattern": "^itm_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+          },
+          "membershipId": {
+            "type": "string",
+            "pattern": "^mem_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+          },
+          "rsvp": {
+            "$ref": "#/components/schemas/RsvpAnswer"
+          },
+          "boardVersion": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "itemId",
+          "membershipId",
+          "rsvp",
+          "boardVersion"
+        ],
+        "additionalProperties": false
+      },
+      "ItemRsvpInput": {
+        "type": "object",
+        "properties": {
+          "rsvp": {
+            "$ref": "#/components/schemas/RsvpAnswer"
+          }
+        },
+        "required": [
+          "rsvp"
         ],
         "additionalProperties": false
       },
@@ -9037,6 +9385,24 @@
         "required": [
           "key",
           "uri"
+        ],
+        "additionalProperties": false
+      },
+      "Money": {
+        "type": "object",
+        "properties": {
+          "amountMinor": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "currency": {
+            "$ref": "#/components/schemas/CurrencyCode"
+          }
+        },
+        "required": [
+          "amountMinor",
+          "currency"
         ],
         "additionalProperties": false
       },
@@ -9414,6 +9780,14 @@
           "requestId"
         ],
         "additionalProperties": false
+      },
+      "RsvpAnswer": {
+        "type": "string",
+        "enum": [
+          "yes",
+          "no",
+          "maybe"
+        ]
       },
       "Session": {
         "type": "object",
