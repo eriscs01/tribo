@@ -3,6 +3,8 @@ name: CI
 on:
   pull_request:
     branches: [main]
+    # labeled and unlabeled rerun the pipeline so "API breaking changes" sees the api-breaking label.
+    types: [opened, synchronize, reopened, labeled, unlabeled]
   push:
     branches: [main]
     # A release tag also publishes both images (job "publish").
@@ -40,6 +42,40 @@ jobs:
       - run: pnpm typecheck
       # The SPA and its app-shell service worker (Vite + Workbox), from the types tsc just built.
       - run: pnpm build:web
+
+  # Pull requests only: packages/contract/openapi.json against the base branch's copy with
+  # oasdiff (pinned release, checksum verified, no service). A breaking change fails the job
+  # unless the pull request carries the api-breaking label; the changelog goes to the summary.
+  api:
+    name: API breaking changes
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      OASDIFF_VERSION: 1.33.0
+      OASDIFF_SHA256: 43a4e328e2d13ba1552d760aa68d2485c75c5621f309f6ff64ae895188345247
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install oasdiff
+        run: |
+          curl --fail --silent --show-error --location --retry 3 --output oasdiff.tar.gz \
+            "https://github.com/oasdiff/oasdiff/releases/download/v${OASDIFF_VERSION}/oasdiff_${OASDIFF_VERSION}_linux_amd64.tar.gz"
+          echo "$OASDIFF_SHA256  oasdiff.tar.gz" | sha256sum --check
+          mkdir "$RUNNER_TEMP/oasdiff"
+          tar -xzf oasdiff.tar.gz -C "$RUNNER_TEMP/oasdiff" oasdiff
+          echo "$RUNNER_TEMP/oasdiff" >>"$GITHUB_PATH"
+      - name: Fetch the base branch's contract
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git fetch --depth=1 origin "$BASE_SHA"
+          git show "$BASE_SHA:packages/contract/openapi.json" >"$RUNNER_TEMP/openapi.base.json"
+      - name: Compare the contracts
+        env:
+          ALLOW_BREAKING: ${{ contains(github.event.pull_request.labels.*.name, 'api-breaking') }}
+        run: .github/scripts/api-breaking.sh "$RUNNER_TEMP/openapi.base.json" packages/contract/openapi.json
 
   unit:
     name: Unit
