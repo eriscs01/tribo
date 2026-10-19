@@ -13,20 +13,15 @@ export type { EventRecord } from './repo.js';
 export async function recordWrite(tx: Tx, ctx: RequestContext, record: WriteRecord): Promise<void> {
   const db = forModule(tx, 'audit');
   await insertSnapshot(db, record);
-  try {
-    await insertEvent(db, ctx, {
-      action: record.action,
-      entityType: record.aggregate,
-      entityId: record.entityId,
-      tripId: record.tripId,
-      versionBefore: record.versionBefore,
-      versionAfter: record.version,
-      ...(record.restoredFrom === undefined ? {} : { restoredFrom: record.restoredFrom }),
-    });
-  } catch (error) {
-    if (isConstraint(error, 'trip_retired')) throw new ApiError('trip_retired');
-    throw error;
-  }
+  await recordEvent(tx, ctx, {
+    action: record.action,
+    entityType: record.aggregate,
+    entityId: record.entityId,
+    tripId: record.tripId,
+    versionBefore: record.versionBefore,
+    versionAfter: record.version,
+    ...(record.restoredFrom === undefined ? {} : { restoredFrom: record.restoredFrom }),
+  });
 }
 
 function isConstraint(error: unknown, name: string): boolean {
@@ -34,11 +29,17 @@ function isConstraint(error: unknown, name: string): boolean {
 }
 
 /**
- * A credential act (sign-in, failed sign-in, sign-out): an event with no snapshot, since
- * credentials are never versioned. Auth actions route to the month's auth chain.
+ * An event with no snapshot: a credential act (sign-in, failed sign-in, sign-out), since
+ * credentials are never versioned, or a reveal, which changes nothing. Auth actions route
+ * to the month's auth chain. A retired trip chain refuses the event (trip_retired).
  */
 export async function recordEvent(tx: Tx, ctx: RequestContext, event: EventRecord): Promise<void> {
-  await insertEvent(forModule(tx, 'audit'), ctx, event);
+  try {
+    await insertEvent(forModule(tx, 'audit'), ctx, event);
+  } catch (error) {
+    if (isConstraint(error, 'trip_retired')) throw new ApiError('trip_retired');
+    throw error;
+  }
 }
 
 export interface ChainReport {

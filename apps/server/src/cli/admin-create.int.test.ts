@@ -76,7 +76,7 @@ describe('tribo admin create', () => {
         identity,
         csrfSecret: csrf,
         trips: createTripsService(tdb.db, writePath(tdb.db)),
-        items: createItemsService(tdb.db, writePath(tdb.db)),
+        items: createItemsService(tdb.db, writePath(tdb.db), keyring(new AppKey(randomBytes(32)))),
         library: createLibraryService(
           tdb.db,
           writePath(tdb.db),

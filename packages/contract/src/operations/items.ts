@@ -1,6 +1,16 @@
 // Generated from operations.csv by src/scripts/import-operations.ts. A story replaces an
 // entry's status with 'implemented' and adds its input and output schemas.
-import { Item, ItemInput } from '../item.js';
+import {
+  Item,
+  ItemInput,
+  ItemListQuery,
+  ItemPage,
+  ItemPatch,
+  ItemRsvpInput,
+  ItemRsvp,
+  ItemRevealInput,
+  ItemReveal,
+} from '../item.js';
 import { defineOperation } from '../operation.js';
 
 export const itemsOperations = [
@@ -20,7 +30,9 @@ export const itemsOperations = [
     mcpTool: null,
     notes:
       'All types; ?type, ?from&to, ?assignee=me; item_visible; viewers masked; costs per canViewCosts',
-    status: 'planned',
+    status: 'implemented',
+    query: ItemListQuery,
+    output: ItemPage,
   }),
   defineOperation({
     id: 'items.create',
@@ -77,7 +89,9 @@ export const itemsOperations = [
     mcpTool: 'update_item',
     notes:
       'Merge-patch item, visibility, sharedWith; masked_field_write; going private: item owner or organizer; If-Match = item version; board saves and RSVPs never conflict; trip_archived on archived trips (R29); sharedWith = membership ids of the trip; owner = callers membership (rule 3)',
-    status: 'planned',
+    status: 'implemented',
+    input: ItemPatch,
+    output: Item,
   }),
   defineOperation({
     id: 'items.delete',
@@ -95,7 +109,7 @@ export const itemsOperations = [
     mcpTool: 'delete_item',
     notes:
       'Soft-delete item and children; Undo via items.restore (1b); MCP approval; trip_archived on archived trips (R29)',
-    status: 'planned',
+    status: 'implemented',
   }),
   defineOperation({
     id: 'items.rsvp',
@@ -113,7 +127,9 @@ export const itemsOperations = [
     mcpTool: 'set_rsvp',
     notes:
       "Set caller's own RSVP yes|no|maybe; Item lock + boardVersion bump (item version untouched); touches only caller's attendee row; trip_archived on archived trips (R29)",
-    status: 'planned',
+    status: 'implemented',
+    input: ItemRsvpInput,
+    output: ItemRsvp,
   }),
   defineOperation({
     id: 'items.reveal',
@@ -131,7 +147,9 @@ export const itemsOperations = [
     mcpTool: 'reveal_fields',
     notes:
       'Plaintext of bookingRef, cardLast4; Audited reveal (field paths only); never cached offline; write scope (G15); MCP approval (1b); No Idempotency-Key: each call is its own audited reveal (R2); MCP: tool returns approvalId, after approval the client calls again with approvalId within 10 min, single use (R15); Allowed on archived trips (a read, audited); refused with trip_retired after retirement',
-    status: 'planned',
+    status: 'implemented',
+    input: ItemRevealInput,
+    output: ItemReveal,
   }),
   defineOperation({
     id: 'overlays.get',

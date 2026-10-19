@@ -35,7 +35,7 @@ beforeAll(async () => {
       identity,
       csrfSecret: csrf,
       trips: createTripsService(tdb.db, write),
-      items: createItemsService(tdb.db, write),
+      items: createItemsService(tdb.db, write, keys),
       library: createLibraryService(tdb.db, write, keys),
     }),
     ping: () => Promise.resolve(),

@@ -13,6 +13,7 @@ import { ApiError, type RequestContext } from '@tribo/platform';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { connectAs, createTestDatabase, type TestDatabase } from './database.js';
 import { addMember, createItem, createTrip, createUser, softDelete } from './factories.js';
+import { testKeys } from './keys.js';
 
 let tdb: TestDatabase;
 let trips: TripsService;
@@ -42,7 +43,7 @@ beforeAll(async () => {
   tdb = await createTestDatabase();
   const write = writePath(tdb.db);
   trips = createTripsService(tdb.db, write);
-  items = createItemsService(tdb.db, write);
+  items = createItemsService(tdb.db, write, testKeys());
 });
 afterAll(() => tdb.destroy());
 

@@ -101,7 +101,7 @@
 
 ## Items
 
-- [ ] `items.list` · Drop A · `GET /v1/trips/{tripId}/items`
+- [x] `items.list` · Drop A · `GET /v1/trips/{tripId}/items`
   - All types; ?type, ?from&to, ?assignee=me; item_visible; viewers masked; costs per canViewCosts
   - Roles: owner, organizer, member, viewer. If-Match: `no`. Idempotency: safe to repeat.
 - [x] `items.create` · Drop A · `POST /v1/trips/{tripId}/items`
@@ -111,16 +111,16 @@
 - [x] `items.get` · Drop A · `GET /v1/items/{itemId}`
   - Item detail (?view=summary|full); bookingRef, cardLast4 masked for all; restrictedFields
   - Roles: owner, organizer, member, viewer. If-Match: `no`. Idempotency: safe to repeat.
-- [ ] `items.update` · Drop A · `PATCH /v1/items/{itemId}`
+- [x] `items.update` · Drop A · `PATCH /v1/items/{itemId}`
   - Merge-patch item, visibility, sharedWith; masked_field_write; going private: item owner or organizer; If-Match = item version; board saves and RSVPs never conflict; trip_archived on archived trips (R29); sharedWith = membership ids of the trip; owner = callers membership (rule 3)
   - Roles: owner, organizer, member (own/assigned). If-Match: `version`. Idempotency: safe to repeat.
-- [ ] `items.delete` · Drop A · `DELETE /v1/items/{itemId}`
+- [x] `items.delete` · Drop A · `DELETE /v1/items/{itemId}`
   - Soft-delete item and children; Undo via items.restore (1b); MCP approval; trip_archived on archived trips (R29)
   - Roles: owner, organizer, member (own). If-Match: `version`. Idempotency: safe to repeat.
-- [ ] `items.rsvp` · Drop A · `PUT /v1/items/{itemId}/rsvp`
+- [x] `items.rsvp` · Drop A · `PUT /v1/items/{itemId}/rsvp`
   - Set caller's own RSVP yes|no|maybe; Item lock + boardVersion bump (item version untouched); touches only caller's attendee row; trip_archived on archived trips (R29)
   - Roles: owner, organizer, member (self). If-Match: `no`. Idempotency: safe to repeat.
-- [ ] `items.reveal` · Drop A · `POST /v1/items/{itemId}/reveal`
+- [x] `items.reveal` · Drop A · `POST /v1/items/{itemId}/reveal`
   - Plaintext of bookingRef, cardLast4; Audited reveal (field paths only); never cached offline; write scope (G15); MCP approval (1b); No Idempotency-Key: each call is its own audited reveal (R2); MCP: tool returns approvalId, after approval the client calls again with approvalId within 10 min, single use (R15); Allowed on archived trips (a read, audited); refused with trip_retired after retirement
   - Roles: owner, organizer, member (own items). If-Match: `no`. Idempotency: never replayed.
 - [ ] `overlays.get` · Drop B · `GET /v1/items/{itemId}/overlay`
