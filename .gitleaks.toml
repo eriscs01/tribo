@@ -1,0 +1,9 @@
+# Generic secret scan (CI job "Secret scan"; locally: `gitleaks git --redact .`).
+# GitHub's own push protection covers provider tokens; this adds gitleaks' generic rules.
+[extend]
+useDefault = true
+
+# No allowlist today: the dev and test secrets are generated at run time (deploy/dev/secrets.sh,
+# the testkit) and never committed, so the full history scans clean. A deliberately fake value
+# that must be committed is allowlisted here by path or regex, each with a comment saying why
+# it is fake; never a real secret, and never a whole directory of fixtures.

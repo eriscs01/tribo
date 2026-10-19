@@ -79,6 +79,41 @@ jobs:
           ALLOW_BREAKING: ${{ contains(github.event.pull_request.labels.*.name, 'api-breaking') }}
         run: .github/scripts/api-breaking.sh "$RUNNER_TEMP/openapi.base.json" packages/contract/openapi.json
 
+  # Generic secrets (GitHub's push protection only knows provider tokens): gitleaks over the
+  # pull request's commits, or the whole history on a push. Pinned release, checksum verified,
+  # no licence key and no paid action; allowlist entries live in .gitleaks.toml.
+  secrets:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GITLEAKS_VERSION: 8.30.1
+      GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install gitleaks
+        run: |
+          curl --fail --silent --show-error --location --retry 3 --output gitleaks.tar.gz \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "$GITLEAKS_SHA256  gitleaks.tar.gz" | sha256sum --check
+          mkdir "$RUNNER_TEMP/gitleaks"
+          tar -xzf gitleaks.tar.gz -C "$RUNNER_TEMP/gitleaks" gitleaks
+          echo "$RUNNER_TEMP/gitleaks" >>"$GITHUB_PATH"
+      # --redact keeps a finding's value out of the public log; the file, line and rule remain.
+      - name: Scan the commits
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [ -n "$BASE_SHA" ]; then
+            gitleaks git --redact --no-banner --log-opts="$BASE_SHA..$HEAD_SHA" .
+          else
+            gitleaks git --redact --no-banner .
+          fi
+
   unit:
     name: Unit
     runs-on: ubuntu-latest
