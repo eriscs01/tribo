@@ -6,7 +6,7 @@ import { CSRF_HEADER, registry as defaultRegistry, type Operation } from '@tribo
 import type { SignedIn } from '@tribo/core';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { ApiError } from '@tribo/platform';
-import type { Release } from './config.js';
+import { DEV_RELEASE, type Release } from './config.js';
 import { registerErrorHandling } from './errors.js';
 import { loggerOptions } from './logger.js';
 import { RequestLog } from './request-log.js';
@@ -48,11 +48,7 @@ export async function buildServer(deps: ServerDeps): Promise<FastifyInstance> {
   };
 
   const app = Fastify({
-    logger: loggerOptions(
-      deps.logLevel ?? 'info',
-      deps.release ?? { version: 'dev', commit: 'unknown' },
-      deps.logStream,
-    ),
+    logger: loggerOptions(deps.logLevel ?? 'info', deps.release ?? DEV_RELEASE, deps.logStream),
     trustProxy: (address, hop) => trust(address, hop),
     genReqId,
     logController: new RequestLog({ requestIdLogLabel: 'requestId' }),
