@@ -2,6 +2,7 @@ import {
   decodeTypeId,
   ID_PREFIX,
   ItemInput,
+  ItemMaskedField,
   itemTimeProblem,
   ItemPatch,
   ItemRevealInput,
@@ -37,6 +38,7 @@ import {
   canRevealItem,
   canRsvpItem,
   canUpdateItem,
+  seesRestrictedFields,
   type ItemEditor,
 } from './policy.js';
 import {
@@ -71,11 +73,16 @@ export interface ItemRecord {
   visibility: ValueOf<'tribo.items.visibility'>;
   ownerMembershipId: string;
   tags: string[];
-  /** The booked price, or 'masked' for a caller who may not read costs. */
+  /** The booked price, or 'masked' for a caller who may not read costs or it is restricted for. */
   cost: { amountMinor: number; currency: string } | 'masked' | null;
-  /** Whether a booking ref or card last-4 is stored; their values are masked for every reader. */
-  hasBookingRef: boolean;
-  hasCardLast4: boolean;
+  /**
+   * 'masked' when a booking ref or card last-4 is stored (their values are masked for every
+   * reader), or when the field is restricted for this caller, stored or not.
+   */
+  bookingRef: 'masked' | null;
+  cardLast4: 'masked' | null;
+  /** Fields masked for every caller but the item's owner and the trip's owner and organizers. */
+  restrictedFields: ItemMaskedField[];
   version: number;
   boardVersion: number;
   createdAt: Date;
@@ -185,6 +192,8 @@ export function createItemsService(db: Kysely<DB>, write: WritePath, keys: Keyri
               visibility: input.visibility ?? 'shared',
               ownerMembershipId,
               tags: input.tags ?? [],
+              // The creator owns the item, so may restrict its fields.
+              restrictedFields: inFieldOrder(input.restrictedFields ?? []),
               createdBy,
             }),
           );
@@ -255,6 +264,15 @@ export function createItemsService(db: Kysely<DB>, write: WritePath, keys: Keyri
             visibility !== 'shared' &&
             (visibility !== row.visibility || patch.sharedWith !== undefined);
           if (narrows && !canNarrowVisibility(editor)) throw new ApiError('forbidden');
+          if (!seesRestrictedFields(editor)) {
+            if (patch.restrictedFields !== undefined) throw new ApiError('forbidden');
+            // Only callers who see the restricted fields change the set, so it is the row's.
+            if (
+              row.restricted_fields.some((field) => patch[field as ItemMaskedField] !== undefined)
+            ) {
+              throw new ApiError('masked_field_write');
+            }
+          }
           if (patch.sharedWith !== undefined && visibility !== 'selected') {
             throw invalid('/sharedWith', 'sharedWith needs visibility selected');
           }
@@ -292,6 +310,9 @@ export function createItemsService(db: Kysely<DB>, write: WritePath, keys: Keyri
                 ...(cardLast4 === undefined
                   ? {}
                   : { cardLast4Enc: sealed(SEALED_COLUMN.cardLast4, unmasked(cardLast4)) }),
+                ...(patch.restrictedFields === undefined
+                  ? {}
+                  : { restrictedFields: inFieldOrder(patch.restrictedFields) }),
               },
               userId,
             ),
@@ -523,12 +544,31 @@ function endOf(row: ItemRow): ItemTimeRecord | null {
   return time(row.end_at, row.end_tz, row.end_local, row.end_date);
 }
 
-/** The item as this caller reads it: sensitive values masked for all, costs per canViewCosts. */
-function itemRecord(row: ItemRow, viewer: Pick<CallerMembership, 'canViewCosts'>): ItemRecord {
-  const cost =
+/** A set of maskable fields in the closed set's own order, whatever order it came in. */
+function inFieldOrder(fields: readonly string[]): ItemMaskedField[] {
+  return ItemMaskedField.options.filter((f) => fields.includes(f));
+}
+
+/**
+ * The item as this caller reads it, the one serializer every item read goes through:
+ * sensitive values masked for all, costs per canViewCosts, and restricted fields masked,
+ * present or not, for every caller but the item's owner and the trip's owners and organizers.
+ */
+function itemRecord(
+  row: ItemRow,
+  viewer: Pick<CallerMembership, 'id' | 'role' | 'canViewCosts'>,
+): ItemRecord {
+  const restrictedFields = inFieldOrder(row.restricted_fields);
+  const sees = seesRestrictedFields({
+    role: viewer.role,
+    owns: row.owner_membership_id === viewer.id,
+  });
+  const hidden = (field: ItemMaskedField) => !sees && restrictedFields.includes(field);
+  const stored =
     row.cost_minor === null || row.cost_currency === null
       ? null
       : { amountMinor: Number(row.cost_minor), currency: row.cost_currency };
+  const cost = stored !== null && !viewer.canViewCosts ? 'masked' : stored;
   return {
     id: row.id,
     tripId: row.trip_id,
@@ -540,9 +580,10 @@ function itemRecord(row: ItemRow, viewer: Pick<CallerMembership, 'canViewCosts'>
     visibility: row.visibility as ItemRecord['visibility'],
     ownerMembershipId: row.owner_membership_id,
     tags: row.tags,
-    cost: cost !== null && !viewer.canViewCosts ? 'masked' : cost,
-    hasBookingRef: row.booking_ref_enc !== null,
-    hasCardLast4: row.card_last4_enc !== null,
+    cost: hidden('cost') ? 'masked' : cost,
+    bookingRef: hidden('bookingRef') || row.booking_ref_enc !== null ? 'masked' : null,
+    cardLast4: hidden('cardLast4') || row.card_last4_enc !== null ? 'masked' : null,
+    restrictedFields,
     version: row.version,
     boardVersion: row.board_version,
     createdAt: row.created_at,
@@ -583,6 +624,7 @@ function itemSnapshot(row: ItemRow, sharedWith: readonly string[]) {
         : { amountMinor: Number(row.cost_minor), currency: row.cost_currency },
     bookingRefEnc: row.booking_ref_enc?.toString('base64') ?? null,
     cardLast4Enc: row.card_last4_enc?.toString('base64') ?? null,
+    restrictedFields: [...row.restricted_fields],
     sharedWith: [...sharedWith],
   };
 }

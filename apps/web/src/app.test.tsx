@@ -102,6 +102,7 @@ function fakeApi() {
         cost: null,
         bookingRef: null,
         cardLast4: null,
+        restrictedFields: input.restrictedFields ?? [],
         version: 1,
         boardVersion: 1,
         createdAt: NOW,

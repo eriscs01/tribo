@@ -1,4 +1,5 @@
 import * as z from 'zod';
+import { honoursIdempotencyKey } from './drop-limits.js';
 import { ErrorCode } from './errors.js';
 import { PATH_PARAM_PREFIX, typeIdPattern } from './ids.js';
 import { pathParams, type AuthMode, type Operation } from './operation.js';
@@ -12,6 +13,11 @@ const problemResponse = (description: string) => ({
   description,
   content: { [PROBLEM_CONTENT_TYPE]: { schema: PROBLEM_REF } },
 });
+
+const ETAG_HEADER = {
+  description: 'SHA-256 (base64url) of this representation, as sent to this caller',
+  schema: { type: 'string' },
+};
 
 /** Named schemas shared through components.schemas, keyed by their Zod `meta({ id })`. */
 type Components = Map<string, Json>;
@@ -108,7 +114,17 @@ function parameters(op: Operation, components: Components): Json[] {
       schema: { type: 'string' },
     });
   }
-  if (op.idempotent === 'key') {
+  if (op.etag) {
+    params.push({
+      name: 'If-None-Match',
+      in: 'header',
+      required: false,
+      description: 'The ETag of a representation already held; 304 when it is still current',
+      schema: { type: 'string' },
+    });
+  }
+  // The CSV's `key` is the design; the header is declared only where this release honours it.
+  if (honoursIdempotencyKey(op)) {
     params.push({
       name: 'Idempotency-Key',
       in: 'header',
@@ -127,8 +143,10 @@ function operationObject(op: Operation, components: Components): Json {
   } else if (op.output) {
     responses[op.method === 'POST' ? '201' : '200'] = {
       description: 'OK',
+      ...(op.etag ? { headers: { ETag: ETAG_HEADER } } : {}),
       content: { 'application/json': { schema: jsonSchema(op.output, 'output', components) } },
     };
+    if (op.etag) responses['304'] = { description: 'Not modified: If-None-Match names the ETag' };
   } else {
     responses['204'] = { description: 'No content' };
   }

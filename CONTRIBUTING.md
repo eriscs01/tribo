@@ -48,6 +48,12 @@ stories it binds, in the backlog and in the scaffolded tests:
 - **FX:** expenses are in the trip currency only, so `fx_rate` = 1.
 - **Splits** are equal or itemised only; weight splits come after the trip.
 
+### Follow-ups
+
+Follow-ups a pull request raises but does not do are triaged into
+[docs/follow-ups.md](docs/follow-ups.md): deferred ones with the slice they wait for, dropped
+ones with the reason. Check it before raising one again.
+
 ### Definition of done
 
 A 1a story is done when all of these hold:

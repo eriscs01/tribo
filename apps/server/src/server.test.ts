@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -52,6 +52,10 @@ const testRegistry: Operation[] = [
   defineOperation({
     ...testOp('test.query', 'GET', '/v1/test/query', ['public']),
     query: PageQuery,
+  }),
+  defineOperation({
+    ...testOp('test.tagged', 'GET', '/v1/test/tagged', ['public']),
+    etag: 'representation',
   }),
   defineOperation({
     ...testOp('test.plannedQuery', 'GET', '/v1/test/planned-query', ['public']),
@@ -160,6 +164,7 @@ async function server(overrides: Partial<ServerDeps> = {}) {
         await sleep(1);
         return { requestId: currentRequestId() };
       },
+      'test.tagged': () => Promise.resolve({ title: 'Lisbon in spring' }),
       'test.query': (request) => {
         queriesSeen.push(parsedQuery(request, PageQuery));
         return Promise.resolve({ ok: true });
@@ -193,6 +198,24 @@ describe('GET /healthz', () => {
     const line = lines.find((l) => l.msg === 'database unreachable');
     expect(line).toMatchObject({ level: 40, operationId: 'meta.liveness', dbCode: 'ECONNREFUSED' });
     expect(JSON.stringify(line)).not.toContain('10.0.0.5');
+  });
+
+  // Compose probes every 10 s; two lines a probe would crowd the 5 × 20 MB log buffer.
+  it('writes no request lines for a healthy probe, but still logs other requests', async () => {
+    const s = await server();
+    const probe = await s.inject({ method: 'GET', url: '/healthz' });
+    expect(probe.statusCode).toBe(200);
+    expect(lines.filter((l) => l.requestId === probe.headers['x-request-id'])).toEqual([]);
+    const other = await s.inject({ method: 'GET', url: '/v1/test/ip' });
+    expect(lines.filter((l) => l.requestId === other.headers['x-request-id'])).not.toEqual([]);
+  });
+
+  it('keeps the completed line, with its status, for a failing probe', async () => {
+    const s = await server({ ping: () => Promise.reject(new Error('down')) });
+    const res = await s.inject({ method: 'GET', url: '/healthz' });
+    const probeLines = lines.filter((l) => l.requestId === res.headers['x-request-id']);
+    expect(probeLines.map((l) => l.msg)).toEqual(['database unreachable', 'request completed']);
+    expect(probeLines[1]).toMatchObject({ operationId: 'meta.liveness', res: { statusCode: 503 } });
   });
 });
 
@@ -502,6 +525,30 @@ describe('declared query', () => {
     ).inject({ method: 'GET', url: '/v1/test/planned-query?limit=0' });
     expect(res.statusCode).toBe(501);
     expect(res.json()).toMatchObject({ code: 'not_implemented' });
+  });
+});
+
+describe('declared representation ETag', () => {
+  it('sends the SHA-256 of the body as ETag, and 304 with no body when If-None-Match names it', async () => {
+    const s = await server();
+    const first = await s.inject({ method: 'GET', url: '/v1/test/tagged' });
+    expect(first.statusCode).toBe(200);
+    expect(first.json()).toEqual({ title: 'Lisbon in spring' });
+    const digest = createHash('sha256').update(first.body).digest('base64url');
+    expect(first.headers.etag).toBe(`"${digest}"`);
+
+    const again = await s.inject({
+      method: 'GET',
+      url: '/v1/test/tagged',
+      headers: { 'if-none-match': String(first.headers.etag) },
+    });
+    expect(again.statusCode).toBe(304);
+    expect(again.body).toBe('');
+  });
+
+  it('is absent on a read that declares none', async () => {
+    const res = await (await server()).inject({ method: 'GET', url: '/v1/test/ip' });
+    expect(res.headers.etag).toBeUndefined();
   });
 });
 

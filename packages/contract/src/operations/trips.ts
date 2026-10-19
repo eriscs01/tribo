@@ -60,6 +60,7 @@ export const tripsOperations = [
     notes:
       'Trip detail incl. destinations; Members only; ETag = SHA-256 of the representation (rule 4)',
     status: 'implemented',
+    etag: 'representation',
     output: Trip,
   }),
   defineOperation({

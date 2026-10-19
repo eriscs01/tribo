@@ -28,6 +28,12 @@ export interface Operation {
   mcpTool: string | null;
   notes: string;
   status: OperationStatus;
+  /**
+   * A read that sends an ETag: `representation` is the SHA-256 of the per-caller body, and
+   * an If-None-Match naming it answers 304 (rule 4). The REST adapter and the OpenAPI
+   * document both follow this declaration.
+   */
+  etag?: 'representation';
   /** Query parameters, one per key; GET reads take these instead of a body. */
   query?: z.ZodObject;
   input?: z.ZodType;
@@ -44,6 +50,9 @@ export function defineOperation<const T extends Operation>(op: T): Readonly<T> {
   if (op.slice === '1a' && op.drop === null) throw new Error(`1a operation ${op.id} needs a drop`);
   if (op.slice !== '1a' && op.drop !== null) throw new Error(`${op.id} has a drop outside 1a`);
   if (op.auth.length === 0) throw new Error(`operation ${op.id} declares no auth`);
+  if (op.etag && op.method !== 'GET') {
+    throw new Error(`operation ${op.id} declares an ETag but is not a GET read`);
+  }
   return Object.freeze(op);
 }
 

@@ -217,14 +217,17 @@ export function createTripsService(db: Kysely<DB>, write: WritePath): TripsServi
           const personId = await accountPersonId(tx, userId);
           if (personId === null) throw new ApiError('forbidden');
           const trips = forModule(tx, 'trips');
-          const trip = await insertTrip(trips, { ...input, createdBy: userId });
+          const { destinations = [], ...fields } = input;
+          const trip = await insertTrip(trips, { ...fields, createdBy: userId });
+          const placeIds = destinations.map((id) => decodeTypeId(ID_PREFIX.place, id));
+          await placesChecked(() => replaceDestinations(trips, trip.id, placeIds));
           const owner = await insertMembership(trips, {
             tripId: trip.id,
             personId,
             role: 'owner',
             createdBy: userId,
           });
-          const record = tripRecord(trip, []);
+          const record = tripRecord(trip, placeIds);
           return {
             action: 'create',
             aggregate: 'trip',

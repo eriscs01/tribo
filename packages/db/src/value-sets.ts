@@ -47,6 +47,8 @@ export const VALUE_SETS = {
   ],
   'tribo.items.status': ['draft', 'planned', 'booked', 'confirmed', 'open', 'done', 'cancelled'],
   'tribo.items.visibility': ['shared', 'private', 'selected'],
+  // An array column held to a set (CHECK restricted_fields <@ ARRAY[...], 0002).
+  'tribo.items.restricted_fields': ['cost', 'bookingRef', 'cardLast4'],
   'tribo.units.kind': ['room', 'vehicle'],
   'tribo.allocations.role': ['attendee', 'occupant', 'driver', 'passenger', 'assignee'],
   'tribo.allocations.rsvp': ['pending', 'yes', 'no', 'maybe'],

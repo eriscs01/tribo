@@ -1,8 +1,7 @@
 import { readFile } from 'node:fs/promises';
-import { registry } from '@tribo/contract';
+import { EXPENSE_WRITES, IDEMPOTENCY_KEY_OPERATIONS, registry } from '@tribo/contract';
 import { describe, expect, it } from 'vitest';
 import { renderBacklog } from './backlog.js';
-import { EXPENSE_WRITES, IDEMPOTENCY_KEY_OPERATIONS } from './limits.js';
 
 const committed = await readFile(new URL('../../../docs/backlog.md', import.meta.url), 'utf8');
 const backlog = renderBacklog(registry);

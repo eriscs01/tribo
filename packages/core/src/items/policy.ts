@@ -40,6 +40,14 @@ export function canNarrowVisibility(editor: ItemEditor): boolean {
   return editor.owns || ITEM_EDITORS.has(editor.role);
 }
 
+/**
+ * An item's restricted fields: its owner and the trip's owners and organizers read and
+ * write them, and only they change which fields are restricted. Being assigned is not enough.
+ */
+export function seesRestrictedFields(editor: Pick<ItemEditor, 'role' | 'owns'>): boolean {
+  return editor.owns || ITEM_EDITORS.has(editor.role);
+}
+
 /** items.delete: owners and organizers delete any item; members only their own (an assignee may not). */
 export function canDeleteItem(editor: ItemEditor): boolean {
   if (ITEM_EDITORS.has(editor.role)) return true;

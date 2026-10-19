@@ -12,10 +12,13 @@ export const TripStatus = z
 /** A trip's name, as create and update both take it. */
 const TripName = z.string().trim().min(1).max(200);
 
-/**
- * trips.create. The caller becomes the owner. Destinations join when the places library
- * lands (a Drop A story); a new trip starts in draft.
- */
+/** Places from the library in travel order, each at most once. */
+const Destinations = z
+  .array(typeId(ID_PREFIX.place))
+  .max(50)
+  .refine((ids) => new Set(ids).size === ids.length, { message: 'a place is listed twice' });
+
+/** trips.create. The caller becomes the owner; a new trip starts in draft. */
 export const TripInput = z
   .strictObject({
     name: TripName,
@@ -23,6 +26,7 @@ export const TripInput = z
     endDate: z.iso.date(),
     currency: CurrencyCode,
     timezone: TimeZone,
+    destinations: Destinations.optional(),
   })
   .refine((t) => t.endDate >= t.startDate, {
     message: 'the trip ends before it starts',
@@ -61,12 +65,6 @@ export type TripPage = z.infer<typeof TripPage>;
  * only the opaque cursor, so this stays out of the OpenAPI document.
  */
 export const TripCursorKey = z.tuple([z.iso.date(), Uuid]);
-
-/** Places from the library in travel order, each at most once. */
-const Destinations = z
-  .array(typeId(ID_PREFIX.place))
-  .max(50)
-  .refine((ids) => new Set(ids).size === ids.length, { message: 'a place is listed twice' });
 
 /**
  * trips.update, as JSON Merge Patch: each field sent replaces the stored one, and

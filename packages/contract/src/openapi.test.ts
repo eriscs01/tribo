@@ -3,6 +3,7 @@ import { Validator } from '@seriousme/openapi-schema-validator';
 import * as z from 'zod';
 import { describe, expect, it } from 'vitest';
 import { toOpenApi } from './openapi.js';
+import { IDEMPOTENCY_KEY_OPERATIONS } from './drop-limits.js';
 import { defineOperation } from './operation.js';
 import { registry } from './operations/index.js';
 import { Money } from './money.js';
@@ -11,6 +12,11 @@ import { TimeInput } from './time.js';
 const committed: unknown = JSON.parse(
   await readFile(new URL('../openapi.json', import.meta.url), 'utf8'),
 );
+
+interface Declared {
+  parameters?: { name: string; in: string }[];
+  responses: Record<string, { headers?: Record<string, unknown> }>;
+}
 
 describe('toOpenApi', () => {
   const doc = toOpenApi(registry);
@@ -49,6 +55,35 @@ describe('toOpenApi', () => {
     const single = toOpenApi([op]);
     expect((await new Validator().validate(single)).valid).toBe(true);
     expect(JSON.stringify(single)).toContain('"local"');
+  });
+
+  it('declares Idempotency-Key only on the operations that honour it in 1a', () => {
+    const paths = doc.paths as Record<string, Record<string, { parameters?: { name: string }[] }>>;
+    const declaring = registry
+      .filter((op) =>
+        paths[op.path]?.[op.method.toLowerCase()]?.parameters?.some(
+          (p) => p.name === 'Idempotency-Key',
+        ),
+      )
+      .map((op) => op.id);
+    expect(declaring.sort()).toEqual([...IDEMPOTENCY_KEY_OPERATIONS].sort());
+  });
+
+  it('declares the ETag header and If-None-Match → 304 exactly on reads that send a representation ETag', () => {
+    const paths = doc.paths as Record<string, Record<string, Declared>>;
+    const tagged = registry.filter((op) => {
+      const declared = paths[op.path]?.[op.method.toLowerCase()];
+      const ifNoneMatch = declared?.parameters?.some(
+        (p) => p.name === 'If-None-Match' && p.in === 'header',
+      );
+      const etag = declared?.responses['200']?.headers?.ETag !== undefined;
+      const notModified = declared?.responses['304'] !== undefined;
+      expect([ifNoneMatch ?? false, etag, notModified], op.id).toEqual(
+        Array(3).fill(op.etag === 'representation'),
+      );
+      return notModified;
+    });
+    expect(tagged.map((op) => op.id)).toContain('trips.get');
   });
 
   it('answers 204 for an implemented operation without output', () => {

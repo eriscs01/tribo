@@ -18,6 +18,26 @@ export const ItemVisibility = z
   .enum(['shared', 'private', 'selected'])
   .meta({ id: 'ItemVisibility' });
 
+/**
+ * The item fields a read can mask, as the API names them: `cost` for a viewer without
+ * canViewCosts, the sealed ones for every reader. An item's restrictedFields picks among
+ * them (tribo.items.restricted_fields' CHECK holds the same set).
+ */
+export const ItemMaskedField = z
+  .enum(['cost', 'bookingRef', 'cardLast4'])
+  .meta({ id: 'ItemMaskedField' });
+
+export type ItemMaskedField = z.infer<typeof ItemMaskedField>;
+
+/**
+ * Fields masked for every caller but the item's owner and the trip's owner and organizers,
+ * who alone may change the set; each field once.
+ */
+const RestrictedFields = z
+  .array(ItemMaskedField)
+  .max(ItemMaskedField.options.length)
+  .refine((f) => new Set(f).size === f.length, 'each field once');
+
 /** Either kind of time as a rule sees it: wall-clock plus zone, or an all-day date. */
 type ItemTimeShape = { local: string; tz: string } | { date: string };
 
@@ -56,6 +76,7 @@ export const ItemInput = z
     /** Membership ids of this trip; only with visibility `selected`. */
     sharedWith: z.array(typeId(ID_PREFIX.membership)).max(200).optional(),
     tags: z.array(z.string().trim().min(1).max(40)).max(20).optional(),
+    restrictedFields: RestrictedFields.optional(),
   })
   .check((ctx) => {
     const { start, end, visibility, sharedWith } = ctx.value;
@@ -95,6 +116,8 @@ export const Item = z
     /** Masked for every reader when set; the plaintext comes only from items.reveal. */
     bookingRef: MaskedValue.nullable(),
     cardLast4: MaskedValue.nullable(),
+    /** Masked for every caller but the item's owner and the trip's owner and organizers. */
+    restrictedFields: z.array(ItemMaskedField),
     version: z.int().min(1),
     boardVersion: z.int().min(1),
     createdAt: Instant,
@@ -153,6 +176,8 @@ export const ItemPatch = z
       .union([MaskedValue, z.string().regex(/^\d{4}$/, 'expected four digits')])
       .nullable()
       .optional(),
+    /** Replaces the set whole. */
+    restrictedFields: RestrictedFields.optional(),
   })
   .meta({ id: 'ItemPatch' });
 
@@ -179,7 +204,9 @@ export const ItemRsvp = z
 export type ItemRsvp = z.infer<typeof ItemRsvp>;
 
 /** The item fields a reveal can show: the ones every read masks. */
-export const ItemRevealField = z.enum(['bookingRef', 'cardLast4']).meta({ id: 'ItemRevealField' });
+export const ItemRevealField = ItemMaskedField.extract(['bookingRef', 'cardLast4']).meta({
+  id: 'ItemRevealField',
+});
 
 export type ItemRevealField = z.infer<typeof ItemRevealField>;
 

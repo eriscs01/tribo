@@ -12,7 +12,14 @@ import {
 import { ApiError, type RequestContext } from '@tribo/platform';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { connectAs, createTestDatabase, type TestDatabase } from './database.js';
-import { addMember, createItem, createTrip, createUser, softDelete } from './factories.js';
+import {
+  addMember,
+  createItem,
+  createPlace,
+  createTrip,
+  createUser,
+  softDelete,
+} from './factories.js';
 import { testKeys } from './keys.js';
 
 let tdb: TestDatabase;
@@ -163,6 +170,52 @@ describe('trips.create', () => {
       bad.map((body) => refusal(trips.create(as(owner.userId), mfa, body))),
     );
     for (const error of errors) expect(error.code).toBe('validation_failed');
+  });
+
+  it('takes destinations as library places in travel order, and snapshots them', async () => {
+    const owner = await createUser(tdb.db);
+    const [a, b] = [
+      await createPlace(tdb.db, { createdBy: owner.userId, name: 'Panglao' }),
+      await createPlace(tdb.db, { createdBy: owner.userId, name: 'Tagbilaran' }),
+    ];
+    const plc = (id: string) => encodeTypeId(ID_PREFIX.place, id);
+    const created = await trips.create(as(owner.userId), mfa, {
+      ...trip,
+      destinations: [plc(b), plc(a)],
+    });
+    expect(created.destinations).toEqual([b, a]);
+    expect((await trips.get(owner.userId, created.id)).destinations).toEqual([b, a]);
+    expect(await snapshots(created.id)).toEqual([
+      expect.objectContaining({
+        snapshot: expect.objectContaining({ destinations: [b, a] }) as unknown,
+      }),
+    ]);
+  });
+
+  it('refuses a destination listed twice or not in the library, writing nothing', async () => {
+    const owner = await createUser(tdb.db);
+    const place = encodeTypeId(
+      ID_PREFIX.place,
+      await createPlace(tdb.db, { createdBy: owner.userId }),
+    );
+    const unknown = encodeTypeId(ID_PREFIX.place, '0192f000-0000-7000-8000-00000000dead');
+    const twice = await refusal(
+      trips.create(as(owner.userId), mfa, { ...trip, destinations: [place, place] }),
+    );
+    expect(twice.code).toBe('validation_failed');
+    const missing = await refusal(
+      trips.create(as(owner.userId), mfa, { ...trip, destinations: [unknown] }),
+    );
+    expect(missing).toMatchObject({
+      code: 'validation_failed',
+      extra: { errors: [{ path: '/destinations' }] },
+    });
+    const rows = await tdb.db
+      .selectFrom('tribo.trips')
+      .select('id')
+      .where('created_by', '=', owner.userId)
+      .execute();
+    expect(rows).toEqual([]);
   });
 });
 
