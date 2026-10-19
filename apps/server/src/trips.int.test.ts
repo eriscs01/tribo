@@ -1,47 +1,25 @@
 // The trips handlers over HTTP: requests parse, services answer, views map, headers carry
 // the ETag and If-Match. The rules behind each operation are proven against the service
 // in packages/testkit.
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { CSRF_HEADER, encodeTypeId, ID_PREFIX, SESSION_COOKIE } from '@tribo/contract';
-import {
-  createIdentityService,
-  createItemsService,
-  createLibraryService,
-  createTripsService,
-  writePath,
-} from '@tribo/core';
-import { AppKey, keyring } from '@tribo/crypto';
+import { AppKey } from '@tribo/crypto';
 import { createTestDatabase, createTrip, createUser, type TestDatabase } from '@tribo/testkit';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { operationHandlers } from './handlers/index.js';
-import { buildServer } from './server.js';
+import { buildApp } from './app.js';
+import { composeServices, type Services } from './runtime.js';
 
 const PASSWORD = 'correct horse battery';
-const csrf = randomBytes(32);
 
 let tdb: TestDatabase;
 let app: FastifyInstance;
+let services: Services;
 
 beforeAll(async () => {
   tdb = await createTestDatabase();
-  const keys = keyring(new AppKey(randomBytes(32)));
-  const identity = createIdentityService(tdb.db, keys, 'Tribo (tribo.test)');
-  const write = writePath(tdb.db);
-  app = await buildServer({
-    trustedProxies: ['loopback'],
-    csrfSecret: csrf,
-    authenticate: (token) => identity.authenticate(token),
-    handlers: operationHandlers({
-      identity,
-      csrfSecret: csrf,
-      trips: createTripsService(tdb.db, write),
-      items: createItemsService(tdb.db, write, keys),
-      library: createLibraryService(tdb.db, write, keys),
-    }),
-    ping: () => Promise.resolve(),
-    logLevel: 'silent',
-  });
+  services = composeServices(tdb.db, new AppKey(randomBytes(32)), new URL('https://tribo.test'));
+  app = await buildApp(services, { trustedProxies: ['loopback'], logLevel: 'silent' });
 });
 afterAll(async () => {
   await app.close();
@@ -132,6 +110,49 @@ describe('trips.update over HTTP', () => {
     });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toMatchObject({ name: 'Bohol and Panglao', version: 2 });
+  });
+
+  it('takes library places as destinations, in order, and reads them back as the same TypeIDs', async () => {
+    const owner = await ownerWithTrip();
+    const auth = { cookies: owner.cookies, headers: owner.headers };
+    const place = async (name: string) => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/v1/library/places',
+        ...auth,
+        payload: { name, kind: 'landmark' },
+      });
+      expect(res.statusCode).toBe(201);
+      return res.json<{ id: string }>().id;
+    };
+    const destinations = [await place('Chocolate Hills'), await place('Alona Beach')];
+    const res = await app.inject({
+      method: 'PATCH',
+      url: owner.url,
+      cookies: owner.cookies,
+      headers: { ...owner.headers, 'if-match': '"1"' },
+      payload: { destinations },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ destinations, version: 2 });
+    const read = await app.inject({ method: 'GET', url: owner.url, ...auth });
+    expect(read.json()).toMatchObject({ destinations });
+  });
+
+  it('answers validation_failed for a destination that is not a place in the library', async () => {
+    const owner = await ownerWithTrip();
+    const res = await app.inject({
+      method: 'PATCH',
+      url: owner.url,
+      cookies: owner.cookies,
+      headers: { ...owner.headers, 'if-match': '"1"' },
+      payload: { destinations: [encodeTypeId(ID_PREFIX.place, randomUUID())] },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json()).toMatchObject({
+      code: 'validation_failed',
+      errors: [{ path: '/destinations', message: 'not a place in the library' }],
+    });
   });
 
   it('answers 412 version_conflict when If-Match is stale', async () => {

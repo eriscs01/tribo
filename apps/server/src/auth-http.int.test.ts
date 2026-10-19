@@ -3,14 +3,7 @@
 // against the service in packages/testkit (auth-*.int.test.ts, me-*.int.test.ts).
 import { randomBytes } from 'node:crypto';
 import { CSRF_HEADER, MfaConfirm, MfaSetup, SESSION_COOKIE } from '@tribo/contract';
-import {
-  createIdentityService,
-  createItemsService,
-  createLibraryService,
-  createTripsService,
-  writePath,
-} from '@tribo/core';
-import { AppKey, keyring } from '@tribo/crypto';
+import { AppKey } from '@tribo/crypto';
 import {
   createResetLink,
   createTestDatabase,
@@ -20,34 +13,19 @@ import {
 } from '@tribo/testkit';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { operationHandlers } from './handlers/index.js';
-import { buildServer } from './server.js';
+import { buildApp } from './app.js';
+import { composeServices, type Services } from './runtime.js';
 
 const PASSWORD = 'correct horse battery';
-const csrf = randomBytes(32);
 
 let tdb: TestDatabase;
 let app: FastifyInstance;
+let services: Services;
 
 beforeAll(async () => {
   tdb = await createTestDatabase();
-  const keys = keyring(new AppKey(randomBytes(32)));
-  const identity = createIdentityService(tdb.db, keys, 'Tribo (tribo.test)');
-  const write = writePath(tdb.db);
-  app = await buildServer({
-    trustedProxies: ['loopback'],
-    csrfSecret: csrf,
-    authenticate: (token) => identity.authenticate(token),
-    handlers: operationHandlers({
-      identity,
-      csrfSecret: csrf,
-      trips: createTripsService(tdb.db, write),
-      items: createItemsService(tdb.db, write, keys),
-      library: createLibraryService(tdb.db, write, keys),
-    }),
-    ping: () => Promise.resolve(),
-    logLevel: 'silent',
-  });
+  services = composeServices(tdb.db, new AppKey(randomBytes(32)), new URL('https://tribo.test'));
+  app = await buildApp(services, { trustedProxies: ['loopback'], logLevel: 'silent' });
 });
 afterAll(async () => {
   await app.close();

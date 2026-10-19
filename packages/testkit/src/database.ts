@@ -15,12 +15,13 @@ export interface TestDatabase {
   destroy: () => Promise<void>;
 }
 
-function info(): PostgresInfo {
+/** Where the run's PostgreSQL listens and its roles' passwords, for tests that connect as an app process. */
+export function postgresInfo(): PostgresInfo {
   return inject('triboPostgres');
 }
 
 async function asSuperuser<T>(run: (client: pg.Client) => Promise<T>): Promise<T> {
-  const i = info();
+  const i = postgresInfo();
   const client = new pg.Client({
     host: i.host,
     port: i.port,
@@ -48,7 +49,7 @@ export async function createTestDatabase(): Promise<TestDatabase> {
     await client.query(`REVOKE ALL ON DATABASE ${name} FROM PUBLIC`);
     await client.query(`GRANT CONNECT ON DATABASE ${name} TO tribo_app`);
   });
-  const i = info();
+  const i = postgresInfo();
   const pool = new pg.Pool({
     host: i.host,
     port: i.port,
@@ -63,7 +64,9 @@ export async function createTestDatabase(): Promise<TestDatabase> {
     db,
     pool,
     destroy: async () => {
+      // Kysely ends only a pool it has queried through; a test may have used `pool` alone.
       await db.destroy();
+      if (!pool.ending) await pool.end();
       await asSuperuser((client) => client.query(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`));
     },
   };
@@ -71,7 +74,7 @@ export async function createTestDatabase(): Promise<TestDatabase> {
 
 /** Connects to a test database as another role (tribo_owner or the superuser) for checks. */
 export function connectAs(database: string, role: 'tribo_owner' | 'postgres'): pg.Client {
-  const i = info();
+  const i = postgresInfo();
   return new pg.Client({
     host: i.host,
     port: i.port,

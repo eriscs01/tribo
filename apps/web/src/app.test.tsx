@@ -8,6 +8,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Schemas } from './api/client';
 import { sendCsrfFromSession } from './api/queries';
+import { formatDateRange } from './format';
 import { m } from './messages';
 import { createAppRouter } from './router';
 
@@ -15,6 +16,7 @@ const CSRF = 'csrf-token-1';
 const TRIP_ID = 'trp_01h455vb4pex5vsknk084sn02q';
 const ITEM_ID = 'itm_01h455vb4pex5vsknk084sn02r';
 const NOW = '2026-10-18T02:00:00.000Z';
+const TRIPS_PAGE = 2;
 
 const problem = (status: number, code: Schemas['ErrorCode'], extra = {}) =>
   Response.json(
@@ -56,7 +58,19 @@ function fakeApi() {
       return problem(403, 'forbidden');
     }
     if (route === 'GET /v1/auth/session') return Response.json(session);
-    if (route === 'GET /v1/trips') return Response.json({ items: state.trips, nextCursor: null });
+    if (route === 'GET /v1/trips') {
+      // Pages of TRIPS_PAGE; the cursor is the index of the page's first trip.
+      const from = Number(url.searchParams.get('cursor') ?? 0);
+      const to = from + TRIPS_PAGE;
+      return Response.json({
+        items: state.trips.slice(from, to),
+        nextCursor: to < state.trips.length ? String(to) : null,
+      });
+    }
+    if (route === 'POST /v1/auth/logout') {
+      state.signedIn = false;
+      return new Response(null, { status: 204 });
+    }
     if (route === 'POST /v1/trips') {
       const input = body as Schemas['TripInput'];
       const trip: Schemas['Trip'] = {
@@ -104,6 +118,22 @@ function fakeApi() {
   };
 
   return { state, log, fetch: vi.fn(handle) };
+}
+
+function tripFixture(n: number): Schemas['Trip'] {
+  return {
+    id: `trp_01h455vb4pex5vsknk084sn1${String(n).padStart(2, '0')}`,
+    name: `Trip ${String(n)}`,
+    startDate: '2026-11-11',
+    endDate: '2026-11-14',
+    currency: 'PHP',
+    timezone: 'Asia/Manila',
+    status: 'planning',
+    destinations: [],
+    version: 1,
+    createdAt: NOW,
+    updatedAt: NOW,
+  };
 }
 
 function renderApp(path: string) {
@@ -237,5 +267,47 @@ describe('web shell', () => {
       expect(endDate.getAttribute('aria-invalid')).toBe('true');
     });
     expect(screen.getByText('the trip ends before it starts')).toBeTruthy();
+  });
+
+  it('lists trips a page at a time, loading the next page on Show more', async () => {
+    server.state.signedIn = true;
+    server.state.trips = [1, 2, 3].map(tripFixture);
+    const user = userEvent.setup();
+    renderApp('/trips');
+
+    const first = await screen.findByRole('link', { name: 'Trip 1' });
+    expect(first.getAttribute('href')).toBe(`/trips/${tripFixture(1).id}`);
+    expect(screen.getByRole('link', { name: 'Trip 2' })).toBeTruthy();
+    expect(screen.queryByRole('link', { name: 'Trip 3' })).toBeNull();
+    // Compared as text: Intl puts thin spaces around the range dash, which matchers normalise.
+    const dates = m.trips.dates(formatDateRange('2026-11-11', '2026-11-14'), 'Asia/Manila');
+    expect([...document.querySelectorAll('.card .muted')].map((p) => p.textContent)).toEqual([
+      dates,
+      dates,
+    ]);
+    expect(screen.getAllByText(m.tripStatus.planning)).toHaveLength(2);
+
+    await user.click(screen.getByRole('button', { name: m.trips.more }));
+    await screen.findByRole('link', { name: 'Trip 3' });
+    expect(screen.queryByRole('button', { name: m.trips.more })).toBeNull();
+    const pages = server.log.filter((r) => r.method === 'GET' && r.path === '/v1/trips');
+    expect(pages).toHaveLength(2);
+  });
+
+  it('signs out: logs out with the CSRF token, forgets the session and shows sign in', async () => {
+    server.state.signedIn = true;
+    server.state.trips = [tripFixture(1)];
+    const user = userEvent.setup();
+    const router = renderApp('/trips');
+    await screen.findByRole('link', { name: 'Trip 1' });
+
+    await user.click(screen.getByRole('button', { name: m.signOut }));
+    await screen.findByRole('heading', { name: m.signIn.title });
+    expect(router.state.location.pathname).toBe('/sign-in');
+    expect(server.log.find((r) => r.path === '/v1/auth/logout')).toMatchObject({
+      method: 'POST',
+      csrf: CSRF,
+    });
+    expect(screen.queryByRole('button', { name: m.signOut })).toBeNull();
   });
 });

@@ -2,35 +2,25 @@
 // enrols TOTP from the printed key and signs in with it over HTTP.
 import { randomBytes } from 'node:crypto';
 import { SESSION_COOKIE } from '@tribo/contract';
-import {
-  createIdentityService,
-  createItemsService,
-  createLibraryService,
-  createTripsService,
-  writePath,
-  type IdentityService,
-} from '@tribo/core';
-import { AppKey, keyring } from '@tribo/crypto';
+import type { IdentityService } from '@tribo/core';
+import { AppKey } from '@tribo/crypto';
 import { createTestDatabase, totpFor, type TestDatabase } from '@tribo/testkit';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { operationHandlers } from '../handlers/index.js';
-import { buildServer } from '../server.js';
+import { buildApp } from '../app.js';
+import { composeServices, type Services } from '../runtime.js';
 import { adminCreate } from './admin-create.js';
 import { CliError, type CliIo } from './io.js';
 
 const PASSWORD = 'correct horse battery';
-const csrf = randomBytes(32);
 
 let tdb: TestDatabase;
+let services: Services;
 let identity: IdentityService;
 
 beforeAll(async () => {
   tdb = await createTestDatabase();
-  identity = createIdentityService(
-    tdb.db,
-    keyring(new AppKey(randomBytes(32))),
-    'Tribo (tribo.test)',
-  );
+  services = composeServices(tdb.db, new AppKey(randomBytes(32)), new URL('https://tribo.test'));
+  ({ identity } = services);
 });
 afterAll(() => tdb.destroy());
 
@@ -68,24 +58,7 @@ describe('tribo admin create', () => {
     expect(said.filter((l) => /^ {2}[a-z2-9]{5}-[a-z2-9]{5}$/.test(l))).toHaveLength(10);
     const key = said.map((l) => /key: (\w+)/.exec(l)?.[1]).find(Boolean) ?? '';
 
-    const app = await buildServer({
-      trustedProxies: ['loopback'],
-      csrfSecret: csrf,
-      authenticate: (token) => identity.authenticate(token),
-      handlers: operationHandlers({
-        identity,
-        csrfSecret: csrf,
-        trips: createTripsService(tdb.db, writePath(tdb.db)),
-        items: createItemsService(tdb.db, writePath(tdb.db), keyring(new AppKey(randomBytes(32)))),
-        library: createLibraryService(
-          tdb.db,
-          writePath(tdb.db),
-          keyring(new AppKey(randomBytes(32))),
-        ),
-      }),
-      ping: () => Promise.resolve(),
-      logLevel: 'silent',
-    });
+    const app = await buildApp(services, { trustedProxies: ['loopback'], logLevel: 'silent' });
     try {
       const passwordOnly = await app.inject({
         method: 'POST',

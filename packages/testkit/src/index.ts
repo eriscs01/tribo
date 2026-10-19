@@ -1,4 +1,4 @@
-export { connectAs, createTestDatabase, type TestDatabase } from './database.js';
+export { connectAs, createTestDatabase, postgresInfo, type TestDatabase } from './database.js';
 export {
   addAllocation,
   addMember,

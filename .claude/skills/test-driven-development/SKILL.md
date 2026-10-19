@@ -123,13 +123,40 @@ anything that reads the result back. Each arrow in that list is a connection to 
 - The work's summary lists, for each acceptance criterion, the test name or command that
   proves it.
 
+## 5. Coverage is a map, not a goal
+
+Test-first work produces coverage as a side effect; chasing the number produces tests that
+run code without proving anything. Use the coverage report to find rules nobody has stated.
+
+- **Read uncovered lines as questions.** For each, ask what rule it implements and who
+  relies on it. If a caller relies on it, write the test that states that rule (and see it
+  fail by breaking the line). If nobody does, the code may be dead: delete it rather than
+  test it.
+- **A test must be able to fail.** Every test asserts an observable outcome of a rule. A
+  test that only calls code, asserts that something is defined, snapshots whatever comes out,
+  or mirrors the implementation line by line is shallow; it raises coverage and protects
+  nothing. Check a new test by breaking the code it covers: if it still passes, it is
+  shallow.
+- **Measure what really runs.** Coverage must come from the source the tests execute through
+  the production composition. Code reached only through a hand-built stand-in, or measured on
+  build output instead of source, gives a number that lies.
+- **Leave out only what tests cannot reach by design.** Process entry points (start-up,
+  signal handling) and generated code may be excluded, each with its reason, and proven by
+  end-to-end runs instead. Exclude nothing to make a floor pass.
+- **Floors only rise.** Keep a minimum the build enforces; raise it when coverage rises, and
+  never lower it to land a change. A drop means a rule lost its test.
+- **Unhappy branches count most.** Uncovered error branches are where refusals, rollbacks
+  and error mappings go unproven. A branch that only re-throws an unexpected error needs no
+  test of its own; one that turns a failure into a contract error does.
+
 ## How to use this skill
 
 **When implementing:** map the flow (section 3), write the outermost failing test, then loop
 red-green-refactor inward (section 1), choosing each test's level with section 2. Finish with
 the checklist in section 4.
 
-**When reviewing tests:** report only findings that would change the tests, each as
+**When reviewing tests:** read the coverage report for the changed code (section 5), then
+report only findings that would change the tests, each as
 
 ```
 <file>:<line> — <gap>: <what is unproven or wrong> → <test to add or change>
@@ -137,4 +164,5 @@ the checklist in section 4.
 
 ordered by impact: an untested connection or entry point first, then a test that can't fail
 for the right reason (mocked storage, hand-built intermediate values, asserting on
-internals), then missing unhappy paths, then naming and readability.
+internals, shallow tests that survive breaking the code), then missing unhappy paths, then
+naming and readability.
