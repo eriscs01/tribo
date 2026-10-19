@@ -18,6 +18,7 @@ packages/crypto/   app key loader, field and file envelopes
 packages/db/       migrations/*.sql, runner, generated Kysely types
 packages/core/<module>/  service.ts · repo.ts · policy.ts  (identity, trips, items, itinerary, expenses, documents, library, audit)
 packages/testkit/  Testcontainers setup, factories, leak-test generators
+tools/pr-watch/    dev-only: the orchestrator PR watcher (docs/decisions/0007)
 deploy/            compose.yml, compose.dev.yml, .env.example, caddy/, backup/
 docs/              design/, runbook.md
 ```

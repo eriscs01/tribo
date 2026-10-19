@@ -145,8 +145,15 @@ export default defineConfig(
       'packages/*/src/bin/**',
       'packages/*/src/scripts/**',
       'apps/web/src/scripts/check-bundle.ts',
+      'tools/pr-watch/src/main.ts',
     ],
     rules: { 'no-console': 'off', 'n/no-process-exit': 'off' },
+  },
+  {
+    // Node runs the PR watcher's TypeScript sources directly, so its imports name the .ts files
+    // (tools/pr-watch/tsconfig.json rewrites them to .js in the build).
+    files: ['tools/pr-watch/**'],
+    rules: { 'import-x/extensions': ['error', 'ignorePackages', { ts: 'always' }] },
   },
   workspaceDirs.map((dir) => ({
     files: [`${dir}/**`],

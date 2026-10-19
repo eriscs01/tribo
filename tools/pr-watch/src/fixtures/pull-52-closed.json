@@ -1,0 +1,16 @@
+{
+  "number": 52,
+  "state": "closed",
+  "draft": true,
+  "merged": false,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "html_url": "https://github.com/eriscs01/tribo/pull/52",
+  "head": {
+    "ref": "scratch/pr-watch-probe",
+    "sha": "3a14390ebb297bd25e3e2fe2ae2a47ab34dc4032"
+  },
+  "base": {
+    "ref": "main"
+  }
+}

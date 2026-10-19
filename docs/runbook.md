@@ -495,3 +495,71 @@ To see a pattern rather than one request, grep for the message and the code, for
    ```
 
    Log lines carry client IPs and user agents (personal data): keep saved files on the host or on your own disk, delete them when the problem is closed, and quote only the request id, operation id and problem code in issues.
+
+## PR watcher (development)
+
+Dev-only tooling for the sessions that build Tribo, not part of a deployment. The orchestrator session runs one watcher for every open package PR. It wakes the orchestrator when a PR becomes ready, falls behind main, loses ready after a push, merges or closes. Why it exists and what each event asks of the orchestrator: [decision 0007](decisions/0007-pr-watch-loop.md).
+
+1. **Start it** from any checkout of the repository with one Bash call, run in the background (`run_in_background`), never chained with other commands:
+
+   ```bash
+   node tools/pr-watch/src/main.ts --all
+   ```
+
+   `--all` watches every open PR into main, plus any PR it saw before that has not merged or closed yet. To watch only some PRs, pass their numbers: `node tools/pr-watch/src/main.ts 53 54`. Options: `--interval <seconds>` (default and minimum 60 against api.github.com), `--max-hours <h>` (default 8), `--repo owner/name` (default: the `origin` remote), `--state-dir <dir>` (default `~/.cache/tribo-pr-watch`). It needs `gh auth login` done once; it reads the token with `gh auth token` and keeps it in memory.
+
+2. **Read what it says.** It prints only these lines on stdout, then exits:
+
+   | Output                                        | Exit | What to do                                                                                                                                      |
+   | --------------------------------------------- | ---- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+   | `PR #n ready <sha>`                           | 0    | Ask the user to merge PR #n (`gh pr merge <n> --squash --admin --delete-branch`)                                                                |
+   | `PR #n behind <sha>`                          | 0    | Tell the owning session to bring its branch up to date with main and push                                                                       |
+   | `PR #n ready-lost <sha>`                      | 0    | Nothing; a push replaced a ready head, and `ready` follows once it is green again                                                               |
+   | `PR #n merged`                                | 0    | Tell the owning session to clean up and report done                                                                                             |
+   | `PR #n closed`                                | 0    | Tell the owning session it was closed                                                                                                           |
+   | `no events`                                   | 0    | The cap passed quietly; restart it                                                                                                              |
+   | `nothing to watch`                            | 0    | Every PR named is already merged or closed                                                                                                      |
+   | `pr-watch error gh_auth_failed (run …)`       | 2    | `gh auth token` failed: run `gh auth status`, log in again, restart                                                                             |
+   | `pr-watch error repo_unknown (run …)`         | 2    | No GitHub `origin` remote: pass `--repo owner/name`                                                                                             |
+   | `pr-watch error state_unreadable <file> …`    | 2    | The state file is damaged: move it aside (the next run starts from scratch and may say `ready` once more for a PR it already reported), restart |
+   | `pr-watch error state_dir_unwritable <dir> …` | 2    | It cannot create the state directory: fix its permissions or pass `--state-dir`, restart                                                        |
+   | `pr-watch error log_unwritable <file> …`      | 2    | It cannot append to its log: fix the file's permissions or move it aside, restart                                                               |
+   | `pr-watch error internal (run …)`             | 1    | A bug: the log line `watch failed` with that run id has the stack; restart, and open an issue with the stack                                    |
+
+   Several events in one pass come out together, one per line. After relaying them, start it again; it never repeats an event it already printed.
+
+3. **Restart it** after every exit with the same command. To stop it early, stop the background task (TaskStop); it logs `watch stopped`.
+
+4. **Read its state and logs.** Both sit next to each other in the state directory:
+
+   ```bash
+   cat ~/.cache/tribo-pr-watch/eriscs01-tribo.json
+   ```
+
+   ```bash
+   grep -F '"run":"pr-watch-<id>"' ~/.cache/tribo-pr-watch/eriscs01-tribo.log
+   ```
+
+   The state file lists, for each PR, the head sha and the events already printed for it (`done` once merged or closed). The log has one JSON line per GitHub request and per outcome, each with the run id and never the token; grep `'"pr":53'` for one PR's history:
+
+   | `msg`                             | Level | What it says                                                                                                                                                                                       |
+   | --------------------------------- | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+   | `watch started`, `watch finished` | info  | Targets, interval and cap; then `outcome` (`events`, `quiet`, `nothing`) and duration                                                                                                              |
+   | `github request`                  | info  | `method`, `path`, `status`, `cached` (a 304 the rate limit does not count), `remaining` quota and `ms`; at warn with `code` when it failed                                                         |
+   | `pr polled`                       | info  | `pr`, `sha`, `status` (`ready`, `behind`, `waiting`, `merged`, `closed`) and, while waiting, `reason` (`draft`, `checks-pending`, `checks-failing`, `conflict`, `mergeability-unknown`, `threads`) |
+   | `event`                           | info  | `pr`, `sha`, `event`: what it printed                                                                                                                                                              |
+   | `poll failed`                     | warn  | One PR's request failed (`code`: `http_<status>`, `network`, `timeout`, `bad_json`, `graphql`); that PR waits `retryInMs`, doubling up to 15 minutes                                               |
+   | `list failed`                     | warn  | Listing open PRs failed (`code`); it tries again in a minute                                                                                                                                       |
+   | `rate limited`                    | warn  | GitHub's rate limit: the whole watcher waits `waitMs` until GitHub's reset                                                                                                                         |
+   | `watch stopped`                   | warn  | It got SIGTERM (TaskStop)                                                                                                                                                                          |
+   | `watch failed`                    | error | It stopped: `code` (and `file` for the state file, `err` with the stack for `internal`)                                                                                                            |
+
+   A PR that never becomes ready shows why in its latest `pr polled` line. The log only grows; delete it when it gets large, since nothing depends on it.
+
+### Brief text for package sessions
+
+Paste into every package session's brief:
+
+```text
+PR watch loop (decision 0007). Right after opening your PR: call ccd_pr get_status; if it says bound:false, call bind_pr with the PR url; then set_monitor auto_fix:true with that url. Never poll CI or GitHub yourself (no gh loops, Monitor, ScheduleWakeup, /loop or CronCreate): the app wakes you with a <ci-monitor-event> on CI failures, conflicts and review comments, and the orchestrator's watcher covers the rest. On a <ci-monitor-event>: reproduce, fix, verify, commit and push (resolve the review thread when you addressed it). The orchestrator relays the watcher's events to you as messages: "behind" → bring the branch up to date with main (ccd_host sync_with_base_branch), verify and push; "merged" → clean up (remove the Docker resources you started, delete your local and remote branches and scratch files, leave the worktree clean on latest main), then report done; "closed" → report to the orchestrator what was left. Do not merge; the user merges. Run each gh command alone, never chained.
+```

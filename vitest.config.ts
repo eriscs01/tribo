@@ -1,7 +1,8 @@
 import { resolve } from 'node:path';
 import { defineConfig } from 'vitest/config';
 
-const src = '{apps,packages}/*/src/**';
+// tools/ holds dev-only tooling (the PR watcher); it is tested like the product code.
+const src = '{apps,packages,tools}/*/src/**';
 const globalSetup = ['packages/testkit/src/global-setup.ts'];
 
 // Tests normally import workspace packages through their built dist. Under `--coverage` they
@@ -38,6 +39,7 @@ export default defineConfig({
         'apps/server/src/main.ts',
         'apps/server/src/cli.ts',
         'apps/web/src/main.tsx',
+        'tools/pr-watch/src/main.ts',
       ],
       reporter: ['text-summary', 'json-summary', 'html'],
       reportsDirectory: 'coverage',

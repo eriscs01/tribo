@@ -39,11 +39,12 @@ fixed.
 
 ## Index
 
-| No.                                                 | Date        | Decision                                                               | Status   |
-| --------------------------------------------------- | ----------- | ---------------------------------------------------------------------- | -------- |
-| [0001](0001-trips-delete-stamps-only-the-trip.md)   | 18 Oct 2026 | trips.delete stamps only the trip row                                  | accepted |
-| [0002](0002-items-delete-stamps-only-the-item.md)   | 19 Oct 2026 | items.delete stamps only the item row                                  | accepted |
-| [0003](0003-restricted-fields-masking.md)           | 19 Oct 2026 | Restricted item fields: who sees them, who sets them, who owns the set | accepted |
-| [0004](0004-one-pull-request-per-work-package.md)   | 18 Oct 2026 | One pull request per work package in slice 1a                          | accepted |
-| [0005](0005-drop-a-is-api-only.md)                  | 18 Oct 2026 | Drop A is API only                                                     | accepted |
-| [0006](0006-idempotency-key-only-where-honoured.md) | 19 Oct 2026 | Idempotency-Key in OpenAPI only where 1a honours it                    | accepted |
+| No.                                                 | Date        | Decision                                                                     | Status   |
+| --------------------------------------------------- | ----------- | ---------------------------------------------------------------------------- | -------- |
+| [0001](0001-trips-delete-stamps-only-the-trip.md)   | 18 Oct 2026 | trips.delete stamps only the trip row                                        | accepted |
+| [0002](0002-items-delete-stamps-only-the-item.md)   | 19 Oct 2026 | items.delete stamps only the item row                                        | accepted |
+| [0003](0003-restricted-fields-masking.md)           | 19 Oct 2026 | Restricted item fields: who sees them, who sets them, who owns the set       | accepted |
+| [0004](0004-one-pull-request-per-work-package.md)   | 18 Oct 2026 | One pull request per work package in slice 1a                                | accepted |
+| [0005](0005-drop-a-is-api-only.md)                  | 18 Oct 2026 | Drop A is API only                                                           | accepted |
+| [0006](0006-idempotency-key-only-where-honoured.md) | 19 Oct 2026 | Idempotency-Key in OpenAPI only where 1a honours it                          | accepted |
+| [0007](0007-pr-watch-loop.md)                       | 19 Oct 2026 | PR watch loop: Auto-fix in package sessions, one watcher in the orchestrator | accepted |

@@ -30,6 +30,9 @@
     },
     {
       "path": "apps/e2e"
+    },
+    {
+      "path": "tools/pr-watch"
     }
   ]
 }

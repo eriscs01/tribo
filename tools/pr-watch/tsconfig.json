@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    // Node runs the sources directly (`node tools/pr-watch/src/main.ts`), so imports name the
+    // .ts files and use only syntax Node can strip; the build rewrites them to .js.
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
+    "erasableSyntaxOnly": true
+  },
+  "include": ["src"]
+}

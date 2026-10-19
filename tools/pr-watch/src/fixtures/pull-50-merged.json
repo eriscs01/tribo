@@ -1,0 +1,16 @@
+{
+  "number": 50,
+  "state": "closed",
+  "draft": false,
+  "merged": true,
+  "mergeable": null,
+  "mergeable_state": "unknown",
+  "html_url": "https://github.com/eriscs01/tribo/pull/50",
+  "head": {
+    "ref": "chore/maintenance-pack",
+    "sha": "6cf813f759633139430a718a51caf17254941e9d"
+  },
+  "base": {
+    "ref": "main"
+  }
+}

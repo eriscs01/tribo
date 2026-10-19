@@ -1,0 +1,82 @@
+[
+  {
+    "type": "deletion",
+    "ruleset_id": 25300365
+  },
+  {
+    "type": "non_fast_forward",
+    "ruleset_id": 25300365
+  },
+  {
+    "type": "pull_request",
+    "parameters": {
+      "required_approving_review_count": 1,
+      "dismiss_stale_reviews_on_push": true,
+      "required_reviewers": [],
+      "require_code_owner_review": true,
+      "require_last_push_approval": true,
+      "required_review_thread_resolution": true,
+      "require_extra_approval_for_unattributed_changes": true,
+      "allowed_merge_methods": ["squash"]
+    },
+    "ruleset_id": 25300365
+  },
+  {
+    "type": "required_linear_history",
+    "ruleset_id": 25300365
+  },
+  {
+    "type": "required_status_checks",
+    "parameters": {
+      "strict_required_status_checks_policy": true,
+      "do_not_enforce_on_create": false,
+      "required_status_checks": [
+        {
+          "context": "Lint and format",
+          "integration_id": 15368
+        },
+        {
+          "context": "Typecheck",
+          "integration_id": 15368
+        },
+        {
+          "context": "Unit",
+          "integration_id": 15368
+        },
+        {
+          "context": "Integration",
+          "integration_id": 15368
+        },
+        {
+          "context": "Leak properties",
+          "integration_id": 15368
+        },
+        {
+          "context": "Build and scan",
+          "integration_id": 15368
+        },
+        {
+          "context": "End to end",
+          "integration_id": 15368
+        },
+        {
+          "context": "Coverage",
+          "integration_id": 15368
+        },
+        {
+          "context": "API breaking changes",
+          "integration_id": 15368
+        },
+        {
+          "context": "Secret scan",
+          "integration_id": 15368
+        }
+      ]
+    },
+    "ruleset_id": 25300365
+  },
+  {
+    "type": "required_signatures",
+    "ruleset_id": 25300365
+  }
+]
