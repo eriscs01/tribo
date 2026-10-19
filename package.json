@@ -10,6 +10,7 @@
   "scripts": {
     "build": "tsc -b",
     "build:web": "pnpm --filter @tribo/web build:app",
+    "check:bundle": "pnpm --filter @tribo/web check:bundle",
     "typecheck": "tsc -b",
     "clean": "tsc -b --clean",
     "lint:migrations": "squawk --config .squawk.toml \"packages/db/migrations/*.sql\"",

@@ -42,6 +42,8 @@ jobs:
       - run: pnpm typecheck
       # The SPA and its app-shell service worker (Vite + Workbox), from the types tsc just built.
       - run: pnpm build:web
+      # Initial JS ≤ 200 KB gzip (technical design, Operations › Performance); prints the size.
+      - run: pnpm check:bundle
 
   # Pull requests only: packages/contract/openapi.json against the base branch's copy with
   # oasdiff (pinned release, checksum verified, no service). A breaking change fails the job
