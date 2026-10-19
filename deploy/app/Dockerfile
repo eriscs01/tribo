@@ -35,6 +35,11 @@ ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=build /out /app
 COPY deploy/app/tribo /usr/local/bin/tribo
+# The release this image is: on every log line and from `tribo release show`. CI sets both
+# (the tag and the commit); a local build is dev. Last, so a new commit rebuilds only this.
+ARG TRIBO_RELEASE_VERSION=dev
+ARG TRIBO_RELEASE_COMMIT=unknown
+ENV TRIBO_RELEASE_VERSION=${TRIBO_RELEASE_VERSION} TRIBO_RELEASE_COMMIT=${TRIBO_RELEASE_COMMIT}
 USER node
 EXPOSE 3000
 CMD ["node", "apps/server/dist/main.js"]

@@ -132,10 +132,9 @@ export const m = {
       trip_archived: 'This trip is archived and read-only.',
     } satisfies Partial<Record<ErrorCode, string>> as Partial<Record<ErrorCode, string>>,
     network: 'Tribo cannot be reached. Check your connection and try again.',
-    other: (requestId: string) =>
-      requestId === ''
-        ? 'Something went wrong. Try again.'
-        : `Something went wrong. Try again, or quote reference ${requestId}.`,
+    other: 'Something went wrong. Try again.',
+    /** Shown after any problem the API answered, so a user can quote it. */
+    reference: (requestId: string) => `Reference: ${requestId}`,
   },
 };
 

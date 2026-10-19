@@ -21,7 +21,16 @@ const Env = z.object({
    * and passes one client IP on; the app is never published directly.
    */
   TRIBO_APP_TRUSTED_PROXIES: z.string().default('loopback,uniquelocal'),
+  /** Baked into the image by its build (deploy/app/Dockerfile); a local run is dev. */
+  TRIBO_RELEASE_VERSION: z.string().min(1).default('dev'),
+  TRIBO_RELEASE_COMMIT: z.string().min(1).default('unknown'),
 });
+
+/** The build that is running: its release tag and commit. */
+export interface Release {
+  version: string;
+  commit: string;
+}
 
 export interface Config {
   publicUrl: URL;
@@ -36,6 +45,7 @@ export interface Config {
   };
   appKeyFile: string;
   trustedProxies: string[];
+  release: Release;
 }
 
 /** Reads one Docker secret file. Errors name the file, never its content. */
@@ -80,5 +90,6 @@ export function loadConfig(env: NodeJS.ProcessEnv): Config {
     trustedProxies: e.TRIBO_APP_TRUSTED_PROXIES.split(',')
       .map((s) => s.trim())
       .filter((s) => s !== ''),
+    release: { version: e.TRIBO_RELEASE_VERSION, commit: e.TRIBO_RELEASE_COMMIT },
   };
 }

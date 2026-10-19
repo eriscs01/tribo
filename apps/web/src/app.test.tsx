@@ -170,7 +170,9 @@ describe('web shell', () => {
     await user.type(screen.getByLabelText(m.signIn.username), 'ana');
     await user.type(screen.getByLabelText(m.signIn.password), 'correct horse battery');
     await user.click(screen.getByRole('button', { name: m.signIn.submit }));
-    expect((await screen.findByRole('alert')).textContent).toBe(m.signIn.needCode);
+    expect((await screen.findByRole('alert')).textContent).toBe(
+      `${m.signIn.needCode} ${m.errors.reference('req-1')}`,
+    );
     const code = screen.getByLabelText(new RegExp(m.signIn.code));
     expect(document.activeElement).toBe(code);
 
@@ -239,7 +241,23 @@ describe('web shell', () => {
     await user.type(await screen.findByLabelText(m.signIn.username), 'ana');
     await user.type(screen.getByLabelText(m.signIn.password), 'wrong');
     await user.click(screen.getByRole('button', { name: m.signIn.submit }));
-    expect((await screen.findByRole('alert')).textContent).toBe(m.signIn.wrong);
+    expect((await screen.findByRole('alert')).textContent).toBe(
+      `${m.signIn.wrong} ${m.errors.reference('req-1')}`,
+    );
+  });
+
+  it('shows the request id of any problem, so the user can quote it', async () => {
+    server.state.signedIn = true;
+    const answer = server.fetch.getMockImplementation();
+    server.fetch.mockImplementation((request: Request) =>
+      new URL(request.url).pathname === '/v1/trips'
+        ? Promise.resolve(problem(500, 'internal_error', { requestId: 'req-quote-me-42' }))
+        : (answer as (r: Request) => Promise<Response>)(request),
+    );
+    renderApp('/trips');
+    expect((await screen.findByRole('alert')).textContent).toBe(
+      `${m.errors.other} ${m.errors.reference('req-quote-me-42')}`,
+    );
   });
 
   it('shows field errors from validation_failed next to their fields', async () => {

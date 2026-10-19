@@ -2,6 +2,13 @@ import { problem, PROBLEM_CONTENT_TYPE, type ErrorCode, type Problem } from '@tr
 import { ApiError } from '@tribo/platform';
 import type { FastifyError, FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 
+declare module 'fastify' {
+  interface FastifyReply {
+    /** The problem code this reply answers with, for the request's log line. */
+    problem?: ErrorCode;
+  }
+}
+
 export function sendProblem(
   reply: FastifyReply,
   request: FastifyRequest,
@@ -9,6 +16,7 @@ export function sendProblem(
   extra: Pick<Problem, 'detail' | 'errors'> = {},
 ) {
   const body = problem(code, request.id, { ...extra, instance: request.url.split('?')[0] ?? '' });
+  reply.problem = code;
   return reply.code(body.status).type(PROBLEM_CONTENT_TYPE).send(body);
 }
 

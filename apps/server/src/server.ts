@@ -4,10 +4,13 @@ import cookie from '@fastify/cookie';
 import proxyAddr from '@fastify/proxy-addr';
 import { CSRF_HEADER, registry as defaultRegistry, type Operation } from '@tribo/contract';
 import type { SignedIn } from '@tribo/core';
-import Fastify, { LogController, type FastifyInstance } from 'fastify';
+import Fastify, { type FastifyInstance } from 'fastify';
 import { ApiError } from '@tribo/platform';
+import type { Release } from './config.js';
 import { registerErrorHandling } from './errors.js';
 import { loggerOptions } from './logger.js';
+import { RequestLog } from './request-log.js';
+import { inRequestScope } from './request-scope.js';
 import { mountRegistry, type Handlers } from './routes.js';
 import { csrfValid, sessionTokenOf } from './session.js';
 
@@ -20,6 +23,8 @@ export interface ServerDeps {
   /** Resolves when the database answers; liveness depends on nothing else. */
   ping: () => Promise<void>;
   logLevel?: string;
+  /** Named on every log line; tests and local runs default to dev. */
+  release?: Release;
   /** Log destination; tests capture lines here. */
   logStream?: NodeJS.WritableStream;
   registry?: readonly Operation[];
@@ -43,16 +48,23 @@ export async function buildServer(deps: ServerDeps): Promise<FastifyInstance> {
   };
 
   const app = Fastify({
-    logger: loggerOptions(deps.logLevel ?? 'info', deps.logStream),
+    logger: loggerOptions(
+      deps.logLevel ?? 'info',
+      deps.release ?? { version: 'dev', commit: 'unknown' },
+      deps.logStream,
+    ),
     trustProxy: (address, hop) => trust(address, hop),
     genReqId,
-    logController: new LogController({ requestIdLogLabel: 'requestId' }),
+    logController: new RequestLog({ requestIdLogLabel: 'requestId' }),
     return503OnClosing: true,
   });
 
   await app.register(cookie);
   registerErrorHandling(app);
 
+  app.addHook('onRequest', (request, _reply, done) => {
+    inRequestScope(request.id, done);
+  });
   app.addHook('onRequest', async (request, reply) => {
     reply.header('x-request-id', request.id);
     const op = request.routeOptions.config.operation;

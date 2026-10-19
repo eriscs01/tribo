@@ -3,6 +3,7 @@ import {
   createItemsService,
   createLibraryService,
   createTripsService,
+  requestEvents,
   verifyChains,
   writePath,
 } from '@tribo/core';
@@ -29,6 +30,7 @@ export function composeServices(db: Kysely<DB>, appKey: AppKey, publicUrl: URL) 
     items: createItemsService(db, write, keys),
     library: createLibraryService(db, write, keys),
     verifyAudit: (chainKey?: string) => verifyChains(db, chainKey),
+    requestAudit: (requestId: string) => requestEvents(db, requestId),
     /** Resolves once the database answers a query. */
     ping: async () => {
       await sql`SELECT 1`.execute(db);
@@ -53,6 +55,7 @@ export async function openRuntime(config: Config, applicationName: string) {
   const db = new Kysely<DB>({ dialect: new PostgresDialect({ pool }) });
   return {
     ...composeServices(db, appKey, config.publicUrl),
+    release: config.release,
     pool,
     /** Ends the pool. Kysely ends only a pool it has queried through, so this ends it too. */
     close: async () => {
