@@ -1979,6 +1979,7 @@ export interface components {
             cost: (components["schemas"]["Money"] | components["schemas"]["MaskedValue"]) | null;
             bookingRef: components["schemas"]["MaskedValue"] | null;
             cardLast4: components["schemas"]["MaskedValue"] | null;
+            restrictedFields: components["schemas"]["ItemMaskedField"][];
             version: number;
             boardVersion: number;
             createdAt: components["schemas"]["Instant"];
@@ -1993,7 +1994,10 @@ export interface components {
             visibility?: components["schemas"]["ItemVisibility"];
             sharedWith?: string[];
             tags?: string[];
+            restrictedFields?: components["schemas"]["ItemMaskedField"][];
         };
+        /** @enum {string} */
+        ItemMaskedField: "cost" | "bookingRef" | "cardLast4";
         ItemPage: {
             items: components["schemas"]["Item"][];
             nextCursor: string | null;
@@ -2012,6 +2016,7 @@ export interface components {
             }) | null;
             bookingRef?: (components["schemas"]["MaskedValue"] | string) | null;
             cardLast4?: (components["schemas"]["MaskedValue"] | string) | null;
+            restrictedFields?: components["schemas"]["ItemMaskedField"][];
         };
         ItemReveal: {
             bookingRef?: string | null;

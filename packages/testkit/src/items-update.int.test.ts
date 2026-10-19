@@ -228,7 +228,7 @@ describe('items.update', () => {
       { bookingRef: 'PNR-7QX2', cardLast4: '4242' },
       1,
     );
-    expect(set).toMatchObject({ hasBookingRef: true, hasCardLast4: true });
+    expect(set).toMatchObject({ bookingRef: 'masked', cardLast4: 'masked' });
     const row = await stored(w.itemId);
     if (!row.booking_ref_enc || !row.card_last4_enc) throw new Error('no ciphertext stored');
     const field = (column: string) => ({ table: 'items', column, rowId: w.itemId });
@@ -238,7 +238,7 @@ describe('items.update', () => {
     await items.update(as(w.member), w.itemId, { title: 'Snorkelling' }, 2);
     expect((await stored(w.itemId)).booking_ref_enc).toEqual(row.booking_ref_enc);
     const cleared = await items.update(as(w.member), w.itemId, { bookingRef: null }, 3);
-    expect(cleared).toMatchObject({ hasBookingRef: false, hasCardLast4: true });
+    expect(cleared).toMatchObject({ bookingRef: null, cardLast4: 'masked' });
   });
 
   it('answers masked_field_write to a masked booking ref, card last-4 or cost, writing nothing', async () => {

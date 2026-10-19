@@ -167,6 +167,7 @@ export async function createItem(
     days?: { start: string; end?: string };
     timed?: { start: Date; end?: Date; tz: string };
     cost?: { amountMinor: number; currency: string };
+    restrictedFields?: readonly ValueOf<'tribo.items.restricted_fields'>[];
   },
 ): Promise<string> {
   const { id } = await db
@@ -185,6 +186,7 @@ export async function createItem(
       end_tz: init.timed?.end ? init.timed.tz : null,
       cost_minor: init.cost?.amountMinor ?? null,
       cost_currency: init.cost?.currency ?? null,
+      restricted_fields: [...(init.restrictedFields ?? [])],
     })
     .returning('id')
     .executeTakeFirstOrThrow();

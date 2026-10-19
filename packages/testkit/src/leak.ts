@@ -1,9 +1,11 @@
 // Leak-test harness: fast-check generates small worlds of users, placeholders, trips,
-// memberships (some soft-deleted) and items (shared, private or selected, some deleted);
-// a TypeScript oracle states who may see what; the property checks that the database's
-// tribo.item_visible and tribo.person_visible agree with it for every pair in the world, and
-// that each list operation registered here returns each account exactly what the oracle allows.
-import { VALUE_SETS, type DB } from '@tribo/db';
+// memberships (some soft-deleted) and items (shared, private or selected, some deleted,
+// some priced, some with restricted fields); a TypeScript oracle states who may see what;
+// the property checks that the database's tribo.item_visible and tribo.person_visible agree
+// with it for every pair in the world, that each list operation registered here returns each
+// account exactly what the oracle allows, and that each item read registered here shows a
+// restricted field only to a caller the oracle lets read it.
+import { VALUE_SETS, type DB, type ValueOf } from '@tribo/db';
 import fc from 'fast-check';
 import { sql, type Kysely } from 'kysely';
 import {
@@ -21,6 +23,8 @@ import {
 // World shape (indices) and its generator
 // ---------------------------------------------------------------------------
 
+type MaskedField = ValueOf<'tribo.items.restricted_fields'>;
+
 export interface WorldSpec {
   /** One entry per account; person index i belongs to user i. */
   users: { personDeleted: boolean }[];
@@ -31,7 +35,14 @@ export interface WorldSpec {
     deleted: boolean;
     /** members[0] is the owner's membership. */
     members: { person: number; role: TripRole; deleted: boolean }[];
-    items: { owner: number; visibility: Visibility; shares: number[]; deleted: boolean }[];
+    items: {
+      owner: number;
+      visibility: Visibility;
+      shares: number[];
+      deleted: boolean;
+      priced: boolean;
+      restricted: MaskedField[];
+    }[];
   }[];
 }
 
@@ -70,6 +81,8 @@ function tripArb(nUsers: number, nPersons: number) {
         // Shares on shared or private items too: the predicate must ignore them there.
         shares: fc.uniqueArray(fc.nat({ max: members.length - 1 }), { maxLength: members.length }),
         deleted: sometimes,
+        priced: fc.boolean(),
+        restricted: fc.subarray([...VALUE_SETS['tribo.items.restricted_fields']]),
       });
       return fc
         .array(item, { maxLength: 6 })
@@ -106,13 +119,14 @@ export interface BuiltWorld {
   trips: {
     id: string;
     deleted: boolean;
-    members: { id: string; personId: string; deleted: boolean }[];
+    members: { id: string; personId: string; role: TripRole; deleted: boolean }[];
     items: {
       id: string;
       ownerMembershipId: string;
       visibility: Visibility;
       shares: string[];
       deleted: boolean;
+      restrictedFields: MaskedField[];
     }[];
   }[];
 }
@@ -122,6 +136,12 @@ export interface Oracle {
   personVisible(world: BuiltWorld, userId: string, personId: string): boolean;
   /** A trip is the caller's while they hold an active membership in it and it is not deleted. */
   tripVisible(world: BuiltWorld, userId: string, tripId: string): boolean;
+  /**
+   * Whether a caller who sees the item may read one of its maskable fields as far as its
+   * restrictedFields go: an unrestricted field always, a restricted one only as the item's
+   * owner or the trip's owner or an organizer.
+   */
+  fieldReadable(world: BuiltWorld, userId: string, itemId: string, field: MaskedField): boolean;
 }
 
 const personOf = (w: BuiltWorld, userId: string) => w.persons.find((p) => p.userId === userId);
@@ -160,6 +180,17 @@ export const oracle: Oracle = {
         t.members.some((m) => m.personId === personId && !m.deleted) &&
         t.members.some((m) => m.personId === me.id && !m.deleted),
     );
+  },
+
+  fieldReadable(w, userId, itemId, field) {
+    const me = personOf(w, userId);
+    const trip = w.trips.find((t) => t.items.some((i) => i.id === itemId));
+    const item = trip?.items.find((i) => i.id === itemId);
+    if (!trip || !item || !me) return false;
+    if (!item.restrictedFields.includes(field)) return true;
+    const mine = trip.members.find((m) => m.personId === me.id && !m.deleted);
+    if (!mine) return false;
+    return item.ownerMembershipId === mine.id || mine.role === 'owner' || mine.role === 'organizer';
   },
 
   tripVisible(w, userId, tripId) {
@@ -206,7 +237,7 @@ export async function buildWorld(db: Kysely<DB>, spec: WorldSpec): Promise<Built
         index === 0
           ? ownerMembershipId
           : await addMember(db, { tripId, personId, role: m.role, createdBy: owner.userId });
-      members.push({ id, personId, deleted: m.deleted });
+      members.push({ id, personId, role: m.role, deleted: m.deleted });
     }
     const items: BuiltWorld['trips'][number]['items'] = [];
     for (const it of t.items) {
@@ -217,6 +248,8 @@ export async function buildWorld(db: Kysely<DB>, spec: WorldSpec): Promise<Built
         ownerMembershipId: itemOwnerId,
         visibility: it.visibility,
         sharedWith: shares,
+        ...(it.priced ? { cost: { amountMinor: 4_200, currency: 'EUR' } } : {}),
+        restrictedFields: it.restricted,
       });
       items.push({
         id,
@@ -224,6 +257,7 @@ export async function buildWorld(db: Kysely<DB>, spec: WorldSpec): Promise<Built
         visibility: it.visibility,
         shares,
         deleted: it.deleted,
+        restrictedFields: it.restricted,
       });
     }
     trips.push({ id: tripId, deleted: t.deleted, members, items });
@@ -355,6 +389,40 @@ export function listProperty(
     });
     if (mismatches.length > 0) {
       throw new Error(`list leak or over-hiding: ${JSON.stringify(mismatches.slice(0, 5))}`);
+    }
+  });
+}
+
+/** An item read as the mask property drives it: per item returned, the maskable fields it showed. */
+export type FieldRead = (
+  db: Kysely<DB>,
+  userId: string,
+) => Promise<{ id: string; shown: readonly MaskedField[] }[]>;
+
+/**
+ * The property for an item read's masking: for every account in the world, each maskable
+ * field the read shows (its value, or that it holds none) is one `readable` allows.
+ */
+export function maskProperty(
+  db: Kysely<DB>,
+  read: FieldRead,
+  readable: (world: BuiltWorld, userId: string, itemId: string, field: MaskedField) => boolean,
+) {
+  return fc.asyncProperty(worldArb, async (spec) => {
+    const leaks = await inWorld(db, spec, async (trx, world) => {
+      const out: { userId: string; itemId: string; field: MaskedField }[] = [];
+      for (const userId of world.userIds) {
+        // eslint-disable-next-line no-await-in-loop -- one transaction, so one query at a time
+        for (const { id, shown } of await read(trx, userId)) {
+          for (const field of shown) {
+            if (!readable(world, userId, id, field)) out.push({ userId, itemId: id, field });
+          }
+        }
+      }
+      return out;
+    });
+    if (leaks.length > 0) {
+      throw new Error(`restricted field leak: ${JSON.stringify(leaks.slice(0, 5))}`);
     }
   });
 }

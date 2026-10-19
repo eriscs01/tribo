@@ -4,6 +4,7 @@ import { randomBytes } from 'node:crypto';
 import { CSRF_HEADER, encodeTypeId, ID_PREFIX, SESSION_COOKIE } from '@tribo/contract';
 import { AppKey } from '@tribo/crypto';
 import {
+  addAllocation,
   addMember,
   createItem,
   createTestDatabase,
@@ -151,6 +152,58 @@ describe('items.update over HTTP', () => {
       bookingRef: { masked: true },
       version: 2,
     });
+  });
+});
+
+describe('item restrictedFields over HTTP', () => {
+  it('round-trips the set, masks restricted fields for an assignee, and answers 409 to their write', async () => {
+    const w = await world();
+    const assignee = await signedInUser();
+    const membershipId = await addMember(tdb.db, {
+      tripId: w.trip.tripId,
+      personId: assignee.personId,
+      role: 'member',
+    });
+    await addAllocation(tdb.db, {
+      tripId: w.trip.tripId,
+      itemId: w.itemId,
+      membershipId,
+      role: 'assignee',
+    });
+    const patch = (user: typeof w.owner, ifMatch: string, payload: object) =>
+      app.inject({
+        method: 'PATCH',
+        url: `/v1/items/${w.itemPath}`,
+        cookies: user.auth.cookies,
+        headers: { ...user.auth.headers, 'if-match': ifMatch },
+        payload,
+      });
+
+    const set = await patch(w.owner, '"1"', { restrictedFields: ['bookingRef', 'cost'] });
+    expect(set.statusCode).toBe(200);
+    expect(set.json()).toMatchObject({
+      restrictedFields: ['cost', 'bookingRef'],
+      cost: { amountMinor: 1800000, currency: 'PHP' },
+      bookingRef: null,
+    });
+
+    const seen = await app.inject({
+      method: 'GET',
+      url: `/v1/items/${w.itemPath}`,
+      ...assignee.auth,
+    });
+    expect(seen.json()).toMatchObject({
+      restrictedFields: ['cost', 'bookingRef'],
+      cost: { masked: true },
+      bookingRef: { masked: true },
+      cardLast4: null,
+    });
+    const refused = await patch(assignee, '"2"', { bookingRef: 'BH-2026-11' });
+    expect(refused.statusCode).toBe(409);
+    expect(refused.json()).toMatchObject({ code: 'masked_field_write' });
+    const unset = await patch(assignee, '"2"', { restrictedFields: [] });
+    expect(unset.statusCode).toBe(403);
+    expect(unset.json()).toMatchObject({ code: 'forbidden' });
   });
 });
 

@@ -5,6 +5,8 @@ import { createTestDatabase, type TestDatabase } from './database.js';
 
 // PostgreSQL stores `col IN ('a', 'b')` as `CHECK ((col = ANY (ARRAY['a'::text, 'b'::text])))`.
 const IN_LIST = /^CHECK \(\((\w+) = ANY \(\(?ARRAY\[(.+)\]\)?(?:::text\[\])?\)\)\)$/;
+// …and an array column held to a set, `col <@ ARRAY['a', 'b']`, as `CHECK ((col <@ ARRAY['a'::text, 'b'::text]))`.
+const SUBSET = /^CHECK \(\((\w+) <@ ARRAY\[(.+)\]\)\)$/;
 const LITERAL = /'((?:[^']|'')*)'::text/g;
 
 describe('closed value sets', () => {
@@ -14,7 +16,7 @@ describe('closed value sets', () => {
   });
   afterAll(() => tdb.destroy());
 
-  it('VALUE_SETS equals every column IN-list CHECK in the migrated schema', async () => {
+  it('VALUE_SETS equals every column IN-list and array-subset CHECK in the migrated schema', async () => {
     const { rows } = await sql<{ rel: string; def: string }>`
       SELECT n.nspname || '.' || t.relname AS rel, pg_get_constraintdef(c.oid) AS def
         FROM pg_constraint c
@@ -24,7 +26,7 @@ describe('closed value sets', () => {
     `.execute(tdb.db);
     const fromDb: Record<string, string[]> = {};
     for (const { rel, def } of rows) {
-      const m = IN_LIST.exec(def);
+      const m = IN_LIST.exec(def) ?? SUBSET.exec(def);
       if (m) {
         const [, column, list] = m as unknown as [string, string, string];
         fromDb[`${rel}.${column}`] = [...list.matchAll(LITERAL)].map(([, value = '']) =>

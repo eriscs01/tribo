@@ -132,10 +132,10 @@ describe('items.list', () => {
 
     expect(await first(w.member.userId)).toMatchObject({
       cost,
-      hasBookingRef: true,
-      hasCardLast4: true,
+      bookingRef: 'masked',
+      cardLast4: 'masked',
     });
-    expect(await first(w.viewer.userId)).toMatchObject({ cost: 'masked', hasBookingRef: true });
+    expect(await first(w.viewer.userId)).toMatchObject({ cost: 'masked', bookingRef: 'masked' });
     await tdb.db
       .updateTable('tribo.memberships')
       .set({ can_view_costs: true })

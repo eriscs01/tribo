@@ -17,6 +17,7 @@ export interface NewItem {
   visibility: ValueOf<'tribo.items.visibility'>;
   ownerMembershipId: string;
   tags: readonly string[];
+  restrictedFields: readonly ValueOf<'tribo.items.restricted_fields'>[];
   createdBy: string;
 }
 
@@ -43,6 +44,7 @@ export async function insertItem(db: ItemsDb, item: NewItem): Promise<string> {
       visibility: item.visibility,
       owner_membership_id: item.ownerMembershipId,
       tags: [...item.tags],
+      restricted_fields: [...item.restrictedFields],
       created_by: item.createdBy,
       updated_by: item.createdBy,
     })
@@ -94,6 +96,7 @@ function selectItem(db: ItemsDb) {
       'i.visibility',
       'i.owner_membership_id',
       'i.tags',
+      'i.restricted_fields',
       'i.cost_minor',
       'i.cost_currency',
       'i.booking_ref_enc',
@@ -124,6 +127,7 @@ export interface ItemChanges {
   cost?: { amountMinor: number; currency: string } | null;
   bookingRefEnc?: Buffer | null;
   cardLast4Enc?: Buffer | null;
+  restrictedFields?: readonly ValueOf<'tribo.items.restricted_fields'>[];
 }
 
 /** Applies the changes and bumps the item's version, never its board_version (R26). */
@@ -150,6 +154,9 @@ export async function updateItem(
         : { cost_minor: cost?.amountMinor ?? null, cost_currency: cost?.currency ?? null }),
       ...(changes.bookingRefEnc === undefined ? {} : { booking_ref_enc: changes.bookingRefEnc }),
       ...(changes.cardLast4Enc === undefined ? {} : { card_last4_enc: changes.cardLast4Enc }),
+      ...(changes.restrictedFields === undefined
+        ? {}
+        : { restricted_fields: [...changes.restrictedFields] }),
       version: eb('version', '+', 1),
       updated_at: sql<Date>`now()`,
       updated_by: updatedBy,
