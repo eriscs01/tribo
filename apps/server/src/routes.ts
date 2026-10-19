@@ -7,6 +7,7 @@ import type {
 } from 'fastify';
 import type * as z from 'zod';
 import { ApiError, validate } from '@tribo/platform';
+import { sendRepresentation } from './representation.js';
 
 export type Handler = (request: FastifyRequest, reply: FastifyReply) => Promise<unknown>;
 export type Handlers = Readonly<Record<string, Handler>>;
@@ -38,7 +39,8 @@ export function parsedQuery<S extends z.ZodObject>(
 /**
  * Mounts every registry operation as a route. An implemented operation runs its handler;
  * a planned one answers 501 not_implemented. An implemented operation that declares a query
- * has it validated before its handler runs. A handler without an implemented operation, or
+ * has it validated before its handler runs; one that declares an ETag has its handler's
+ * view sent through sendRepresentation. A handler without an implemented operation, or
  * the reverse, stops the server at start rather than drifting silently.
  */
 export function mountRegistry(
@@ -80,12 +82,15 @@ export function mountRegistry(
           }
         : {}),
       handler:
-        handler ??
-        (() => {
-          throw new ApiError('not_implemented', {
-            detail: `${op.id} is registered but not built yet`,
-          });
-        }),
+        handler && op.etag
+          ? async (request: FastifyRequest, reply: FastifyReply) =>
+              sendRepresentation(request, reply, await handler(request, reply))
+          : (handler ??
+            (() => {
+              throw new ApiError('not_implemented', {
+                detail: `${op.id} is registered but not built yet`,
+              });
+            })),
     });
   }
 }

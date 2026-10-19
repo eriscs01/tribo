@@ -1,7 +1,6 @@
 import { encodeTypeId, ID_PREFIX, PageQuery, type Trip, type TripPage } from '@tribo/contract';
 import type { TripRecord, TripsService } from '@tribo/core';
 import { ifMatch, pathId, requestContext, signedIn } from '../context.js';
-import { sendRepresentation } from '../representation.js';
 import { parsedQuery, type Handlers } from '../routes.js';
 
 export function tripView(trip: TripRecord): Trip {
@@ -32,10 +31,9 @@ export function tripHandlers(trips: TripsService): Handlers {
       return reply.code(201).send(tripView(trip));
     },
 
-    'trips.get': async (request, reply) => {
-      const trip = await trips.get(signedIn(request).userId, pathId(request, 'tripId'));
-      return sendRepresentation(request, reply, tripView(trip));
-    },
+    // Sent with its representation ETag: the registry entry declares it.
+    'trips.get': async (request): Promise<Trip> =>
+      tripView(await trips.get(signedIn(request).userId, pathId(request, 'tripId'))),
 
     'trips.update': async (request) =>
       tripView(

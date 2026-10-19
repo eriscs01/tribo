@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { fromCsvRow } from './csv-row.js';
 import { parseCsv } from './csv.js';
 import { PATH_PARAM_PREFIX } from './ids.js';
-import { pathParams } from './operation.js';
+import { defineOperation, pathParams } from './operation.js';
 import { registry } from './operations/index.js';
 
 const csv = parseCsv(await readFile(new URL('../operations.csv', import.meta.url), 'utf8')).map(
@@ -33,7 +33,15 @@ describe('registry against operations.csv', () => {
       ifMatch: row.ifMatch,
       idempotent: row.idempotent,
     });
-    const { status: _status, query: _query, input: _input, output: _output, ...rest } = op ?? {};
+    // The registry's own declarations; the CSV states the rest.
+    const {
+      status: _status,
+      query: _query,
+      input: _input,
+      output: _output,
+      etag: _etag,
+      ...rest
+    } = op ?? {};
     expect(rest).toEqual(row);
   });
 
@@ -60,5 +68,13 @@ describe('registry against operations.csv', () => {
     for (const op of registry.filter((o) => o.status === 'planned')) {
       expect(op.input ?? op.output, op.id).toBeUndefined();
     }
+  });
+
+  it('declares a representation ETag only on GET reads', () => {
+    const base = registry.find((op) => op.id === 'trips.get');
+    if (!base) throw new Error('trips.get missing');
+    expect(() => defineOperation({ ...base, method: 'POST' })).toThrow(
+      /trips.get declares an ETag but is not a GET read/,
+    );
   });
 });

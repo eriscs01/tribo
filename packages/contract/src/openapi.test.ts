@@ -13,6 +13,11 @@ const committed: unknown = JSON.parse(
   await readFile(new URL('../openapi.json', import.meta.url), 'utf8'),
 );
 
+interface Declared {
+  parameters?: { name: string; in: string }[];
+  responses: Record<string, { headers?: Record<string, unknown> }>;
+}
+
 describe('toOpenApi', () => {
   const doc = toOpenApi(registry);
 
@@ -62,6 +67,23 @@ describe('toOpenApi', () => {
       )
       .map((op) => op.id);
     expect(declaring.sort()).toEqual([...IDEMPOTENCY_KEY_OPERATIONS].sort());
+  });
+
+  it('declares the ETag header and If-None-Match → 304 exactly on reads that send a representation ETag', () => {
+    const paths = doc.paths as Record<string, Record<string, Declared>>;
+    const tagged = registry.filter((op) => {
+      const declared = paths[op.path]?.[op.method.toLowerCase()];
+      const ifNoneMatch = declared?.parameters?.some(
+        (p) => p.name === 'If-None-Match' && p.in === 'header',
+      );
+      const etag = declared?.responses['200']?.headers?.ETag !== undefined;
+      const notModified = declared?.responses['304'] !== undefined;
+      expect([ifNoneMatch ?? false, etag, notModified], op.id).toEqual(
+        Array(3).fill(op.etag === 'representation'),
+      );
+      return notModified;
+    });
+    expect(tagged.map((op) => op.id)).toContain('trips.get');
   });
 
   it('answers 204 for an implemented operation without output', () => {

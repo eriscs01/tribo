@@ -6374,6 +6374,14 @@
         "responses": {
           "200": {
             "description": "OK",
+            "headers": {
+              "ETag": {
+                "description": "SHA-256 (base64url) of this representation, as sent to this caller",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -6381,6 +6389,9 @@
                 }
               }
             }
+          },
+          "304": {
+            "description": "Not modified: If-None-Match names the ETag"
           },
           "default": {
             "description": "Error",
@@ -6412,6 +6423,15 @@
             "schema": {
               "type": "string",
               "pattern": "^trp_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+            }
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "required": false,
+            "description": "The ETag of a representation already held; 304 when it is still current",
+            "schema": {
+              "type": "string"
             }
           }
         ]

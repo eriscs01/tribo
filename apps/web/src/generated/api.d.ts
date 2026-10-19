@@ -5554,7 +5554,10 @@ export interface operations {
     "trips.get": {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description The ETag of a representation already held; 304 when it is still current */
+                "If-None-Match"?: string;
+            };
             path: {
                 tripId: string;
             };
@@ -5565,11 +5568,20 @@ export interface operations {
             /** @description OK */
             200: {
                 headers: {
+                    /** @description SHA-256 (base64url) of this representation, as sent to this caller */
+                    ETag?: string;
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["Trip"];
                 };
+            };
+            /** @description Not modified: If-None-Match names the ETag */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {

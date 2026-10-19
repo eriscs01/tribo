@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -52,6 +52,10 @@ const testRegistry: Operation[] = [
   defineOperation({
     ...testOp('test.query', 'GET', '/v1/test/query', ['public']),
     query: PageQuery,
+  }),
+  defineOperation({
+    ...testOp('test.tagged', 'GET', '/v1/test/tagged', ['public']),
+    etag: 'representation',
   }),
   defineOperation({
     ...testOp('test.plannedQuery', 'GET', '/v1/test/planned-query', ['public']),
@@ -160,6 +164,7 @@ async function server(overrides: Partial<ServerDeps> = {}) {
         await sleep(1);
         return { requestId: currentRequestId() };
       },
+      'test.tagged': () => Promise.resolve({ title: 'Lisbon in spring' }),
       'test.query': (request) => {
         queriesSeen.push(parsedQuery(request, PageQuery));
         return Promise.resolve({ ok: true });
@@ -502,6 +507,30 @@ describe('declared query', () => {
     ).inject({ method: 'GET', url: '/v1/test/planned-query?limit=0' });
     expect(res.statusCode).toBe(501);
     expect(res.json()).toMatchObject({ code: 'not_implemented' });
+  });
+});
+
+describe('declared representation ETag', () => {
+  it('sends the SHA-256 of the body as ETag, and 304 with no body when If-None-Match names it', async () => {
+    const s = await server();
+    const first = await s.inject({ method: 'GET', url: '/v1/test/tagged' });
+    expect(first.statusCode).toBe(200);
+    expect(first.json()).toEqual({ title: 'Lisbon in spring' });
+    const digest = createHash('sha256').update(first.body).digest('base64url');
+    expect(first.headers.etag).toBe(`"${digest}"`);
+
+    const again = await s.inject({
+      method: 'GET',
+      url: '/v1/test/tagged',
+      headers: { 'if-none-match': String(first.headers.etag) },
+    });
+    expect(again.statusCode).toBe(304);
+    expect(again.body).toBe('');
+  });
+
+  it('is absent on a read that declares none', async () => {
+    const res = await (await server()).inject({ method: 'GET', url: '/v1/test/ip' });
+    expect(res.headers.etag).toBeUndefined();
   });
 });
 
