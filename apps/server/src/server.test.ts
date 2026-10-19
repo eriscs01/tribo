@@ -102,6 +102,7 @@ const items: ItemsService = {
   list: unused,
   update: unused,
   delete: unused,
+  rsvp: unused,
 };
 const library: LibraryService = {
   search: unused,

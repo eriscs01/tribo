@@ -278,3 +278,59 @@ export function listVisibleItems(
   if (page.after !== null) query = query.where('i.id', '>', page.after);
   return query.orderBy('i.id').limit(page.limit).execute();
 }
+
+/**
+ * Sets this membership's answer on its attendee row, adding the row when there is none.
+ * Only that one row is written: the caller's other roles and everyone else's stay.
+ */
+export async function upsertRsvp(
+  db: ItemsDb,
+  rsvp: {
+    tripId: string;
+    itemId: string;
+    membershipId: string;
+    answer: ValueOf<'tribo.allocations.rsvp'>;
+    createdBy: string;
+  },
+): Promise<void> {
+  await db
+    .insertInto('tribo.allocations')
+    .values({
+      trip_id: rsvp.tripId,
+      item_id: rsvp.itemId,
+      membership_id: rsvp.membershipId,
+      role: 'attendee',
+      rsvp: rsvp.answer,
+      created_by: rsvp.createdBy,
+    })
+    .onConflict((oc) =>
+      oc
+        .columns(['item_id', 'membership_id', 'role'])
+        .where('role', 'in', ['attendee', 'assignee'])
+        .doUpdateSet({ rsvp: rsvp.answer }),
+    )
+    .execute();
+}
+
+/** Bumps the item's board counter (R26), never its version; returns the new board_version. */
+export async function bumpBoardVersion(db: ItemsDb, itemId: string): Promise<number> {
+  const row = await db
+    .updateTable('tribo.items')
+    .set((eb) => ({ board_version: eb('board_version', '+', 1) }))
+    .where('id', '=', itemId)
+    .returning('board_version')
+    .executeTakeFirstOrThrow();
+  return row.board_version;
+}
+
+/** Every row of an item's assignment board, in a stable order. */
+export function listBoard(db: ItemsDb, itemId: string) {
+  return db
+    .selectFrom('tribo.allocations')
+    .select(['membership_id', 'unit_id', 'role', 'rsvp'])
+    .where('item_id', '=', itemId)
+    .orderBy('membership_id')
+    .orderBy('role')
+    .orderBy('unit_id')
+    .execute();
+}

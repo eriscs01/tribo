@@ -117,7 +117,7 @@
 - [x] `items.delete` · Drop A · `DELETE /v1/items/{itemId}`
   - Soft-delete item and children; Undo via items.restore (1b); MCP approval; trip_archived on archived trips (R29)
   - Roles: owner, organizer, member (own). If-Match: `version`. Idempotency: safe to repeat.
-- [ ] `items.rsvp` · Drop A · `PUT /v1/items/{itemId}/rsvp`
+- [x] `items.rsvp` · Drop A · `PUT /v1/items/{itemId}/rsvp`
   - Set caller's own RSVP yes|no|maybe; Item lock + boardVersion bump (item version untouched); touches only caller's attendee row; trip_archived on archived trips (R29)
   - Roles: owner, organizer, member (self). If-Match: `no`. Idempotency: safe to repeat.
 - [ ] `items.reveal` · Drop A · `POST /v1/items/{itemId}/reveal`

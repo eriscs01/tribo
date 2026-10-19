@@ -45,3 +45,10 @@ export function canDeleteItem(editor: ItemEditor): boolean {
   if (ITEM_EDITORS.has(editor.role)) return true;
   return editor.role === 'member' && editor.owns;
 }
+
+/** items.rsvp: everyone but a viewer answers for themself; the service only ever touches their own row. */
+const ITEMS_RSVP_ROLES: ReadonlySet<TripRole> = new Set(['owner', 'organizer', 'member']);
+
+export function canRsvpItem(role: TripRole): boolean {
+  return ITEMS_RSVP_ROLES.has(role);
+}

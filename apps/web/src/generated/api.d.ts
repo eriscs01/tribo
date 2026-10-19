@@ -2013,6 +2013,15 @@ export interface components {
             bookingRef?: (components["schemas"]["MaskedValue"] | string) | null;
             cardLast4?: (components["schemas"]["MaskedValue"] | string) | null;
         };
+        ItemRsvp: {
+            itemId: string;
+            membershipId: string;
+            rsvp: components["schemas"]["RsvpAnswer"];
+            boardVersion: number;
+        };
+        ItemRsvpInput: {
+            rsvp: components["schemas"]["RsvpAnswer"];
+        };
         /** @enum {string} */
         ItemStatus: "draft" | "planned" | "booked" | "confirmed" | "open" | "done" | "cancelled";
         ItemTime: {
@@ -2172,6 +2181,8 @@ export interface components {
                 message: string;
             }[];
         };
+        /** @enum {string} */
+        RsvpAnswer: "yes" | "no" | "maybe";
         Session: {
             user: {
                 id: string;
@@ -4128,15 +4139,19 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ItemRsvpInput"];
+            };
+        };
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["ItemRsvp"];
                 };
             };
             /** @description Error */

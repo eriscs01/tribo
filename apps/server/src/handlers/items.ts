@@ -5,6 +5,7 @@ import {
   MASKED,
   type Item,
   type ItemPage,
+  type ItemRsvp,
   type ItemTime,
 } from '@tribo/contract';
 import type { ItemRecord, ItemsService, ItemTimeRecord } from '@tribo/core';
@@ -79,6 +80,19 @@ export function itemHandlers(items: ItemsService): Handlers {
         ifMatch(request),
       );
       return reply.code(204).send();
+    },
+    'items.rsvp': async (request): Promise<ItemRsvp> => {
+      const answer = await items.rsvp(
+        requestContext(request),
+        pathId(request, 'itemId'),
+        request.body,
+      );
+      return {
+        itemId: encodeTypeId(ID_PREFIX.item, answer.itemId),
+        membershipId: encodeTypeId(ID_PREFIX.membership, answer.membershipId),
+        rsvp: answer.rsvp,
+        boardVersion: answer.boardVersion,
+      };
     },
   };
 }

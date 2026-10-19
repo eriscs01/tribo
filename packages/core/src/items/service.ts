@@ -4,6 +4,7 @@ import {
   ItemInput,
   itemTimeProblem,
   ItemPatch,
+  ItemRsvpInput,
   NoBody,
   Uuid,
   type ItemListQuery,
@@ -28,21 +29,25 @@ import {
   canDeleteItem,
   canListItems,
   canNarrowVisibility,
+  canRsvpItem,
   canUpdateItem,
   type ItemEditor,
 } from './policy.js';
 import {
+  bumpBoardVersion,
   findItem,
   findVisibleItem,
   insertItem,
   insertShares,
   isAssignee,
+  listBoard,
   listShares,
   listVisibleItems,
   lockItem,
   replaceShares,
   softDeleteItem,
   updateItem,
+  upsertRsvp,
   type ItemRow,
 } from './repo.js';
 
@@ -99,11 +104,25 @@ export interface ItemsService {
     body: unknown,
     ifMatch: number | undefined,
   ): Promise<void>;
+  /**
+   * items.rsvp: replaces the caller's own answer on the item's board under the item lock,
+   * bumping board_version, never the item version. Takes no If-Match: the answer is theirs.
+   */
+  rsvp(ctx: RequestContext, itemId: string, body: unknown): Promise<RsvpRecord>;
+}
+
+/** The caller's attendee row after items.rsvp. */
+export interface RsvpRecord {
+  itemId: string;
+  membershipId: string;
+  rsvp: 'yes' | 'no' | 'maybe';
+  boardVersion: number;
 }
 
 const itemsCreate = writeOperation('items.create', ItemInput);
 const itemsUpdate = writeOperation('items.update', ItemPatch);
 const itemsDelete = writeOperation('items.delete', NoBody);
+const itemsRsvp = writeOperation('items.rsvp', ItemRsvpInput);
 
 /**
  * `write` is core's write path (writePath in write-path.ts), passed in to keep imports
@@ -280,6 +299,47 @@ export function createItemsService(db: Kysely<DB>, write: WritePath, keys: Keyri
       });
     },
 
+    rsvp(ctx, itemId, body) {
+      let acting: ActingEditor | undefined;
+      return write(ctx, {
+        operation: itemsRsvp,
+        target: { itemId },
+        body,
+        ifMatch: undefined,
+        authorize: async (tx, c, target) => {
+          acting = await actingEditor(tx, c, target.itemId);
+          if (!canRsvpItem(acting.membership.role)) throw new ApiError('forbidden');
+        },
+        // The item lock serialises board writes; the counter is the board's, not the item's.
+        load: async (tx, target) => {
+          const { row, tripId } = await lockedItem(tx, target);
+          return { tripId, counter: row.board_version, row };
+        },
+        mutate: async (tx, _c, { row }, input) => {
+          if (!acting) throw new Error('items.rsvp mutated before authorize');
+          const items = forModule(tx, 'items');
+          const membershipId = acting.membership.id;
+          await upsertRsvp(items, {
+            tripId: row.trip_id,
+            itemId: row.id,
+            membershipId,
+            answer: input.rsvp,
+            createdBy: acting.userId,
+          });
+          const boardVersion = await bumpBoardVersion(items, row.id);
+          return {
+            action: 'update',
+            aggregate: 'item_board',
+            entityId: row.id,
+            tripId: row.trip_id,
+            version: boardVersion,
+            snapshot: boardSnapshot(await listBoard(items, row.id)),
+            result: { itemId: row.id, membershipId, rsvp: input.rsvp, boardVersion },
+          };
+        },
+      });
+    },
+
     delete(ctx, itemId, body, ifMatch) {
       let acting: ActingEditor | undefined;
       return write(ctx, {
@@ -437,6 +497,18 @@ function itemRecord(row: ItemRow, viewer: Pick<CallerMembership, 'canViewCosts'>
     boardVersion: row.board_version,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+  };
+}
+
+/** The whole assignment board, the item_board aggregate's snapshot (rows have no version). */
+function boardSnapshot(rows: Awaited<ReturnType<typeof listBoard>>) {
+  return {
+    allocations: rows.map((r) => ({
+      membershipId: r.membership_id,
+      unitId: r.unit_id,
+      role: r.role,
+      rsvp: r.rsvp,
+    })),
   };
 }
 

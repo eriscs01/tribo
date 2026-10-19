@@ -3623,12 +3623,12 @@
           }
         ],
         "responses": {
-          "501": {
-            "description": "Registered but not implemented yet (not_implemented)",
+          "200": {
+            "description": "OK",
             "content": {
-              "application/problem+json": {
+              "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Problem"
+                  "$ref": "#/components/schemas/ItemRsvp"
                 }
               }
             }
@@ -3645,7 +3645,7 @@
           }
         },
         "x-tribo": {
-          "status": "planned",
+          "status": "implemented",
           "slice": "1a",
           "drop": "A",
           "roles": "owner, organizer, member (self)",
@@ -3665,7 +3665,17 @@
               "pattern": "^itm_[0-7][0-9a-hjkmnp-tv-z]{25}$"
             }
           }
-        ]
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ItemRsvpInput"
+              }
+            }
+          }
+        }
       }
     },
     "/v1/items/{itemId}/tickets": {
@@ -8940,6 +8950,46 @@
         },
         "additionalProperties": false
       },
+      "ItemRsvp": {
+        "type": "object",
+        "properties": {
+          "itemId": {
+            "type": "string",
+            "pattern": "^itm_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+          },
+          "membershipId": {
+            "type": "string",
+            "pattern": "^mem_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+          },
+          "rsvp": {
+            "$ref": "#/components/schemas/RsvpAnswer"
+          },
+          "boardVersion": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "itemId",
+          "membershipId",
+          "rsvp",
+          "boardVersion"
+        ],
+        "additionalProperties": false
+      },
+      "ItemRsvpInput": {
+        "type": "object",
+        "properties": {
+          "rsvp": {
+            "$ref": "#/components/schemas/RsvpAnswer"
+          }
+        },
+        "required": [
+          "rsvp"
+        ],
+        "additionalProperties": false
+      },
       "ItemStatus": {
         "type": "string",
         "enum": [
@@ -9678,6 +9728,14 @@
           "requestId"
         ],
         "additionalProperties": false
+      },
+      "RsvpAnswer": {
+        "type": "string",
+        "enum": [
+          "yes",
+          "no",
+          "maybe"
+        ]
       },
       "Session": {
         "type": "object",

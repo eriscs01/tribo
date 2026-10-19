@@ -4,6 +4,7 @@ import {
   canDeleteItem,
   canListItems,
   canNarrowVisibility,
+  canRsvpItem,
   canUpdateItem,
 } from './policy.js';
 
@@ -61,5 +62,14 @@ describe('canDeleteItem', () => {
     expect(canDeleteItem(editor('member', true))).toBe(true);
     expect(canDeleteItem(editor('member', false, true))).toBe(false);
     expect(canDeleteItem(editor('viewer', true))).toBe(false);
+  });
+});
+
+describe('canRsvpItem', () => {
+  it('lets owners, organizers and members answer for themselves, never viewers', () => {
+    expect(canRsvpItem('owner')).toBe(true);
+    expect(canRsvpItem('organizer')).toBe(true);
+    expect(canRsvpItem('member')).toBe(true);
+    expect(canRsvpItem('viewer')).toBe(false);
   });
 });

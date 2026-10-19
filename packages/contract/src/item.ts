@@ -157,3 +157,23 @@ export const ItemPatch = z
   .meta({ id: 'ItemPatch' });
 
 export type ItemPatch = z.infer<typeof ItemPatch>;
+
+/** An answer to an item's invitation; `pending` is what the board shows before one. */
+export const RsvpAnswer = z.enum(['yes', 'no', 'maybe']).meta({ id: 'RsvpAnswer' });
+
+/** items.rsvp: the caller's own answer, replacing any earlier one (last write wins). */
+export const ItemRsvpInput = z.strictObject({ rsvp: RsvpAnswer }).meta({ id: 'ItemRsvpInput' });
+
+export type ItemRsvpInput = z.infer<typeof ItemRsvpInput>;
+
+/** The caller's attendee row after items.rsvp, and the board counter it bumped. */
+export const ItemRsvp = z
+  .strictObject({
+    itemId: typeId(ID_PREFIX.item),
+    membershipId: typeId(ID_PREFIX.membership),
+    rsvp: RsvpAnswer,
+    boardVersion: z.int().min(1),
+  })
+  .meta({ id: 'ItemRsvp' });
+
+export type ItemRsvp = z.infer<typeof ItemRsvp>;

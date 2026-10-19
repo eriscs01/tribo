@@ -198,3 +198,28 @@ describe('items.delete over HTTP', () => {
     expect(read.statusCode).toBe(404);
   });
 });
+
+describe('items.rsvp over HTTP', () => {
+  it("answers 200 with the caller's row and the new boardVersion; a viewer gets 403", async () => {
+    const w = await world();
+    const put = (user: typeof w.owner, payload: unknown) =>
+      app.inject({
+        method: 'PUT',
+        url: `/v1/items/${w.itemPath}/rsvp`,
+        ...user.auth,
+        payload: payload as Record<string, unknown>,
+      });
+    const ok = await put(w.owner, { rsvp: 'yes' });
+    expect(ok.statusCode).toBe(200);
+    expect(ok.json()).toEqual({
+      itemId: w.itemPath,
+      membershipId: encodeTypeId(ID_PREFIX.membership, w.trip.ownerMembershipId),
+      rsvp: 'yes',
+      boardVersion: 2,
+    });
+    expect((await put(w.viewer, { rsvp: 'yes' })).statusCode).toBe(403);
+    expect((await put(w.owner, { rsvp: 'pending' })).json()).toMatchObject({
+      code: 'validation_failed',
+    });
+  });
+});
