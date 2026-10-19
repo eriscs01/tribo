@@ -82,6 +82,38 @@ jobs:
       # Fixed seed (the testkit default) so pushes are reproducible; random seeds run in nightly.yml.
       - run: pnpm test:leak
 
+  # All three test projects against the TypeScript source, with V8 coverage computed on the
+  # runner: the floors in vitest.config.ts fail the job, the summary goes to the run page and
+  # the HTML report is kept as an artifact. No coverage service and no token: nothing leaves
+  # GitHub.
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - run: pnpm test:coverage
+      - name: Summarise the coverage
+        if: always()
+        run: |
+          [ -f coverage/coverage-summary.json ] || exit 0
+          {
+            echo "| Coverage | Covered | Total | % |"
+            echo "| --- | ---: | ---: | ---: |"
+            jq -r '.total | to_entries[] | select(.key | IN("lines", "statements", "functions", "branches"))
+              | "| \(.key) | \(.value.covered) | \(.value.total) | \(.value.pct) |"' \
+              coverage/coverage-summary.json
+          } >>"$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 14
+
   # Job 6, in three parts that run at once: the lockfile scan, and one build and Trivy scan
   # per image. "Build and scan" (the required check) passes only when all of them do.
   lockfile:
@@ -256,7 +288,7 @@ jobs:
   publish:
     name: Publish
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [lint, typecheck, unit, integration, leak, images, e2e]
+    needs: [lint, typecheck, unit, integration, leak, coverage, images, e2e]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:

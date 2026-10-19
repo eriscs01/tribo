@@ -2,45 +2,23 @@
 // rules behind each operation are proven against the services in packages/testkit.
 import { randomBytes } from 'node:crypto';
 import { CSRF_HEADER, SESSION_COOKIE } from '@tribo/contract';
-import {
-  createIdentityService,
-  createItemsService,
-  createLibraryService,
-  createTripsService,
-  writePath,
-} from '@tribo/core';
-import { AppKey, keyring } from '@tribo/crypto';
+import { AppKey } from '@tribo/crypto';
 import { createTestDatabase, createUser, type TestDatabase } from '@tribo/testkit';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { operationHandlers } from './handlers/index.js';
-import { buildServer } from './server.js';
+import { buildApp } from './app.js';
+import { composeServices, type Services } from './runtime.js';
 
 const PASSWORD = 'correct horse battery';
-const csrf = randomBytes(32);
 
 let tdb: TestDatabase;
 let app: FastifyInstance;
+let services: Services;
 
 beforeAll(async () => {
   tdb = await createTestDatabase();
-  const keys = keyring(new AppKey(randomBytes(32)));
-  const identity = createIdentityService(tdb.db, keys, 'Tribo (tribo.test)');
-  const write = writePath(tdb.db);
-  app = await buildServer({
-    trustedProxies: ['loopback'],
-    csrfSecret: csrf,
-    authenticate: (token) => identity.authenticate(token),
-    handlers: operationHandlers({
-      identity,
-      csrfSecret: csrf,
-      trips: createTripsService(tdb.db, write),
-      items: createItemsService(tdb.db, write),
-      library: createLibraryService(tdb.db, write, keys),
-    }),
-    ping: () => Promise.resolve(),
-    logLevel: 'silent',
-  });
+  services = composeServices(tdb.db, new AppKey(randomBytes(32)), new URL('https://tribo.test'));
+  app = await buildApp(services, { trustedProxies: ['loopback'], logLevel: 'silent' });
 });
 afterAll(async () => {
   await app.close();
@@ -268,6 +246,37 @@ describe('library.search over HTTP', () => {
     responses.forEach((r, i) => {
       expect(r.json(), queries[i]).toMatchObject({ code: 'validation_failed' });
     });
+  });
+
+  it('answers each kind of hit with the TypeID its own create answered', async () => {
+    const ana = await signedInUser();
+    const create = async (url: string, payload: object) => {
+      const res = await app.inject({ method: 'POST', url, ...ana.auth, payload });
+      expect(res.statusCode, url).toBe(201);
+      return res.json<{ id: string }>().id;
+    };
+    const personId = await create('/v1/library/people', { displayName: 'Tess Larena' });
+    const placeId = await create('/v1/library/places', { name: 'Larena Pier', kind: 'port' });
+    const vendorId = await create('/v1/library/vendors', {
+      name: 'Larena Boat Line',
+      kind: 'ferry_line',
+    });
+    const res = await app.inject({
+      method: 'GET',
+      url: '/v1/library/search?q=larena',
+      ...ana.auth,
+    });
+    expect(res.statusCode).toBe(200);
+    const hits = res.json<{ items: { kind: string; id: string; name: string }[] }>().items;
+    expect(
+      hits
+        .map(({ kind, id, name }) => ({ kind, id, name }))
+        .sort((a, b) => a.kind.localeCompare(b.kind)),
+    ).toEqual([
+      { kind: 'person', id: personId, name: 'Tess Larena' },
+      { kind: 'place', id: placeId, name: 'Larena Pier' },
+      { kind: 'vendor', id: vendorId, name: 'Larena Boat Line' },
+    ]);
   });
 });
 

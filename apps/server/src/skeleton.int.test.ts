@@ -3,54 +3,31 @@
 // reports every chain intact.
 import { randomBytes } from 'node:crypto';
 import { CSRF_HEADER, decodeTypeId, ID_PREFIX, SESSION_COOKIE } from '@tribo/contract';
-import {
-  createIdentityService,
-  createItemsService,
-  createLibraryService,
-  createTripsService,
-  startTotpEnrolment,
-  verifyChains,
-  writePath,
-} from '@tribo/core';
-import { AppKey, keyring } from '@tribo/crypto';
+import { startTotpEnrolment } from '@tribo/core';
+import { AppKey } from '@tribo/crypto';
 import { createTestDatabase, createUser, totpFor, type TestDatabase } from '@tribo/testkit';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { auditVerify } from './cli/audit-verify.js';
 import { CliError, type CliIo } from './cli/io.js';
-import { operationHandlers } from './handlers/index.js';
-import { buildServer } from './server.js';
+import { buildApp } from './app.js';
+import { composeServices, type Services } from './runtime.js';
 
 const PASSWORD = 'correct horse battery';
-const csrf = randomBytes(32);
 
 let tdb: TestDatabase;
 let app: FastifyInstance;
+let services: Services;
 /** The admin's TOTP key, as an authenticator app holds it. */
 let adminKey = '';
 
 beforeAll(async () => {
   tdb = await createTestDatabase();
-  const keys = keyring(new AppKey(randomBytes(32)));
-  const identity = createIdentityService(tdb.db, keys, 'Tribo (tribo.test)');
-  const write = writePath(tdb.db);
-  app = await buildServer({
-    trustedProxies: ['loopback'],
-    csrfSecret: csrf,
-    authenticate: (token) => identity.authenticate(token),
-    handlers: operationHandlers({
-      identity,
-      csrfSecret: csrf,
-      trips: createTripsService(tdb.db, write),
-      items: createItemsService(tdb.db, write),
-      library: createLibraryService(tdb.db, write, keys),
-    }),
-    ping: () => Promise.resolve(),
-    logLevel: 'silent',
-  });
+  services = composeServices(tdb.db, new AppKey(randomBytes(32)), new URL('https://tribo.test'));
+  app = await buildApp(services, { trustedProxies: ['loopback'], logLevel: 'silent' });
 
   const enrolment = startTotpEnrolment('Tribo', 'ana');
-  await identity.createAdmin(
+  await services.identity.createAdmin(
     { requestId: 'cli-test', surface: 'system', userId: null },
     {
       username: 'ana',
@@ -81,7 +58,7 @@ function cli() {
   const io: CliIo = { say: (text) => said.push(text), ask: () => Promise.reject(new Error('no')) };
   return {
     said,
-    run: (args: string[]) => auditVerify({ verifyAudit: (k) => verifyChains(tdb.db, k), io }, args),
+    run: (args: string[]) => auditVerify({ verifyAudit: services.verifyAudit, io }, args),
   };
 }
 
