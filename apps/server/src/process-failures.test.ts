@@ -8,8 +8,16 @@ function fakeProcess() {
   const events = new EventEmitter();
   const logged: { fields: Record<string, unknown>; msg: string }[] = [];
   const exits: number[] = [];
-  const proc = Object.assign(events, { exit: (code: number) => void exits.push(code) });
-  exitOnProcessFailure(proc, { fatal: (fields, msg) => void logged.push({ fields, msg }) });
+  const proc = Object.assign(events, {
+    exit: (code: number) => {
+      exits.push(code);
+    },
+  });
+  exitOnProcessFailure(proc, {
+    fatal: (fields, msg) => {
+      logged.push({ fields, msg });
+    },
+  });
   return { events, logged, exits };
 }
 

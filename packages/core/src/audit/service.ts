@@ -75,7 +75,7 @@ export async function requestEvents(db: Kysely<DB>, requestId: string): Promise<
     action: row.action,
     entityType: row.entity_type,
     entityId: row.entity_id,
-    versionAfter: row.version_after === null ? null : Number(row.version_after),
+    versionAfter: row.version_after,
     surface: row.surface,
     actorUserId: row.actor_user_id,
   }));

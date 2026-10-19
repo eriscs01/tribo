@@ -182,11 +182,17 @@ describe('GET /healthz', () => {
     expect(res.json()).toEqual({ status: 'ok' });
   });
 
-  it('answers 503 with an empty body when it is not', async () => {
-    const s = await server({ ping: () => Promise.reject(new Error('ECONNREFUSED 10.0.0.5')) });
+  it('answers 503 with an empty body when it is not, and logs why without the address', async () => {
+    const down = Object.assign(new Error('connect ECONNREFUSED 10.0.0.5:5432'), {
+      code: 'ECONNREFUSED',
+    });
+    const s = await server({ ping: () => Promise.reject(down) });
     const res = await s.inject({ method: 'GET', url: '/healthz' });
     expect(res.statusCode).toBe(503);
     expect(res.body).toBe('');
+    const line = lines.find((l) => l.msg === 'database unreachable');
+    expect(line).toMatchObject({ level: 40, operationId: 'meta.liveness', dbCode: 'ECONNREFUSED' });
+    expect(JSON.stringify(line)).not.toContain('10.0.0.5');
   });
 });
 

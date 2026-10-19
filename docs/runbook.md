@@ -278,7 +278,7 @@ Only `proxy` publishes ports (80, 443 and 443/udp). The database and the app are
 
 ### Upgrade
 
-Set `TRIBO_VERSION` to the new tag, then `sh docker-check.sh && docker compose pull && docker compose up -d`. `docker-check.sh` refuses a Docker Engine or Compose older than `docker-minimum.env` in that release; upgrade them with `sudo apt-get install --only-upgrade docker-ce docker-ce-cli docker-compose-plugin` first. Migrations apply at app start under an advisory lock; they never need a down-migration, so rolling back is setting the old tag again.
+Set `TRIBO_VERSION` to the new tag, then `sh docker-check.sh && docker compose pull && docker compose up -d`. Recreating the app container deletes its logs, so save them first if a problem is open ("Debugging a production problem", step 6). `docker-check.sh` refuses a Docker Engine or Compose older than `docker-minimum.env` in that release; upgrade them with `sudo apt-get install --only-upgrade docker-ce docker-ce-cli docker-compose-plugin` first. Migrations apply at app start under an advisory lock; they never need a down-migration, so rolling back is setting the old tag again.
 
 ### Releases
 
@@ -457,3 +457,39 @@ Sprint 0 task 18. Exit criteria 1–2 by hand on the reference host, over HTTPS,
 
 6. **Verify.** `docker compose exec app tribo audit verify trip:<uuid>`, with the chain key from step 5, prints `… intact`. Then `docker compose exec app tribo audit verify` ends with `All <n> chains intact.` and exits 0.
 7. **Record.** In the "Releases" table above, add "walking skeleton checked by hand on <date>" to the notes of the tag you checked.
+
+## Debugging a production problem
+
+Everything a request leaves behind joins on its request id: its log lines, its problem body and its audit events. Logs are pino JSON on the app container's standard output, kept by Docker's `local` driver on the host; nothing is sent anywhere else. Work in `/opt/tribo` on the droplet.
+
+1. **Get the request id.** Every error the web app shows ends with `Reference: <id>`; ask the user for it (a screenshot is fine). An API caller has it in the `X-Request-Id` response header and in every problem body as `requestId`. A `tribo` command that fails prints `(request cli-<uuid>)`.
+2. **Know the release.** `docker compose exec app tribo release show` prints `Tribo <tag> (<commit>)`; every log line also carries `release` and `commit`, so lines from before an upgrade say which build wrote them. `/healthz` stays detail-free on purpose.
+3. **Find its log lines.**
+
+   ```bash
+   docker compose logs --no-color --since 24h app | grep -F '"requestId":"<id>"'
+   ```
+
+   Each line names the operation (`operationId`, from the operation registry). What the messages mean:
+
+   | `msg`                                       | Level | What it says                                                                                                                                                                                                |
+   | ------------------------------------------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+   | `incoming request`, `request completed`     | info  | Method, path, client IP (from Caddy), status and `responseTime` in ms                                                                                                                                       |
+   | `request refused`                           | info  | An expected refusal: `problem` (the error code the caller got) and `status`. Never the values sent                                                                                                          |
+   | `request failed`                            | warn  | A 5xx answer: `problem` and `status`. For `internal_error`, the `unhandled error` line beside it has the stack                                                                                              |
+   | `unhandled error`                           | error | The exception and its stack (`err.stack`). The caller saw only `internal_error`                                                                                                                             |
+   | `slow request`                              | warn  | Over the design's p95 budget: `responseTime` against `budgetMs` (300 for reads, 500 for writes)                                                                                                             |
+   | `uncaught exception`, `unhandled rejection` | fatal | The process exited with code 1 and Compose restarted it; `requestId` is present when the failure escaped a request. `docker compose ps app` shows the restart; open an issue with the stack and the release |
+   | `idle database connection lost`             | warn  | The database dropped a connection (`dbCode`); the pool reconnects on the next query and `/healthz` answers 503 until it can                                                                                 |
+
+   To see a pattern rather than one request, grep for the message and the code, for example every `forbidden` today: `docker compose logs --no-color --since 24h app | grep '"msg":"request refused"' | grep '"problem":"forbidden"'`, or every slow request: `… | grep '"msg":"slow request"'`.
+
+4. **Join it to what changed.** `docker compose exec app tribo audit request <id>` lists the audit events that request wrote, one per line: time (UTC), chain and seq, action, entity type, entity id, version after, surface, actor user id. No events means the request changed nothing (a read, or a refusal that rolled back). Audit rows hold ids and metadata only; to see a field's history, use the item's history once it ships (1b).
+5. **Raise the log level for a while.** Set `TRIBO_LOG_LEVEL=debug` in `.env`, save the current logs (next step), then `docker compose up -d app`. Reproduce the problem, then set it back to `info` and run `docker compose up -d app` again. Debug lines follow the same rules: ids, codes and timings, never values.
+6. **Retention, and keeping lines before they go.** The `local` driver keeps 5 files of 20 MB per container (`x-service` in `deploy/compose.yml`), so the oldest app lines rotate out as new ones arrive. A container's logs are deleted with the container, so recreating `app` (an upgrade, a log-level change, `docker compose down`) loses them. Save what you need first:
+
+   ```bash
+   docker compose logs --no-color --timestamps app >"app-$(date -u +%Y%m%dT%H%M%SZ).log"
+   ```
+
+   Log lines carry client IPs and user agents (personal data): keep saved files on the host or on your own disk, delete them when the problem is closed, and quote only the request id, operation id and problem code in issues.

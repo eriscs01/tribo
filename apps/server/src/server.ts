@@ -87,10 +87,12 @@ export async function buildServer(deps: ServerDeps): Promise<FastifyInstance> {
   });
 
   const builtIn: Handlers = {
-    'meta.liveness': async (_request, reply) => {
+    'meta.liveness': async (request, reply) => {
       try {
         await deps.ping();
-      } catch {
+      } catch (error) {
+        // The driver's code only: its message can name the database host.
+        request.log.warn({ dbCode: (error as { code?: string }).code }, 'database unreachable');
         return reply.code(503).send();
       }
       return { status: 'ok' };

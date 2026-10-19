@@ -1,4 +1,5 @@
 import { LogController, type FastifyReply, type FastifyRequest } from 'fastify';
+import { problemOf } from './errors.js';
 
 /** The design's p95 budgets (Operations, "Performance"): a request over its budget is logged. */
 const BUDGET_MS = { read: 300, write: 500 } as const;
@@ -19,8 +20,9 @@ export class RequestLog extends LogController {
     super.requestCompleted(error, request, reply, metadata);
     if (this.isLogDisabled(request)) return;
     const status = reply.statusCode;
-    if (reply.problem !== undefined) {
-      const fields = { problem: reply.problem, status };
+    const problem = problemOf(reply);
+    if (problem !== undefined) {
+      const fields = { problem, status };
       if (status >= 500) reply.log.warn(fields, 'request failed');
       else reply.log.info(fields, 'request refused');
     }

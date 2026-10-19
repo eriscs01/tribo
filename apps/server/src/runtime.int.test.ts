@@ -29,6 +29,8 @@ beforeEach(async () => {
     TRIBO_DB_NAME: tdb.name,
     TRIBO_SECRETS_DIR: secrets,
     TRIBO_LOG_LEVEL: 'fatal',
+    TRIBO_RELEASE_VERSION: 'v0.9.0',
+    TRIBO_RELEASE_COMMIT: 'feedc0de',
   };
 });
 afterEach(async () => {
@@ -46,6 +48,7 @@ describe('openRuntime', () => {
       expect(rows).toEqual([{ role: 'tribo_app', app: 'tribo-test' }]);
       expect(runtime.appKey.fingerprint).toMatch(/^[0-9a-f]{8}$/);
       expect(runtime.issuer).toBe('Tribo (trips.example.org)');
+      expect(runtime.release).toEqual({ version: 'v0.9.0', commit: 'feedc0de' });
     } finally {
       await runtime.close();
     }
