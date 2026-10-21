@@ -3,7 +3,7 @@
 # Caddyfile per mode and the built SPA it serves.
 # Build from the repo root: docker build -f deploy/caddy/Dockerfile .
 ARG NODE_IMAGE=node:26.12.0-trixie-slim@sha256:0d1e33586362bb9e608c4e751e7a9e7edb55c9ac11461ed5666af696cc461dd4
-ARG CADDY_BUILDER_IMAGE=caddy:2.11.7-builder@sha256:d842facfd63b960922e57444ff76fd8f0793a66dfdcf481af8026e1f4e6a39b4
+ARG CADDY_BUILDER_IMAGE=caddy:2.11.7-builder@sha256:8910fe662f448b860e8d16ef1c9a4f8946d3193bdc3e971bf0c55c9a2cf246f6
 ARG CADDY_IMAGE=caddy:2.11.7@sha256:685ae3d7c34d9b5f8caeddc5d14051db7bbd88ff1f5a2fa0c16bd8ca328fb7af
 
 FROM ${CADDY_BUILDER_IMAGE} AS caddy
