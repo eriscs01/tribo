@@ -8,7 +8,6 @@ import {
   ItemRevealInput,
   ItemRsvpInput,
   NoBody,
-  Uuid,
   type ItemListQuery,
   type ItemReveal,
   type ItemRevealField,
@@ -18,9 +17,7 @@ import { open, seal, type Keyring } from '@tribo/crypto';
 import { forModule, type DB, type ValueOf } from '@tribo/db';
 import {
   ApiError,
-  decodeCursor,
   encodeCursor,
-  invalidCursor,
   type RequestContext,
   type Tx,
   validate,
@@ -31,6 +28,17 @@ import { recordEvent } from '../audit/service.js';
 import { allActiveMemberships, callerMembership, type CallerMembership } from '../trips/service.js';
 import { writeOperation } from '../write-operation.js';
 import {
+  actingEditor,
+  boardSnapshot,
+  idCursor,
+  invalid,
+  lockedItem,
+  moneyView,
+  restrictedHidden,
+  visibleItem,
+  type ActingEditor,
+} from './acting.js';
+import {
   canCreateItem,
   canDeleteItem,
   canListItems,
@@ -39,25 +47,29 @@ import {
   canRsvpItem,
   canUpdateItem,
   seesRestrictedFields,
-  type ItemEditor,
 } from './policy.js';
 import {
   bumpBoardVersion,
   findItem,
-  findVisibleItem,
   insertItem,
   insertShares,
-  isAssignee,
   listBoard,
   listShares,
   listVisibleItems,
-  lockItem,
   replaceShares,
   softDeleteItem,
   updateItem,
   upsertRsvp,
   type ItemRow,
 } from './repo.js';
+
+export {
+  createUnitsService,
+  type AllocationRecord,
+  type BoardRecord,
+  type UnitRecord,
+  type UnitsService,
+} from './units.js';
 
 /** A stored time: wall-clock plus zone with its resolved instant, or an all-day date. */
 export type ItemTimeRecord = { local: string; tz: string; at: Date } | { date: string };
@@ -214,9 +226,7 @@ export function createItemsService(db: Kysely<DB>, write: WritePath, keys: Keyri
     },
 
     async get(userId, itemId) {
-      const row = await findVisibleItem(forModule(db, 'items'), userId, itemId);
-      const viewer = row ? await callerMembership(db, userId, row.trip_id) : null;
-      if (!row || !viewer) throw new ApiError('not_found');
+      const { row, viewer } = await visibleItem(db, userId, itemId);
       return itemRecord(row, viewer);
     },
 
@@ -234,7 +244,7 @@ export function createItemsService(db: Kysely<DB>, write: WritePath, keys: Keyri
           ...(query.assignee === 'me' ? { assigneeMembershipId: viewer.id } : {}),
         },
         limit: query.limit + 1,
-        after: query.cursor === undefined ? null : itemCursor(query.cursor),
+        after: query.cursor === undefined ? null : idCursor(query.cursor),
       });
       const items = rows.slice(0, query.limit).map((row) => itemRecord(row, viewer));
       const last = items.at(-1);
@@ -437,41 +447,6 @@ export function createItemsService(db: Kysely<DB>, write: WritePath, keys: Keyri
   };
 }
 
-/** The caller acting on one item they can see: account, membership and standing on it. */
-interface ActingEditor {
-  userId: string;
-  row: ItemRow;
-  membership: CallerMembership;
-  editor: ItemEditor;
-}
-
-/**
- * Who is acting on an item. An item the caller cannot see (tribo.item_visible) does not
- * exist for them.
- */
-async function actingEditor(tx: Tx, ctx: RequestContext, itemId: string): Promise<ActingEditor> {
-  if (ctx.userId === null) throw new ApiError('unauthenticated');
-  const items = forModule(tx, 'items');
-  const row = await findVisibleItem(items, ctx.userId, itemId);
-  const membership = row ? await callerMembership(tx, ctx.userId, row.trip_id) : null;
-  if (!row || !membership) throw new ApiError('not_found');
-  const owns = row.owner_membership_id === membership.id;
-  const assigned = !owns && (await isAssignee(items, row.id, membership.id));
-  return {
-    userId: ctx.userId,
-    row,
-    membership,
-    editor: { role: membership.role, owns, assigned },
-  };
-}
-
-/** The write path's load for one item: the live row, locked until commit. */
-async function lockedItem(tx: Tx, target: { itemId: string }) {
-  const row = await lockItem(forModule(tx, 'items'), target.itemId);
-  if (!row) throw new ApiError('not_found');
-  return { tripId: row.trip_id, counter: row.version, row };
-}
-
 /** sharedWith as membership uuids, unique and sorted; each must be active in the trip. */
 async function tripMemberships(
   tx: Tx,
@@ -483,10 +458,6 @@ async function tripMemberships(
     throw invalid('/sharedWith', 'not a member of this trip');
   }
   return ids;
-}
-
-function invalid(path: string, message: string): ApiError {
-  return new ApiError('validation_failed', { errors: [{ path, message }] });
 }
 
 /**
@@ -528,14 +499,6 @@ function time(
   return date === null ? null : { date };
 }
 
-/** An items.list cursor's sort key; anything else is refused before it reaches SQL. */
-function itemCursor(cursor: string): string {
-  const [id] = decodeCursor(cursor, 1);
-  const key = Uuid.safeParse(id);
-  if (!key.success) throw invalidCursor();
-  return key.data;
-}
-
 function startOf(row: ItemRow): ItemTimeRecord | null {
   return time(row.start_at, row.start_tz, row.start_local, row.start_date);
 }
@@ -558,17 +521,11 @@ function itemRecord(
   row: ItemRow,
   viewer: Pick<CallerMembership, 'id' | 'role' | 'canViewCosts'>,
 ): ItemRecord {
-  const restrictedFields = inFieldOrder(row.restricted_fields);
-  const sees = seesRestrictedFields({
-    role: viewer.role,
-    owns: row.owner_membership_id === viewer.id,
-  });
-  const hidden = (field: ItemMaskedField) => !sees && restrictedFields.includes(field);
+  const hidden = (field: ItemMaskedField) => restrictedHidden(row, viewer, field);
   const stored =
     row.cost_minor === null || row.cost_currency === null
       ? null
       : { amountMinor: Number(row.cost_minor), currency: row.cost_currency };
-  const cost = stored !== null && !viewer.canViewCosts ? 'masked' : stored;
   return {
     id: row.id,
     tripId: row.trip_id,
@@ -580,26 +537,14 @@ function itemRecord(
     visibility: row.visibility as ItemRecord['visibility'],
     ownerMembershipId: row.owner_membership_id,
     tags: row.tags,
-    cost: hidden('cost') ? 'masked' : cost,
+    cost: moneyView(row, viewer, stored),
     bookingRef: hidden('bookingRef') || row.booking_ref_enc !== null ? 'masked' : null,
     cardLast4: hidden('cardLast4') || row.card_last4_enc !== null ? 'masked' : null,
-    restrictedFields,
+    restrictedFields: inFieldOrder(row.restricted_fields),
     version: row.version,
     boardVersion: row.board_version,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
-  };
-}
-
-/** The whole assignment board, the item_board aggregate's snapshot (rows have no version). */
-function boardSnapshot(rows: Awaited<ReturnType<typeof listBoard>>) {
-  return {
-    allocations: rows.map((r) => ({
-      membershipId: r.membership_id,
-      unitId: r.unit_id,
-      role: r.role,
-      rsvp: r.rsvp,
-    })),
   };
 }
 

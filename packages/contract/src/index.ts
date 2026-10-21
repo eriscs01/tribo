@@ -1,4 +1,5 @@
 export * from './account.js';
+export * from './assignment.js';
 export * from './auth.js';
 export * from './contacts.js';
 export * from './drop-limits.js';
@@ -25,5 +26,7 @@ export * from './rate-limits.js';
 export * from './session.js';
 export * from './time.js';
 export * from './trip.js';
+export * from './unit.js';
 export * from './vendor.js';
+export * from './warning.js';
 export { registry } from './operations/index.js';

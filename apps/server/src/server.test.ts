@@ -22,6 +22,7 @@ import type {
   MembersService,
   SignedIn,
   TripsService,
+  UnitsService,
 } from '@tribo/core';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ApiError } from '@tribo/platform';
@@ -57,6 +58,14 @@ const testRegistry: Operation[] = [
   defineOperation({
     ...testOp('test.tagged', 'GET', '/v1/test/tagged', ['public']),
     etag: 'representation',
+  }),
+  defineOperation({
+    ...testOp('test.boardTagged', 'GET', '/v1/test/board-tagged', ['public']),
+    etag: 'board_version',
+  }),
+  defineOperation({
+    ...testOp('test.boardUntagged', 'GET', '/v1/test/board-untagged', ['public']),
+    etag: 'board_version',
   }),
   defineOperation({
     ...testOp('test.plannedQuery', 'GET', '/v1/test/planned-query', ['public']),
@@ -116,6 +125,14 @@ const items: ItemsService = {
   rsvp: unused,
   reveal: unused,
 };
+const units: UnitsService = {
+  list: unused,
+  create: unused,
+  update: unused,
+  delete: unused,
+  board: unused,
+  replaceBoard: unused,
+};
 const library: LibraryService = {
   search: unused,
   createPerson: unused,
@@ -146,7 +163,7 @@ async function server(overrides: Partial<ServerDeps> = {}) {
     logStream: stream,
     registry: testRegistry,
     handlers: {
-      ...operationHandlers({ identity, csrfSecret: secret, trips, members, items, library }),
+      ...operationHandlers({ identity, csrfSecret: secret, trips, members, items, units, library }),
       'test.ip': (request) => {
         request.log.info('handler ran');
         return Promise.resolve({ ip: request.ip });
@@ -167,6 +184,8 @@ async function server(overrides: Partial<ServerDeps> = {}) {
         return { requestId: currentRequestId() };
       },
       'test.tagged': () => Promise.resolve({ title: 'Lisbon in spring' }),
+      'test.boardTagged': () => Promise.resolve({ boardVersion: 7, allocations: [] }),
+      'test.boardUntagged': () => Promise.resolve({ allocations: [] }),
       'test.query': (request) => {
         queriesSeen.push(parsedQuery(request, PageQuery));
         return Promise.resolve({ ok: true });
@@ -550,6 +569,35 @@ describe('declared representation ETag', () => {
 
   it('is absent on a read that declares none', async () => {
     const res = await (await server()).inject({ method: 'GET', url: '/v1/test/ip' });
+    expect(res.headers.etag).toBeUndefined();
+  });
+});
+
+describe('declared board_version ETag', () => {
+  it('sends the boardVersion as ETag, the tag If-Match takes, and 304 when If-None-Match names it', async () => {
+    const s = await server();
+    const first = await s.inject({ method: 'GET', url: '/v1/test/board-tagged' });
+    expect(first.statusCode).toBe(200);
+    expect(first.json()).toEqual({ boardVersion: 7, allocations: [] });
+    expect(first.headers.etag).toBe('"7"');
+    const again = await s.inject({
+      method: 'GET',
+      url: '/v1/test/board-tagged',
+      headers: { 'if-none-match': 'W/"7"' },
+    });
+    expect(again.statusCode).toBe(304);
+    expect(again.body).toBe('');
+    const moved = await s.inject({
+      method: 'GET',
+      url: '/v1/test/board-tagged',
+      headers: { 'if-none-match': '"6"' },
+    });
+    expect(moved.statusCode).toBe(200);
+  });
+
+  it('is never guessed for a view without its counter: the request fails as internal_error', async () => {
+    const res = await (await server()).inject({ method: 'GET', url: '/v1/test/board-untagged' });
+    expect(res.statusCode).toBe(500);
     expect(res.headers.etag).toBeUndefined();
   });
 });

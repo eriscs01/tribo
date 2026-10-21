@@ -52,6 +52,7 @@ import {
   findTrip,
   insertMembership,
   insertTrip,
+  findMembershipPersons,
   listMemberships,
   lockMembership,
   lockMembershipOf,
@@ -316,6 +317,24 @@ export async function allActiveMemberships(
 ): Promise<boolean> {
   const unique = [...new Set(membershipIds)];
   return (await countActiveMemberships(forModule(db, 'trips'), tripId, unique)) === unique.length;
+}
+
+/**
+ * Which of these memberships of the trip are people holding a driving licence: the board's
+ * no_licensed_driver check asks it of the drivers it seats.
+ */
+export async function licensedMemberships(
+  db: Kysely<DB>,
+  tripId: string,
+  membershipIds: readonly string[],
+): Promise<Set<string>> {
+  if (membershipIds.length === 0) return new Set();
+  const rows = await findMembershipPersons(forModule(db, 'trips'), tripId, membershipIds);
+  const persons = await memberPersons(
+    db,
+    rows.map((r) => r.person_id),
+  );
+  return new Set(rows.filter((r) => persons.get(r.person_id)?.drivingLicence).map((r) => r.id));
 }
 
 /**

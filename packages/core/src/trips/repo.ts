@@ -311,6 +311,20 @@ export async function countActiveMemberships(
   return Number(row.n);
 }
 
+/** The person behind each of these memberships of the trip, removed ones included. */
+export function findMembershipPersons(
+  db: TripsDb,
+  tripId: string,
+  membershipIds: readonly string[],
+) {
+  return db
+    .selectFrom('tribo.memberships')
+    .select(['id', 'person_id'])
+    .where('trip_id', '=', tripId)
+    .where('id', 'in', membershipIds)
+    .execute();
+}
+
 /** One page of the trip's active memberships, by id (creation order); `after` is the last id. */
 export function listMemberships(
   db: TripsDb,

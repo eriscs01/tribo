@@ -135,23 +135,23 @@
 
 ## Units & assignments & tickets
 
-- [ ] `units.list` · Drop A · `GET /v1/items/{itemId}/units`
+- [x] `units.list` · Drop A · `GET /v1/items/{itemId}/units`
   - Rooms of a lodging, vehicles of a rental; Rates masked per canViewCosts
   - Roles: owner, organizer, member, viewer. If-Match: `no`. Idempotency: safe to repeat.
-- [ ] `units.create` · Drop A · `POST /v1/items/{itemId}/units`
+- [x] `units.create` · Drop A · `POST /v1/items/{itemId}/units`
   - Add room or vehicle: label, capacity, rate; trip_archived on archived trips (R29)
   - Roles: item owner, organizer, owner. If-Match: `no`. Idempotency: creates (key).
   - Limit: Takes no Idempotency-Key in 1a: only expenses.create and files.upload honour it; this create follows in 1b.
-- [ ] `units.update` · Drop A · `PATCH /v1/units/{unitId}`
+- [x] `units.update` · Drop A · `PATCH /v1/units/{unitId}`
   - Edit unit; capacity_exceeded if below occupants; trip_archived on archived trips (R29)
   - Roles: item owner, organizer, owner. If-Match: `version`. Idempotency: safe to repeat.
-- [ ] `units.delete` · Drop A · `DELETE /v1/units/{unitId}`
+- [x] `units.delete` · Drop A · `DELETE /v1/units/{unitId}`
   - Remove unit and its allocations; Deletes its allocations explicitly (units are soft-deleted, nothing cascades); bumps boardVersion; trip_archived on archived trips (R29)
   - Roles: item owner, organizer, owner. If-Match: `version`. Idempotency: safe to repeat.
-- [ ] `items.assignments.get` · Drop A · `GET /v1/items/{itemId}/assignments`
+- [x] `items.assignments.get` · Drop A · `GET /v1/items/{itemId}/assignments`
   - Whole board: RSVPs, occupants, drivers, passengers, assignees; Follows item_visible; ETag = boardVersion
   - Roles: owner, organizer, member, viewer. If-Match: `no`. Idempotency: safe to repeat.
-- [ ] `items.assignments.replace` · Drop A · `PUT /v1/items/{itemId}/assignments`
+- [x] `items.assignments.replace` · Drop A · `PUT /v1/items/{itemId}/assignments`
   - Save whole board; capacity checked on final state; capacity_exceeded, room_double_booked, driver_taken; If-Match on boardVersion; trip_archived on archived trips (R29)
   - Roles: item owner, organizer, owner. If-Match: `board_version`. Idempotency: safe to repeat.
 - [ ] `tickets.list` · Drop B · `GET /v1/items/{itemId}/tickets`

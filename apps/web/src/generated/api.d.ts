@@ -1940,6 +1940,20 @@ export interface components {
             /** Format: date */
             date: string;
         };
+        Allocation: {
+            membershipId: string;
+            role: components["schemas"]["AllocationRole"];
+            unitId: string | null;
+            rsvp: components["schemas"]["RsvpState"] | null;
+        };
+        AllocationInput: {
+            membershipId: string;
+            role: components["schemas"]["AllocationRole"];
+            unitId?: string | null;
+            rsvp?: components["schemas"]["RsvpState"];
+        };
+        /** @enum {string} */
+        AllocationRole: "attendee" | "occupant" | "driver" | "passenger" | "assignee";
         AuthPasswordResetInput: {
             token: string;
             newPassword: components["schemas"]["NewPassword"];
@@ -1984,6 +1998,15 @@ export interface components {
             boardVersion: number;
             createdAt: components["schemas"]["Instant"];
             updatedAt: components["schemas"]["Instant"];
+        };
+        ItemBoard: {
+            itemId: string;
+            boardVersion: number;
+            allocations: components["schemas"]["Allocation"][];
+            warnings: components["schemas"]["Warning"][];
+        };
+        ItemBoardInput: {
+            allocations: components["schemas"]["AllocationInput"][];
         };
         ItemInput: {
             type: components["schemas"]["ItemType"];
@@ -2224,6 +2247,8 @@ export interface components {
         };
         /** @enum {string} */
         RsvpAnswer: "yes" | "no" | "maybe";
+        /** @enum {string} */
+        RsvpState: "pending" | "yes" | "no" | "maybe";
         Session: {
             user: {
                 id: string;
@@ -2282,6 +2307,46 @@ export interface components {
         TripRole: "owner" | "organizer" | "member" | "viewer";
         /** @enum {string} */
         TripStatus: "draft" | "planning" | "active" | "completed" | "archived";
+        Unit: {
+            id: string;
+            itemId: string;
+            kind: components["schemas"]["UnitKind"];
+            label: string;
+            capacity: number;
+            bedType: string | null;
+            rate: (components["schemas"]["Money"] | components["schemas"]["MaskedValue"]) | null;
+            position: number;
+            version: number;
+            createdAt: components["schemas"]["Instant"];
+            updatedAt: components["schemas"]["Instant"];
+        };
+        UnitInput: {
+            kind: components["schemas"]["UnitKind"];
+            label: string;
+            capacity: number;
+            bedType?: string | null;
+            rate?: {
+                amountMinor: number;
+                currency: components["schemas"]["CurrencyCode"];
+            } | null;
+            position?: number;
+        };
+        /** @enum {string} */
+        UnitKind: "room" | "vehicle";
+        UnitPage: {
+            items: components["schemas"]["Unit"][];
+            nextCursor: string | null;
+        };
+        UnitPatch: {
+            label?: string;
+            capacity?: number;
+            bedType?: string | null;
+            rate?: (components["schemas"]["MaskedValue"] | {
+                amountMinor: number;
+                currency: components["schemas"]["CurrencyCode"];
+            }) | null;
+            position?: number;
+        };
         Username: string;
         Vendor: {
             id: string;
@@ -2309,6 +2374,12 @@ export interface components {
             local: string;
             tz: components["schemas"]["TimeZone"];
         };
+        Warning: {
+            code: components["schemas"]["WarningCode"];
+            unitId?: string;
+        };
+        /** @enum {string} */
+        WarningCode: "overlap" | "missing_transfer" | "non_refundable" | "non_changeable" | "deposit_due" | "missing_add_on" | "no_licensed_driver";
     };
     responses: never;
     parameters: never;
@@ -3914,7 +3985,10 @@ export interface operations {
     "items.assignments.get": {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description An ETag already held; 304 when it is still current */
+                "If-None-Match"?: string;
+            };
             path: {
                 itemId: string;
             };
@@ -3922,14 +3996,23 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            200: {
                 headers: {
+                    /** @description The item's boardVersion, quoted; send it back as If-Match to save the board */
+                    ETag?: string;
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["ItemBoard"];
                 };
+            };
+            /** @description Not modified: If-None-Match names the ETag */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {
@@ -3954,11 +4037,26 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ItemBoardInput"];
+            };
+        };
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            200: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ItemBoard"];
+                };
+            };
+            /** @description Too many writes in this window (rate_limited) */
+            429: {
+                headers: {
+                    /** @description Seconds until the window resets */
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -4358,7 +4456,10 @@ export interface operations {
     };
     "units.list": {
         parameters: {
-            query?: never;
+            query?: {
+                limit?: number;
+                cursor?: string;
+            };
             header?: never;
             path: {
                 itemId: string;
@@ -4367,13 +4468,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["UnitPage"];
                 };
             };
             /** @description Error */
@@ -4396,11 +4497,26 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UnitInput"];
+            };
+        };
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            201: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Unit"];
+                };
+            };
+            /** @description Too many writes in this window (rate_limited) */
+            429: {
+                headers: {
+                    /** @description Seconds until the window resets */
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -5766,7 +5882,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description The ETag of a representation already held; 304 when it is still current */
+                /** @description An ETag already held; 304 when it is still current */
                 "If-None-Match"?: string;
             };
             path: {
@@ -6672,9 +6788,18 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description No content */
+            204: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too many writes in this window (rate_limited) */
+            429: {
+                headers: {
+                    /** @description Seconds until the window resets */
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -6704,11 +6829,26 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UnitPatch"];
+            };
+        };
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            200: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Unit"];
+                };
+            };
+            /** @description Too many writes in this window (rate_limited) */
+            429: {
+                headers: {
+                    /** @description Seconds until the window resets */
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {

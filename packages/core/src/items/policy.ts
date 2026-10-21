@@ -69,3 +69,27 @@ export function canRevealItem(editor: ItemEditor): boolean {
   if (ITEM_EDITORS.has(editor.role)) return true;
   return editor.role === 'member' && editor.owns;
 }
+
+/** units.list: every role reads the units of an item it can see; masking narrows the rates. */
+const UNITS_LIST_ROLES: ReadonlySet<TripRole> = new Set(['owner', 'organizer', 'member', 'viewer']);
+
+export function canListUnit(role: TripRole): boolean {
+  return UNITS_LIST_ROLES.has(role);
+}
+
+/**
+ * units.create, units.update, units.delete and items.assignments.replace: the item's owner
+ * and the trip's owners and organizers manage its units and board; never a viewer, and
+ * being assigned is not enough.
+ */
+export function canManageBoard(editor: ItemEditor): boolean {
+  if (ITEM_EDITORS.has(editor.role)) return true;
+  return editor.role === 'member' && editor.owns;
+}
+
+/** items.assignments.get: every role reads the board of an item it can see. */
+const BOARD_READERS: ReadonlySet<TripRole> = new Set(['owner', 'organizer', 'member', 'viewer']);
+
+export function canReadBoard(role: TripRole): boolean {
+  return BOARD_READERS.has(role);
+}

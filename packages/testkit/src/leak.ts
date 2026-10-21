@@ -1,6 +1,7 @@
 // Leak-test harness: fast-check generates small worlds of users, placeholders, trips,
-// memberships (some soft-deleted) and items (shared, private or selected, some deleted,
-// some priced, some with restricted fields); a TypeScript oracle states who may see what;
+// memberships (some soft-deleted, some viewers granted costs), items (shared, private or
+// selected, some deleted, some priced, some with restricted fields) and their units (rooms,
+// some priced, some deleted) and board rows; a TypeScript oracle states who may see what;
 // the property checks that the database's tribo.item_visible and tribo.person_visible agree
 // with it for every pair in the world, that each list operation registered here returns each
 // account exactly what the oracle allows, and that each item read registered here shows a
@@ -9,10 +10,12 @@ import { VALUE_SETS, type DB, type ValueOf } from '@tribo/db';
 import fc from 'fast-check';
 import { sql, type Kysely } from 'kysely';
 import {
+  addAllocation,
   addMember,
   createItem,
   createPlaceholder,
   createTrip,
+  createUnit,
   createUser,
   softDelete,
   type TripRole,
@@ -34,7 +37,7 @@ export interface WorldSpec {
     owner: number;
     deleted: boolean;
     /** members[0] is the owner's membership. */
-    members: { person: number; role: TripRole; deleted: boolean }[];
+    members: { person: number; role: TripRole; deleted: boolean; canViewCosts: boolean }[];
     items: {
       owner: number;
       visibility: Visibility;
@@ -42,6 +45,9 @@ export interface WorldSpec {
       deleted: boolean;
       priced: boolean;
       restricted: MaskedField[];
+      units: { priced: boolean; deleted: boolean }[];
+      /** Board rows by member index; units are left out, since visibility never asks. */
+      allocations: { member: number; role: 'attendee' | 'assignee' }[];
     }[];
   }[];
 }
@@ -66,14 +72,18 @@ function tripArb(nUsers: number, nPersons: number) {
           person: fc.nat({ max: nPersons - 1 }),
           role: fc.constantFrom(...nonOwnerRoles),
           deleted: sometimes,
+          // Only a viewer's grant means anything (decision 0007); the generator sets it on others too.
+          canViewCosts: fc.boolean(),
         }),
         { selector: (m) => m.person, maxLength: 5 },
       ),
     })
     .chain((t) => {
       const members = [
-        { person: t.owner, role: 'owner' as TripRole, deleted: false },
-        ...t.others.filter((m) => m.person !== t.owner),
+        { person: t.owner, role: 'owner' as TripRole, deleted: false, canViewCosts: false },
+        ...t.others
+          .filter((m) => m.person !== t.owner)
+          .map((m) => ({ ...m, canViewCosts: m.role === 'viewer' && m.canViewCosts })),
       ];
       const item = fc.record({
         owner: fc.nat({ max: members.length - 1 }),
@@ -83,6 +93,14 @@ function tripArb(nUsers: number, nPersons: number) {
         deleted: sometimes,
         priced: fc.boolean(),
         restricted: fc.subarray([...VALUE_SETS['tribo.items.restricted_fields']]),
+        units: fc.array(fc.record({ priced: fc.boolean(), deleted: sometimes }), { maxLength: 2 }),
+        allocations: fc.uniqueArray(
+          fc.record({
+            member: fc.nat({ max: members.length - 1 }),
+            role: fc.constantFrom('attendee' as const, 'assignee' as const),
+          }),
+          { selector: (a) => `${String(a.member)}:${a.role}`, maxLength: 3 },
+        ),
       });
       return fc
         .array(item, { maxLength: 6 })
@@ -119,7 +137,13 @@ export interface BuiltWorld {
   trips: {
     id: string;
     deleted: boolean;
-    members: { id: string; personId: string; role: TripRole; deleted: boolean }[];
+    members: {
+      id: string;
+      personId: string;
+      role: TripRole;
+      deleted: boolean;
+      canViewCosts: boolean;
+    }[];
     items: {
       id: string;
       ownerMembershipId: string;
@@ -127,6 +151,8 @@ export interface BuiltWorld {
       shares: string[];
       deleted: boolean;
       restrictedFields: MaskedField[];
+      units: { id: string; priced: boolean; deleted: boolean }[];
+      allocations: { membershipId: string; role: 'attendee' | 'assignee' }[];
     }[];
   }[];
 }
@@ -144,6 +170,13 @@ export interface Oracle {
    * owner or the trip's owner or an organizer.
    */
   fieldReadable(world: BuiltWorld, userId: string, itemId: string, field: MaskedField): boolean;
+  /** A unit shows while it is live and its item shows (children follow their item). */
+  unitVisible(world: BuiltWorld, userId: string, unitId: string): boolean;
+  /**
+   * Whether a caller who sees the item reads its money (its cost, its units' rates): every
+   * role but a viewer, a viewer only with a cost grant, and never past a restricted cost.
+   */
+  moneyReadable(world: BuiltWorld, userId: string, itemId: string): boolean;
 }
 
 const personOf = (w: BuiltWorld, userId: string) => w.persons.find((p) => p.userId === userId);
@@ -193,6 +226,24 @@ export const oracle: Oracle = {
     const mine = trip.members.find((m) => m.personId === me.id && !m.deleted);
     if (!mine) return false;
     return item.ownerMembershipId === mine.id || mine.role === 'owner' || mine.role === 'organizer';
+  },
+
+  unitVisible(w, userId, unitId) {
+    for (const trip of w.trips) {
+      const item = trip.items.find((i) => i.units.some((u) => u.id === unitId));
+      const unit = item?.units.find((u) => u.id === unitId);
+      if (item && unit) return !unit.deleted && oracle.itemVisible(w, userId, item.id);
+    }
+    return false;
+  },
+
+  moneyReadable(w, userId, itemId) {
+    const me = personOf(w, userId);
+    const trip = w.trips.find((t) => t.items.some((i) => i.id === itemId));
+    const mine = trip?.members.find((m) => m.personId === me?.id && !m.deleted);
+    if (!mine) return false;
+    if (mine.role === 'viewer' && !mine.canViewCosts) return false;
+    return oracle.fieldReadable(w, userId, itemId, 'cost');
   },
 
   tripVisible(w, userId, tripId) {
@@ -245,8 +296,20 @@ export async function buildWorld(db: Kysely<DB>, spec: WorldSpec): Promise<Built
       const id =
         index === 0
           ? ownerMembershipId
-          : await addMember(db, { tripId, personId, role: m.role, createdBy: owner.userId });
-      members.push({ id, personId, role: m.role, deleted: m.deleted });
+          : await addMember(db, {
+              tripId,
+              personId,
+              role: m.role,
+              createdBy: owner.userId,
+              canViewCosts: m.canViewCosts,
+            });
+      members.push({
+        id,
+        personId,
+        role: m.role,
+        deleted: m.deleted,
+        canViewCosts: m.canViewCosts,
+      });
     }
     const items: BuiltWorld['trips'][number]['items'] = [];
     for (const it of t.items) {
@@ -260,6 +323,20 @@ export async function buildWorld(db: Kysely<DB>, spec: WorldSpec): Promise<Built
         ...(it.priced ? { cost: { amountMinor: 4_200, currency: 'EUR' } } : {}),
         restrictedFields: it.restricted,
       });
+      const units = [];
+      for (const u of it.units) {
+        const unitId = await createUnit(db, {
+          itemId: id,
+          ...(u.priced ? { rate: { amountMinor: 150_000, currency: 'PHP' } } : {}),
+        });
+        units.push({ id: unitId, priced: u.priced, deleted: u.deleted });
+      }
+      const allocations = [];
+      for (const a of it.allocations) {
+        const membershipId = members[a.member]?.id ?? '';
+        await addAllocation(db, { tripId, itemId: id, membershipId, role: a.role });
+        allocations.push({ membershipId, role: a.role });
+      }
       items.push({
         id,
         ownerMembershipId: itemOwnerId,
@@ -267,6 +344,8 @@ export async function buildWorld(db: Kysely<DB>, spec: WorldSpec): Promise<Built
         shares,
         deleted: it.deleted,
         restrictedFields: it.restricted,
+        units,
+        allocations,
       });
     }
     trips.push({ id: tripId, deleted: t.deleted, members, items });
@@ -276,7 +355,10 @@ export async function buildWorld(db: Kysely<DB>, spec: WorldSpec): Promise<Built
   for (const p of persons) if (p.deleted) await softDelete(db, 'tribo.persons', p.id);
   for (const t of trips) {
     for (const m of t.members) if (m.deleted) await softDelete(db, 'tribo.memberships', m.id);
-    for (const i of t.items) if (i.deleted) await softDelete(db, 'tribo.items', i.id);
+    for (const i of t.items) {
+      for (const u of i.units) if (u.deleted) await softDelete(db, 'tribo.units', u.id);
+      if (i.deleted) await softDelete(db, 'tribo.items', i.id);
+    }
     if (t.deleted) await softDelete(db, 'tribo.trips', t.id);
   }
   return { userIds: users.map((u) => u.userId), persons, trips };

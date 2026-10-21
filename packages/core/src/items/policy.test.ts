@@ -6,6 +6,9 @@ import {
   canNarrowVisibility,
   canRevealItem,
   canRsvpItem,
+  canListUnit,
+  canManageBoard,
+  canReadBoard,
   canUpdateItem,
 } from './policy.js';
 
@@ -82,5 +85,32 @@ describe('canRevealItem', () => {
     expect(canRevealItem(editor('member', true))).toBe(true);
     expect(canRevealItem(editor('member', false, true))).toBe(false);
     expect(canRevealItem(editor('viewer', true))).toBe(false);
+  });
+});
+
+describe('canListUnit', () => {
+  it('lets every trip role list the units of an item it may see', () => {
+    for (const role of ['owner', 'organizer', 'member', 'viewer'] as const) {
+      expect(canListUnit(role)).toBe(true);
+    }
+  });
+});
+
+describe('canManageBoard', () => {
+  it("lets owners and organizers manage any item's units and board, members their own, never viewers", () => {
+    expect(canManageBoard(editor('owner'))).toBe(true);
+    expect(canManageBoard(editor('organizer'))).toBe(true);
+    expect(canManageBoard(editor('member', true))).toBe(true);
+    expect(canManageBoard(editor('member'))).toBe(false);
+    expect(canManageBoard(editor('member', false, true))).toBe(false);
+    expect(canManageBoard(editor('viewer', true))).toBe(false);
+  });
+});
+
+describe('canReadBoard', () => {
+  it('lets every trip role read the board of an item it may see', () => {
+    for (const role of ['owner', 'organizer', 'member', 'viewer'] as const) {
+      expect(canReadBoard(role)).toBe(true);
+    }
   });
 });

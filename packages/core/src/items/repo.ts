@@ -341,3 +341,237 @@ export function listBoard(db: ItemsDb, itemId: string) {
     .orderBy('unit_id')
     .execute();
 }
+
+/** A unit's columns; only live units (soft-deleted ones drop out of every read). */
+function selectUnit(db: ItemsDb) {
+  return db
+    .selectFrom('tribo.units as u')
+    .select([
+      'u.id',
+      'u.item_id',
+      'u.kind',
+      'u.label',
+      'u.capacity',
+      'u.bed_type',
+      'u.rate_minor',
+      'u.rate_currency',
+      'u.position',
+      'u.version',
+      'u.created_at',
+      'u.updated_at',
+    ])
+    .where('u.deleted_at', 'is', null);
+}
+
+export interface NewUnit {
+  itemId: string;
+  kind: ValueOf<'tribo.units.kind'>;
+  label: string;
+  capacity: number;
+  bedType: string | null;
+  rate: { amountMinor: number; currency: string } | null;
+  position: number;
+  createdBy: string;
+}
+
+export async function insertUnit(db: ItemsDb, unit: NewUnit): Promise<string> {
+  const row = await db
+    .insertInto('tribo.units')
+    .values({
+      item_id: unit.itemId,
+      kind: unit.kind,
+      label: unit.label,
+      capacity: unit.capacity,
+      bed_type: unit.bedType,
+      rate_minor: unit.rate?.amountMinor ?? null,
+      rate_currency: unit.rate?.currency ?? null,
+      position: unit.position,
+      created_by: unit.createdBy,
+      updated_by: unit.createdBy,
+    })
+    .returning('id')
+    .executeTakeFirstOrThrow();
+  return row.id;
+}
+
+/** For the writer that just changed it, inside its transaction. */
+export function findUnit(db: ItemsDb, unitId: string) {
+  return selectUnit(db).where('u.id', '=', unitId).executeTakeFirst();
+}
+
+/** The item a live unit belongs to, or undefined; whether the caller sees it is not asked here. */
+export async function findUnitItemId(db: ItemsDb, unitId: string): Promise<string | undefined> {
+  const row = await selectUnit(db).where('u.id', '=', unitId).executeTakeFirst();
+  return row?.item_id;
+}
+
+/** The live unit, locked FOR UPDATE until the write commits. */
+export function lockUnit(db: ItemsDb, unitId: string) {
+  return selectUnit(db).where('u.id', '=', unitId).forUpdate().executeTakeFirst();
+}
+
+/** What a units.update changes; an absent key keeps its column. */
+export interface UnitChanges {
+  label?: string;
+  capacity?: number;
+  bedType?: string | null;
+  rate?: { amountMinor: number; currency: string } | null;
+  position?: number;
+}
+
+/** Applies the changes and bumps the unit's version. */
+export async function updateUnit(
+  db: ItemsDb,
+  unitId: string,
+  changes: UnitChanges,
+  updatedBy: string,
+): Promise<void> {
+  const { rate } = changes;
+  await db
+    .updateTable('tribo.units')
+    .set((eb) => ({
+      ...(changes.label === undefined ? {} : { label: changes.label }),
+      ...(changes.capacity === undefined ? {} : { capacity: changes.capacity }),
+      ...(changes.bedType === undefined ? {} : { bed_type: changes.bedType }),
+      ...(rate === undefined
+        ? {}
+        : { rate_minor: rate?.amountMinor ?? null, rate_currency: rate?.currency ?? null }),
+      ...(changes.position === undefined ? {} : { position: changes.position }),
+      version: eb('version', '+', 1),
+      updated_at: sql<Date>`now()`,
+      updated_by: updatedBy,
+    }))
+    .where('id', '=', unitId)
+    .execute();
+}
+
+/** Stamps deleted_at and bumps the version; returns the new version. */
+export async function softDeleteUnit(
+  db: ItemsDb,
+  unitId: string,
+  deletedBy: string,
+): Promise<number> {
+  const row = await db
+    .updateTable('tribo.units')
+    .set((eb) => ({
+      deleted_at: sql<Date>`now()`,
+      deleted_by: deletedBy,
+      updated_at: sql<Date>`now()`,
+      updated_by: deletedBy,
+      version: eb('version', '+', 1),
+    }))
+    .where('id', '=', unitId)
+    .returning('version')
+    .executeTakeFirstOrThrow();
+  return row.version;
+}
+
+/** Deletes the board rows in one unit: units are soft-deleted, so nothing cascades (R21). */
+export async function deleteUnitAllocations(db: ItemsDb, unitId: string): Promise<void> {
+  await db.deleteFrom('tribo.allocations').where('unit_id', '=', unitId).execute();
+}
+
+/** The board rows that take a place in the unit: occupants, its driver and passengers. */
+export async function countSeated(db: ItemsDb, unitId: string): Promise<number> {
+  const row = await db
+    .selectFrom('tribo.allocations')
+    .select((eb) => eb.fn.countAll<string>().as('n'))
+    .where('unit_id', '=', unitId)
+    .where('role', 'in', ['occupant', 'driver', 'passenger'])
+    .executeTakeFirstOrThrow();
+  return Number(row.n);
+}
+
+/**
+ * Every live unit of an item in id order; with `lock`, locked FOR UPDATE until commit, so
+ * a board save checks capacity against units nobody changes under it.
+ */
+export function itemUnits(db: ItemsDb, itemId: string, options: { lock: boolean }) {
+  const query = selectUnit(db).where('u.item_id', '=', itemId).orderBy('u.id');
+  return (options.lock ? query.forUpdate() : query).execute();
+}
+
+/**
+ * One page of an item's live units in id order (UUIDv7, so the order they were added).
+ * The caller has already found the item visible.
+ */
+export function listUnits(
+  db: ItemsDb,
+  itemId: string,
+  page: { limit: number; after: string | null },
+) {
+  let query = selectUnit(db).where('u.item_id', '=', itemId);
+  if (page.after !== null) query = query.where('u.id', '>', page.after);
+  return query.orderBy('u.id').limit(page.limit).execute();
+}
+
+export type UnitRow = NonNullable<Awaited<ReturnType<typeof findUnit>>>;
+
+/** A board row as written: attendees carry their answer, other roles none. */
+export interface NewAllocation {
+  membershipId: string;
+  role: ValueOf<'tribo.allocations.role'>;
+  unitId: string | null;
+  rsvp: ValueOf<'tribo.allocations.rsvp'> | null;
+}
+
+/** Replaces an item's board whole: allocations are owned rows of the item (R26). */
+export async function replaceBoardRows(
+  db: ItemsDb,
+  board: { tripId: string; itemId: string; rows: readonly NewAllocation[]; createdBy: string },
+): Promise<void> {
+  await db.deleteFrom('tribo.allocations').where('item_id', '=', board.itemId).execute();
+  if (board.rows.length === 0) return;
+  await db
+    .insertInto('tribo.allocations')
+    .values(
+      board.rows.map((r) => ({
+        trip_id: board.tripId,
+        item_id: board.itemId,
+        membership_id: r.membershipId,
+        role: r.role,
+        unit_id: r.unitId,
+        rsvp: r.rsvp,
+        created_by: board.createdBy,
+      })),
+    )
+    .execute();
+}
+
+/** An item's nights, check-in day to check-out day, each in its own zone: [first, last). */
+function nights(alias: 'i' | 'o') {
+  const t = (column: string) => sql.ref(`${alias}.${column}`);
+  const first = sql<string>`coalesce((${t('start_at')} AT TIME ZONE ${t('start_tz')})::date, ${t('start_date')})`;
+  const last = sql<string>`coalesce((${t('end_at')} AT TIME ZONE ${t('end_tz')})::date, ${t('end_date')}, ${first})`;
+  return { first, range: sql`daterange(${first}, greatest(${last}, ${first} + 1))` };
+}
+
+/**
+ * Whether any of these memberships occupies a live room of another live item of the trip,
+ * one the caller can see, on a night this item also covers. Undated stays share no night.
+ */
+export async function occupiedElsewhere(
+  db: ItemsDb,
+  stay: { userId: string; itemId: string; membershipIds: readonly string[] },
+): Promise<boolean> {
+  if (stay.membershipIds.length === 0) return false;
+  const here = nights('i');
+  const there = nights('o');
+  const row = await db
+    .selectFrom('tribo.allocations as a')
+    .innerJoin('tribo.items as o', 'o.id', 'a.item_id')
+    .innerJoin('tribo.units as u', 'u.id', 'a.unit_id')
+    .innerJoin('tribo.items as i', 'i.trip_id', 'o.trip_id')
+    .select('a.id')
+    .where('i.id', '=', stay.itemId)
+    .whereRef('o.id', '<>', 'i.id')
+    .where('a.role', '=', 'occupant')
+    .where('a.membership_id', 'in', stay.membershipIds)
+    .where('o.deleted_at', 'is', null)
+    .where('u.deleted_at', 'is', null)
+    .where(sql<boolean>`tribo.item_visible(${stay.userId}, o.id)`)
+    .where(sql<boolean>`${here.first} IS NOT NULL AND ${there.first} IS NOT NULL`)
+    .where(sql<boolean>`${here.range} && ${there.range}`)
+    .executeTakeFirst();
+  return row !== undefined;
+}

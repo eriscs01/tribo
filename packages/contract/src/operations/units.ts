@@ -1,6 +1,9 @@
 // Generated from operations.csv by src/scripts/import-operations.ts. A story replaces an
 // entry's status with 'implemented' and adds its input and output schemas.
 import { defineOperation } from '../operation.js';
+import { UnitPage, Unit, UnitInput, UnitPatch } from '../unit.js';
+import { PageQuery } from '../page.js';
+import { ItemBoard, ItemBoardInput } from '../assignment.js';
 
 export const unitsOperations = [
   defineOperation({
@@ -18,7 +21,9 @@ export const unitsOperations = [
     mcpApproval: false,
     mcpTool: null,
     notes: 'Rooms of a lodging, vehicles of a rental; Rates masked per canViewCosts',
-    status: 'planned',
+    status: 'implemented',
+    query: PageQuery,
+    output: UnitPage,
   }),
   defineOperation({
     id: 'units.create',
@@ -35,7 +40,9 @@ export const unitsOperations = [
     mcpApproval: false,
     mcpTool: null,
     notes: 'Add room or vehicle: label, capacity, rate; trip_archived on archived trips (R29)',
-    status: 'planned',
+    status: 'implemented',
+    input: UnitInput,
+    output: Unit,
   }),
   defineOperation({
     id: 'units.update',
@@ -52,7 +59,9 @@ export const unitsOperations = [
     mcpApproval: false,
     mcpTool: null,
     notes: 'Edit unit; capacity_exceeded if below occupants; trip_archived on archived trips (R29)',
-    status: 'planned',
+    status: 'implemented',
+    input: UnitPatch,
+    output: Unit,
   }),
   defineOperation({
     id: 'units.delete',
@@ -70,7 +79,7 @@ export const unitsOperations = [
     mcpTool: null,
     notes:
       'Remove unit and its allocations; Deletes its allocations explicitly (units are soft-deleted, nothing cascades); bumps boardVersion; trip_archived on archived trips (R29)',
-    status: 'planned',
+    status: 'implemented',
   }),
   defineOperation({
     id: 'items.assignments.get',
@@ -88,7 +97,9 @@ export const unitsOperations = [
     mcpTool: null,
     notes:
       'Whole board: RSVPs, occupants, drivers, passengers, assignees; Follows item_visible; ETag = boardVersion',
-    status: 'planned',
+    status: 'implemented',
+    etag: 'board_version',
+    output: ItemBoard,
   }),
   defineOperation({
     id: 'items.assignments.replace',
@@ -106,7 +117,9 @@ export const unitsOperations = [
     mcpTool: 'assign',
     notes:
       'Save whole board; capacity checked on final state; capacity_exceeded, room_double_booked, driver_taken; If-Match on boardVersion; trip_archived on archived trips (R29)',
-    status: 'planned',
+    status: 'implemented',
+    input: ItemBoardInput,
+    output: ItemBoard,
   }),
   defineOperation({
     id: 'tickets.list',
