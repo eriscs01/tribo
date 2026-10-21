@@ -400,7 +400,7 @@ describe('items.assignments.replace over HTTP', () => {
     });
   });
 
-  it('logs driver_taken and a forbidden save by operation and code', async () => {
+  it('logs driver_taken and a forbidden save by operation and code; answers warnings by unit id', async () => {
     const owner = await signedInUser();
     const member = await signedInUser();
     const trip = await createTrip(tdb.db, { owner });
@@ -436,6 +436,25 @@ describe('items.assignments.replace over HTTP', () => {
       operationId: 'items.assignments.replace',
       problem: 'driver_taken',
       status: 409,
+    });
+    const passenger = await app.inject({
+      method: 'PUT',
+      url: `/v1/items/${encodeTypeId(ID_PREFIX.item, rental)}/assignments`,
+      payload: {
+        allocations: [
+          {
+            membershipId: encodeTypeId(ID_PREFIX.membership, memberMembershipId),
+            role: 'passenger',
+            unitId: bike,
+          },
+        ],
+      },
+      ...owner.auth,
+      headers: { ...owner.auth.headers, 'if-match': '"1"' },
+    });
+    expect(passenger.json()).toMatchObject({
+      boardVersion: 2,
+      warnings: [{ code: 'no_licensed_driver', unitId: bike }],
     });
     const forbidden = await save(member);
     expect(refusalLine(forbidden.headers['x-request-id'])).toMatchObject({

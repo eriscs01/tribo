@@ -80,6 +80,8 @@ export function boardRefusal(
       const wanted = UNIT_FOR[row.role];
       if (wanted && unit.kind !== wanted.kind) return invalid('/unitId', wanted.message);
     }
+    // An occupant of a second room is room_double_booked, not a repeated role, so a room is
+    // part of what makes an occupant row the same row twice.
     const role = `${row.membershipId}:${row.role}:${row.role === 'occupant' ? String(row.unitId) : ''}`;
     if (roles.has(role)) return invalid('', 'this member already has this role');
     roles.add(role);

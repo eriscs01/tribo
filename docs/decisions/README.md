@@ -49,3 +49,4 @@ fixed.
 | [0006](0006-idempotency-key-only-where-honoured.md) | 19 Oct 2026 | Idempotency-Key in OpenAPI only where 1a honours it                    | accepted |
 | [0007](0007-membership-roles-and-placeholders.md)   | 22 Oct 2026 | Membership roles, cost grants and placeholders                         | accepted |
 | [0008](0008-rate-limits-and-client-address.md)      | 22 Oct 2026 | Rate limits: what counts, against whom, which client address           | accepted |
+| [0009](0009-units-and-the-assignment-board.md)      | 22 Oct 2026 | Units and the assignment board                                         | accepted |
