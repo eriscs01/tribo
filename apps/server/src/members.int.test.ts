@@ -229,3 +229,81 @@ describe('members.add over HTTP', () => {
     expect(JSON.stringify(badLines)).not.toContain('Secret Traveller Name');
   });
 });
+
+describe('members.setRole over HTTP', () => {
+  const memberUrl = (w: Awaited<ReturnType<typeof world>>, membershipId: string) =>
+    `${w.membersUrl}/${encodeTypeId(ID_PREFIX.membership, membershipId)}`;
+
+  it('answers 428 if_match_required without If-Match and 412 version_conflict when stale', async () => {
+    const w = await world();
+    const url = memberUrl(w, w.viewerMembershipId);
+    const none = await app.inject({
+      method: 'PATCH',
+      url,
+      payload: { canViewCosts: true },
+      ...w.owner.auth,
+    });
+    expect(none.statusCode).toBe(428);
+    const stale = await app.inject({
+      method: 'PATCH',
+      url,
+      payload: { canViewCosts: true },
+      cookies: w.owner.auth.cookies,
+      headers: { ...w.owner.auth.headers, 'if-match': '"7"' },
+    });
+    expect(stale.statusCode).toBe(412);
+    expect(stale.json()).toMatchObject({ code: 'version_conflict' });
+  });
+
+  it('answers 200 with the changed member when If-Match names its version', async () => {
+    const w = await world();
+    const res = await app.inject({
+      method: 'PATCH',
+      url: memberUrl(w, w.viewerMembershipId),
+      payload: { canViewCosts: true },
+      cookies: w.owner.auth.cookies,
+      headers: { ...w.owner.auth.headers, 'if-match': '"1"' },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({
+      id: encodeTypeId(ID_PREFIX.membership, w.viewerMembershipId),
+      role: 'viewer',
+      canViewCosts: true,
+      version: 2,
+    });
+  });
+
+  it('answers 403 mfa_required for a handover to an account without MFA, and logs it', async () => {
+    const w = await world();
+    const res = await app.inject({
+      method: 'PATCH',
+      url: memberUrl(w, w.viewerMembershipId),
+      payload: { role: 'owner' },
+      cookies: w.owner.auth.cookies,
+      headers: { ...w.owner.auth.headers, 'if-match': '"1"' },
+    });
+    expect(res.statusCode).toBe(403);
+    expect(res.json()).toMatchObject({ code: 'mfa_required' });
+    expect(
+      linesOf(res.headers['x-request-id']).find((l) => l.msg === 'request refused'),
+    ).toMatchObject({
+      level: 30,
+      operationId: 'members.setRole',
+      problem: 'mfa_required',
+      status: 403,
+    });
+  });
+
+  it('answers 404 not_found for a membership of another trip', async () => {
+    const w = await world();
+    const other = await world();
+    const res = await app.inject({
+      method: 'PATCH',
+      url: memberUrl(w, other.viewerMembershipId),
+      payload: { role: 'member' },
+      cookies: w.owner.auth.cookies,
+      headers: { ...w.owner.auth.headers, 'if-match': '"1"' },
+    });
+    expect(res.statusCode).toBe(404);
+  });
+});

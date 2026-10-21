@@ -72,3 +72,30 @@ export function canListMembers(role: TripRole): boolean {
 export function canAddMember(role: TripRole): boolean {
   return role === 'owner';
 }
+
+/** members.setRole: the owner alone sets roles and cost grants. */
+export function canSetMemberRole(role: TripRole): boolean {
+  return role === 'owner';
+}
+
+/** Every role but a viewer reads costs anyway; only a viewer's are a grant (can_view_costs). */
+export function takesCostGrant(role: TripRole): boolean {
+  return role === 'viewer';
+}
+
+/**
+ * members.setRole, asked by the owner: why this membership may not take this role, or null.
+ * The owner steps down only by handing the trip to another member (G14), who needs an
+ * account with MFA, as every owner does.
+ */
+export function roleChangeRefusal(change: {
+  to: TripRole;
+  /** The membership is the owner's own. */
+  ownMembership: boolean;
+  /** For a handover: the new owner is an account with MFA on. */
+  newOwnerHasMfa: boolean;
+}): ErrorCode | null {
+  if (change.ownMembership) return change.to === 'owner' ? null : 'owner_transfer_required';
+  if (change.to === 'owner' && !change.newOwnerHasMfa) return 'mfa_required';
+  return null;
+}

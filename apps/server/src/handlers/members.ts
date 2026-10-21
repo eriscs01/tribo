@@ -1,6 +1,6 @@
 import { encodeTypeId, ID_PREFIX, PageQuery, type Member, type MemberPage } from '@tribo/contract';
 import type { MemberRecord, MembersService } from '@tribo/core';
-import { pathId, requestContext, signedIn } from '../context.js';
+import { ifMatch, pathId, requestContext, signedIn } from '../context.js';
 import { parsedQuery, type Handlers } from '../routes.js';
 import { personView } from './library.js';
 
@@ -35,5 +35,15 @@ export function membersHandlers(members: MembersService): Handlers {
       );
       return reply.code(201).send(memberView(member));
     },
+    'members.setRole': async (request) =>
+      memberView(
+        await members.setRole(
+          requestContext(request),
+          pathId(request, 'tripId'),
+          pathId(request, 'membershipId'),
+          request.body,
+          ifMatch(request),
+        ),
+      ),
   };
 }

@@ -52,3 +52,18 @@ export const MemberAddInput = z
   .meta({ id: 'MemberAddInput' });
 
 export type MemberAddInput = z.infer<typeof MemberAddInput>;
+
+/**
+ * members.setRole, as JSON Merge Patch: the owner changes a member's role or a viewer's
+ * cost grant. Making another member owner hands the trip over: they need an account with
+ * MFA, and the old owner becomes an organizer in the same write (G14). `canViewCosts`
+ * applies to viewers only; moving a viewer to another role drops the grant.
+ */
+export const MemberPatch = z
+  .strictObject({
+    role: TripRole.optional(),
+    canViewCosts: z.boolean().optional(),
+  })
+  .meta({ id: 'MemberPatch' });
+
+export type MemberPatch = z.infer<typeof MemberPatch>;

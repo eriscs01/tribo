@@ -445,3 +445,8 @@ function userSnapshot(row: {
     mfaEnabled: row.mfa_enabled_at !== null,
   };
 }
+
+/** Whether the account has MFA on: what taking over a trip asks of its new owner (G14). */
+export function accountHasMfa(db: Kysely<DB>, userId: string): Promise<boolean> {
+  return repo.hasMfaEnabled(forModule(db, 'identity'), userId);
+}

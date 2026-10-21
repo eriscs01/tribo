@@ -3,6 +3,7 @@
 import { encodeTypeId, ID_PREFIX } from '@tribo/contract';
 import {
   createLibraryService,
+  accountHasMfa,
   createMembersService,
   writePath,
   type LibraryService,
@@ -35,7 +36,7 @@ const per = (id: string) => encodeTypeId(ID_PREFIX.person, id);
 beforeAll(async () => {
   tdb = await createTestDatabase();
   const keys = testKeys();
-  members = createMembersService(tdb.db, writePath(tdb.db), keys);
+  members = createMembersService(tdb.db, writePath(tdb.db), keys, accountHasMfa);
   library = createLibraryService(tdb.db, writePath(tdb.db), keys);
 });
 afterAll(() => tdb.destroy());

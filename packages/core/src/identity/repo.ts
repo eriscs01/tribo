@@ -320,3 +320,14 @@ export function findPasswordAccount(db: IdentityDb, userId: string) {
     .where('deleted_at', 'is', null)
     .executeTakeFirst();
 }
+
+/** Whether the account has MFA turned on (an enrolment confirmed and not reset since). */
+export async function hasMfaEnabled(db: IdentityDb, userId: string): Promise<boolean> {
+  const row = await db
+    .selectFrom('tribo.users')
+    .select('mfa_enabled_at')
+    .where('id', '=', userId)
+    .where('deleted_at', 'is', null)
+    .executeTakeFirst();
+  return (row?.mfa_enabled_at ?? null) !== null;
+}

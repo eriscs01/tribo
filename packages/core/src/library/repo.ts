@@ -30,6 +30,15 @@ export function findAccountPerson(db: LibraryDb, userId: string) {
     .executeTakeFirst();
 }
 
+/** The account behind a person, whatever its state; undefined for an unknown person. */
+export function findPersonAccount(db: LibraryDb, personId: string) {
+  return db
+    .selectFrom('tribo.persons')
+    .select('user_id')
+    .where('id', '=', personId)
+    .executeTakeFirst();
+}
+
 /**
  * A fresh row id, taken before the insert: a sensitive value is sealed to its row id (AAD),
  * so the id must be known when the row is written.

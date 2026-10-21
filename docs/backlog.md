@@ -75,7 +75,7 @@
   - Add placeholder traveller (new or visible library person); person_visible on personId; Person must have no account: person_has_account → send an invite (R4); A removed placeholder is undeleted rather than re-added; trip_archived on archived trips (R29)
   - Roles: owner. If-Match: `no`. Idempotency: creates (key).
   - Limit: Takes no Idempotency-Key in 1a: only expenses.create and files.upload honour it; this create follows in 1b.
-- [ ] `members.setRole` · Drop A · `PATCH /v1/trips/{tripId}/members/{membershipId}`
+- [x] `members.setRole` · Drop A · `PATCH /v1/trips/{tripId}/members/{membershipId}`
   - Change role or canViewCosts; Owner transfer to an MFA member demotes the old owner to organizer in the same write (G14); MCP approval; trip_archived on archived trips (R29)
   - Roles: owner. If-Match: `version`. Idempotency: safe to repeat.
 - [ ] `members.remove` · Drop A · `DELETE /v1/trips/{tripId}/members/{membershipId}`

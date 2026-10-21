@@ -45,7 +45,7 @@ export default defineConfig({
       // counts as covered only when a test that asserts its rule runs it (CLAUDE.md, tests).
       thresholds: {
         statements: 94,
-        branches: 87,
+        branches: 88,
         functions: 97,
         lines: 96,
         'packages/core/src/**': { statements: 94, branches: 89, functions: 99, lines: 97 },

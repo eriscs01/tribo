@@ -2115,6 +2115,10 @@ export interface components {
             items: components["schemas"]["Member"][];
             nextCursor: string | null;
         };
+        MemberPatch: {
+            role?: components["schemas"]["TripRole"];
+            canViewCosts?: boolean;
+        };
         MetaOpenapi: {
             openapi: string;
             info: {
@@ -6332,15 +6336,19 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberPatch"];
+            };
+        };
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["Member"];
                 };
             };
             /** @description Error */

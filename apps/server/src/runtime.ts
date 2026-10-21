@@ -1,4 +1,5 @@
 import {
+  accountHasMfa,
   createIdentityService,
   createItemsService,
   createLibraryService,
@@ -28,7 +29,7 @@ export function composeServices(db: Kysely<DB>, appKey: AppKey, publicUrl: URL) 
     issuer,
     identity: createIdentityService(db, keys, issuer),
     trips: createTripsService(db, write),
-    members: createMembersService(db, write, keys),
+    members: createMembersService(db, write, keys, accountHasMfa),
     items: createItemsService(db, write, keys),
     library: createLibraryService(db, write, keys),
     verifyAudit: (chainKey?: string) => verifyChains(db, chainKey),

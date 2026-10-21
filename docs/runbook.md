@@ -487,6 +487,18 @@ Everything a request leaves behind joins on its request id: its log lines, its p
 To see a pattern rather than one request, grep for the message and the code, for example every `forbidden` today: `docker compose logs --no-color --since 24h app | grep '"msg":"request refused"' | grep '"problem":"forbidden"'`, or every slow request: `… | grep '"msg":"slow request"'`.
 
 4. **Join it to what changed.** `docker compose exec app tribo audit request <id>` lists the audit events that request wrote, one per line: time (UTC), chain and seq, action, entity type, entity id, version after, surface, actor user id. No events means the request changed nothing (a read, or a refusal that rolled back). Audit rows hold ids and metadata only; to see a field's history, use the item's history once it ships (1b).
+
+   Refusals that users most often report as "it won't let me" on members (operations `members.add` and `members.setRole`); each is the owner's to fix, not the operator's:
+
+   | `problem`                 | Operation         | What to tell the owner                                                                  |
+   | ------------------------- | ----------------- | --------------------------------------------------------------------------------------- |
+   | `person_has_account`      | `members.add`     | That person has an account: send them an invite link instead of adding them             |
+   | `already_member`          | `members.add`     | The placeholder is already in the trip                                                  |
+   | `mfa_required`            | `members.setRole` | The new owner must turn on two-factor sign-in first; a placeholder cannot own a trip    |
+   | `owner_transfer_required` | `members.setRole` | The owner steps down only by making another member owner, which makes them an organizer |
+
+   A handover shows in `tribo audit request <id>` as two `role_change` events on `membership`, the new owner's first.
+
 5. **Raise the log level for a while.** Set `TRIBO_LOG_LEVEL=debug` in `.env`, save the current logs (next step), then `docker compose up -d app`. Reproduce the problem, then set it back to `info` and run `docker compose up -d app` again. Debug lines follow the same rules: ids, codes and timings, never values.
 6. **Retention, and keeping lines before they go.** The `local` driver keeps 5 files of 20 MB per container (`x-service` in `deploy/compose.yml`), so the oldest app lines rotate out as new ones arrive. A container's logs are deleted with the container, so recreating `app` (an upgrade, a log-level change, `docker compose down`) loses them. Save what you need first:
 

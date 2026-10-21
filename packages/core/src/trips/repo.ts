@@ -249,6 +249,38 @@ export function undeleteMembership(
     .executeTakeFirstOrThrow();
 }
 
+/** An active membership of this trip, locked FOR UPDATE until commit, or undefined. */
+export function lockMembership(db: TripsDb, target: { tripId: string; membershipId: string }) {
+  return db
+    .selectFrom('tribo.memberships')
+    .select(MEMBERSHIP_COLUMNS)
+    .where('id', '=', target.membershipId)
+    .where('trip_id', '=', target.tripId)
+    .where('deleted_at', 'is', null)
+    .forUpdate()
+    .executeTakeFirst();
+}
+
+/** Writes a membership's role and cost grant and bumps its version. */
+export function updateMembershipRole(
+  db: TripsDb,
+  membershipId: string,
+  change: { role: TripRole; canViewCosts: boolean; updatedBy: string },
+) {
+  return db
+    .updateTable('tribo.memberships')
+    .set((eb) => ({
+      trip_role: change.role,
+      can_view_costs: change.canViewCosts,
+      version: eb('version', '+', 1),
+      updated_at: sql<Date>`now()`,
+      updated_by: change.updatedBy,
+    }))
+    .where('id', '=', membershipId)
+    .returning(MEMBERSHIP_COLUMNS)
+    .executeTakeFirstOrThrow();
+}
+
 /** The person's active membership in a trip that is not deleted (R18), or undefined. */
 export function findActiveMembership(db: TripsDb, tripId: string, personId: string) {
   return db

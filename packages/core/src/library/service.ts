@@ -26,6 +26,7 @@ import {
   findOwnPerson,
   findPerson,
   findPersons,
+  findPersonAccount,
   findVisiblePerson,
   insertAccountPerson,
   insertPlace,
@@ -559,4 +560,10 @@ export async function visiblePerson(
 ): Promise<PersonRecord | null> {
   const row = await findVisiblePerson(forModule(db, 'library'), userId, personId);
   return row ? personRecord(row) : null;
+}
+
+/** The account a person is, inside every trip it is a member of; null for a placeholder. */
+export async function personAccountId(db: Kysely<DB>, personId: string): Promise<string | null> {
+  const row = await findPersonAccount(forModule(db, 'library'), personId);
+  return row?.user_id ?? null;
 }

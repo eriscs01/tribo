@@ -1,7 +1,7 @@
 // Generated from operations.csv by src/scripts/import-operations.ts. A story replaces an
 // entry's status with 'implemented' and adds its input and output schemas.
 import { defineOperation } from '../operation.js';
-import { Member, MemberAddInput, MemberPage } from '../member.js';
+import { Member, MemberAddInput, MemberPage, MemberPatch } from '../member.js';
 import { PageQuery } from '../page.js';
 
 export const membersOperations = [
@@ -60,7 +60,9 @@ export const membersOperations = [
     mcpTool: 'manage_member',
     notes:
       'Change role or canViewCosts; Owner transfer to an MFA member demotes the old owner to organizer in the same write (G14); MCP approval; trip_archived on archived trips (R29)',
-    status: 'planned',
+    status: 'implemented',
+    input: MemberPatch,
+    output: Member,
   }),
   defineOperation({
     id: 'members.remove',

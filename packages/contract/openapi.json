@@ -7887,12 +7887,12 @@
           }
         ],
         "responses": {
-          "501": {
-            "description": "Registered but not implemented yet (not_implemented)",
+          "200": {
+            "description": "OK",
             "content": {
-              "application/problem+json": {
+              "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Problem"
+                  "$ref": "#/components/schemas/Member"
                 }
               }
             }
@@ -7909,7 +7909,7 @@
           }
         },
         "x-tribo": {
-          "status": "planned",
+          "status": "implemented",
           "slice": "1a",
           "drop": "A",
           "roles": "owner",
@@ -7947,7 +7947,17 @@
               "type": "string"
             }
           }
-        ]
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MemberPatch"
+              }
+            }
+          }
+        }
       },
       "delete": {
         "operationId": "members.remove",
@@ -9282,6 +9292,18 @@
           "items",
           "nextCursor"
         ],
+        "additionalProperties": false
+      },
+      "MemberPatch": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "$ref": "#/components/schemas/TripRole"
+          },
+          "canViewCosts": {
+            "type": "boolean"
+          }
+        },
         "additionalProperties": false
       },
       "MetaOpenapi": {
