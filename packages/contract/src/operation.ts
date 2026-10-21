@@ -41,7 +41,7 @@ export interface Operation {
 }
 
 const ID = /^[a-z]+(\.[a-z][a-zA-Z]*)+$/;
-const PATH = /^\/(v1\/[a-z0-9\-/{}A-Za-z.]+|healthz)$/;
+const PATH = /^\/(v1\/[A-Za-z0-9\-/{}.]+|healthz)$/;
 
 /** Declares one operation. Checks the shape here so a bad entry fails at import, not in a route. */
 export function defineOperation<const T extends Operation>(op: T): Readonly<T> {

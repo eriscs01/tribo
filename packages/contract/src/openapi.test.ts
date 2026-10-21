@@ -86,6 +86,16 @@ describe('toOpenApi', () => {
     expect(tagged.map((op) => op.id)).toContain('trips.get');
   });
 
+  it('declares 429 with Retry-After exactly on the implemented writes the rate limits count', () => {
+    const paths = doc.paths as Record<string, Record<string, Declared>>;
+    for (const op of registry) {
+      const limited = paths[op.path]?.[op.method.toLowerCase()]?.responses['429'];
+      const expected = op.status === 'implemented' && op.method !== 'GET';
+      expect(limited !== undefined, op.id).toBe(expected);
+      if (limited) expect(limited.headers, op.id).toHaveProperty('Retry-After');
+    }
+  });
+
   it('answers 204 for an implemented operation without output', () => {
     const logout = registry.find((op) => op.id === 'auth.logout');
     const paths = toOpenApi(registry).paths as Record<
@@ -94,5 +104,13 @@ describe('toOpenApi', () => {
     >;
     expect(logout?.output).toBeUndefined();
     expect(paths['/v1/auth/logout']?.post?.responses).toHaveProperty('204');
+  });
+
+  it('keeps a path named __proto__ as its own entry, never reaching Object.prototype', () => {
+    const liveness = registry.find((op) => op.id === 'meta.liveness');
+    if (!liveness) throw new Error('meta.liveness missing');
+    const hostile = toOpenApi([{ ...liveness, path: '__proto__' }]);
+    expect(Object.hasOwn(hostile.paths as object, '__proto__')).toBe(true);
+    expect(({} as Record<string, unknown>).get).toBeUndefined();
   });
 });

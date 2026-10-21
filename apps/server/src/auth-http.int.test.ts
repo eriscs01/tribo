@@ -42,6 +42,8 @@ async function signedIn(password = PASSWORD) {
     method: 'POST',
     url: '/v1/auth/login',
     payload: { username, password },
+    // One client per account, so signing many in stays under the per-address login limit.
+    remoteAddress: `2001:db8:${n.toString(16)}::1`,
   });
   expect(res.statusCode).toBe(201);
   const token = res.cookies.find((c) => c.name === SESSION_COOKIE)?.value ?? '';

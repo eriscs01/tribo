@@ -8,8 +8,11 @@ const BASE32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
  * Written independently of the identity module, so tests check it against an outside oracle.
  */
 export function totpFor(base32Key: string, at = Date.now()): string {
+  // Trailing '=' is base32 padding; trimmed by index, not by a regex that can backtrack.
+  let end = base32Key.length;
+  while (end > 0 && base32Key[end - 1] === '=') end -= 1;
   let bits = '';
-  for (const char of base32Key.replace(/=+$/, '')) {
+  for (const char of base32Key.slice(0, end)) {
     bits += BASE32.indexOf(char.toUpperCase()).toString(2).padStart(5, '0');
   }
   const key = Buffer.from(bits.match(/.{8}/g)?.map((b) => parseInt(b, 2)) ?? []);

@@ -1,3 +1,4 @@
+import { createRateLimits } from '@tribo/platform';
 import { operationHandlers } from './handlers/index.js';
 import type { Release } from './config.js';
 import type { Services } from './runtime.js';
@@ -13,6 +14,8 @@ export function buildApp(
     release?: Release;
     /** Log destination; adapter tests capture lines here. */
     logStream?: NodeJS.WritableStream;
+    /** The rate limits' clock, in epoch milliseconds; adapter tests move their own. */
+    now?: () => number;
   },
 ) {
   const { identity, trips, members, items, library } = services;
@@ -26,5 +29,6 @@ export function buildApp(
     ...(config.release ? { release: config.release } : {}),
     ...(config.logStream ? { logStream: config.logStream } : {}),
     ping: services.ping,
+    rateLimits: createRateLimits(config.now),
   });
 }

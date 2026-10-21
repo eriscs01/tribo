@@ -48,3 +48,4 @@ fixed.
 | [0005](0005-drop-a-is-api-only.md)                  | 18 Oct 2026 | Drop A is API only                                                     | accepted |
 | [0006](0006-idempotency-key-only-where-honoured.md) | 19 Oct 2026 | Idempotency-Key in OpenAPI only where 1a honours it                    | accepted |
 | [0007](0007-membership-roles-and-placeholders.md)   | 22 Oct 2026 | Membership roles, cost grants and placeholders                         | accepted |
+| [0008](0008-rate-limits-and-client-address.md)      | 22 Oct 2026 | Rate limits: what counts, against whom, which client address           | accepted |

@@ -7,3 +7,9 @@ useDefault = true
 # the testkit) and never committed, so the full history scans clean. A deliberately fake value
 # that must be committed is allowlisted here by path or regex, each with a comment saying why
 # it is fake; never a real secret, and never a whole directory of fixtures.
+
+[[allowlists]]
+# RFC 6238, Appendix B: the published SHA-1 test seed "12345678901234567890" in base32, used as
+# a test vector in packages/testkit/src/totp.test.ts. It is in the RFC, not a secret.
+description = "RFC 6238 TOTP test vector seed"
+regexes = ['''GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ''']

@@ -21,6 +21,7 @@ export * from './password.js';
 export * from './person.js';
 export * from './place.js';
 export * from './problem.js';
+export * from './rate-limits.js';
 export * from './session.js';
 export * from './time.js';
 export * from './trip.js';

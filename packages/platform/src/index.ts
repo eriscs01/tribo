@@ -1,6 +1,7 @@
 export type { RequestContext } from './context.js';
 export { decodeCursor, encodeCursor, invalidCursor } from './cursor.js';
 export { ApiError } from './errors.js';
+export { createRateLimits, RateLimited, type RateLimits, type Requester } from './rate-limit.js';
 export {
   checkIfMatch,
   createWritePath,
