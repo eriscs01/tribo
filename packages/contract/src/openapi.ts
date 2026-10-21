@@ -4,6 +4,7 @@ import { ErrorCode } from './errors.js';
 import { PATH_PARAM_PREFIX, typeIdPattern } from './ids.js';
 import { pathParams, type AuthMode, type Operation } from './operation.js';
 import { Problem, PROBLEM_CONTENT_TYPE } from './problem.js';
+import { isRateLimited } from './rate-limits.js';
 import { SESSION_COOKIE } from './session.js';
 
 type Json = Record<string, unknown>;
@@ -13,6 +14,16 @@ const problemResponse = (description: string) => ({
   description,
   content: { [PROBLEM_CONTENT_TYPE]: { schema: PROBLEM_REF } },
 });
+
+const RATE_LIMITED = {
+  ...problemResponse('Too many writes in this window (rate_limited)'),
+  headers: {
+    'Retry-After': {
+      description: 'Seconds until the window resets',
+      schema: { type: 'integer', minimum: 1 },
+    },
+  },
+};
 
 const ETAG_HEADER = {
   description: 'SHA-256 (base64url) of this representation, as sent to this caller',
@@ -150,6 +161,7 @@ function operationObject(op: Operation, components: Components): Json {
   } else {
     responses['204'] = { description: 'No content' };
   }
+  if (isRateLimited(op)) responses['429'] = RATE_LIMITED;
   responses.default = problemResponse('Error');
 
   const object: Json = {

@@ -5,7 +5,7 @@ import proxyAddr from '@fastify/proxy-addr';
 import { CSRF_HEADER, registry as defaultRegistry, type Operation } from '@tribo/contract';
 import type { SignedIn } from '@tribo/core';
 import Fastify, { type FastifyInstance } from 'fastify';
-import { ApiError } from '@tribo/platform';
+import { ApiError, createRateLimits, type RateLimits } from '@tribo/platform';
 import { DEV_RELEASE, type Release } from './config.js';
 import { registerErrorHandling } from './errors.js';
 import { loggerOptions } from './logger.js';
@@ -30,6 +30,8 @@ export interface ServerDeps {
   registry?: readonly Operation[];
   /** Operation handlers (identity, later the other modules; tests add their own). */
   handlers?: Handlers;
+  /** The in-memory rate limits; tests pass ones on their own clock. */
+  rateLimits?: RateLimits;
 }
 
 const REQUEST_ID = /^[A-Za-z0-9-]{8,64}$/;
@@ -80,6 +82,25 @@ export async function buildServer(deps: ServerDeps): Promise<FastifyInstance> {
     const session = token === undefined ? null : await deps.authenticate(token);
     if (!session) throw new ApiError('unauthenticated');
     request.signedIn = session;
+  });
+
+  // After authentication, so a signed-in write counts against its account. Without one it
+  // counts against request.ip: the socket peer, or the address the trusted proxy forwarded.
+  const rateLimits = deps.rateLimits ?? createRateLimits();
+  app.addHook('onRequest', (request, _reply, done) => {
+    const op = request.routeOptions.config.operation;
+    try {
+      if (op) {
+        rateLimits.admit(
+          op,
+          request.signedIn ? { account: request.signedIn.userId } : { address: request.ip },
+        );
+      }
+    } catch (error) {
+      done(error as Error);
+      return;
+    }
+    done();
   });
 
   const builtIn: Handlers = {

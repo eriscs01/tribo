@@ -1276,6 +1276,25 @@
               }
             }
           },
+          "429": {
+            "description": "Too many writes in this window (rate_limited)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the window resets",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
           "default": {
             "description": "Error",
             "content": {
@@ -1327,6 +1346,25 @@
           "204": {
             "description": "No content"
           },
+          "429": {
+            "description": "Too many writes in this window (rate_limited)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the window resets",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
           "default": {
             "description": "Error",
             "content": {
@@ -1371,6 +1409,25 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/MfaSetup"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many writes in this window (rate_limited)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the window resets",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
                 }
               }
             }
@@ -1423,6 +1480,25 @@
               }
             }
           },
+          "429": {
+            "description": "Too many writes in this window (rate_limited)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the window resets",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
           "default": {
             "description": "Error",
             "content": {
@@ -1471,6 +1547,25 @@
         "responses": {
           "204": {
             "description": "No content"
+          },
+          "429": {
+            "description": "Too many writes in this window (rate_limited)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the window resets",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
           },
           "default": {
             "description": "Error",
@@ -2750,6 +2845,25 @@
               }
             }
           },
+          "429": {
+            "description": "Too many writes in this window (rate_limited)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the window resets",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
           "default": {
             "description": "Error",
             "content": {
@@ -2823,6 +2937,25 @@
         "responses": {
           "204": {
             "description": "No content"
+          },
+          "429": {
+            "description": "Too many writes in this window (rate_limited)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the window resets",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
           },
           "default": {
             "description": "Error",
@@ -3501,6 +3634,25 @@
               }
             }
           },
+          "429": {
+            "description": "Too many writes in this window (rate_limited)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the window resets",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
           "default": {
             "description": "Error",
             "content": {
@@ -3571,6 +3723,25 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ItemRsvp"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many writes in this window (rate_limited)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the window resets",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
                 }
               }
             }
@@ -3952,6 +4123,25 @@
               }
             }
           },
+          "429": {
+            "description": "Too many writes in this window (rate_limited)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the window resets",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
           "default": {
             "description": "Error",
             "content": {
@@ -4073,6 +4263,25 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Person"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many writes in this window (rate_limited)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the window resets",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
                 }
               }
             }
@@ -4344,6 +4553,25 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Place"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many writes in this window (rate_limited)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the window resets",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
                 }
               }
             }
@@ -5115,6 +5343,25 @@
               }
             }
           },
+          "429": {
+            "description": "Too many writes in this window (rate_limited)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the window resets",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
           "default": {
             "description": "Error",
             "content": {
@@ -5432,6 +5679,25 @@
               }
             }
           },
+          "429": {
+            "description": "Too many writes in this window (rate_limited)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the window resets",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
           "default": {
             "description": "Error",
             "content": {
@@ -5600,6 +5866,25 @@
         "responses": {
           "204": {
             "description": "No content"
+          },
+          "429": {
+            "description": "Too many writes in this window (rate_limited)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the window resets",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
           },
           "default": {
             "description": "Error",
@@ -6319,6 +6604,25 @@
               }
             }
           },
+          "429": {
+            "description": "Too many writes in this window (rate_limited)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the window resets",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
           "default": {
             "description": "Error",
             "content": {
@@ -6464,6 +6768,25 @@
               }
             }
           },
+          "429": {
+            "description": "Too many writes in this window (rate_limited)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the window resets",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
           "default": {
             "description": "Error",
             "content": {
@@ -6537,6 +6860,25 @@
         "responses": {
           "204": {
             "description": "No content"
+          },
+          "429": {
+            "description": "Too many writes in this window (rate_limited)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the window resets",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
           },
           "default": {
             "description": "Error",
@@ -7602,6 +7944,25 @@
               }
             }
           },
+          "429": {
+            "description": "Too many writes in this window (rate_limited)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the window resets",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
           "default": {
             "description": "Error",
             "content": {
@@ -7823,6 +8184,25 @@
               }
             }
           },
+          "429": {
+            "description": "Too many writes in this window (rate_limited)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the window resets",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
           "default": {
             "description": "Error",
             "content": {
@@ -7893,6 +8273,25 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Member"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many writes in this window (rate_limited)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the window resets",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
                 }
               }
             }

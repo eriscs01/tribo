@@ -1,5 +1,5 @@
 import { problem, PROBLEM_CONTENT_TYPE, type ErrorCode, type Problem } from '@tribo/contract';
-import { ApiError } from '@tribo/platform';
+import { ApiError, RateLimited } from '@tribo/platform';
 import type { FastifyError, FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 
 /** The problem code each reply answered with, for the request's log line. */
@@ -29,6 +29,7 @@ export function registerErrorHandling(app: FastifyInstance) {
   app.setNotFoundHandler((request, reply) => sendProblem(reply, request, 'not_found'));
 
   app.setErrorHandler((error: FastifyError, request, reply) => {
+    if (error instanceof RateLimited) reply.header('retry-after', String(error.retryAfterSeconds));
     if (error instanceof ApiError) return sendProblem(reply, request, error.code, error.extra);
     if (error.validation) {
       return sendProblem(reply, request, 'validation_failed', {
