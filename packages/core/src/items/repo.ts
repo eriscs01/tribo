@@ -399,6 +399,63 @@ export function findUnit(db: ItemsDb, unitId: string) {
   return selectUnit(db).where('u.id', '=', unitId).executeTakeFirst();
 }
 
+/** The item a live unit belongs to, or undefined; whether the caller sees it is not asked here. */
+export async function findUnitItemId(db: ItemsDb, unitId: string): Promise<string | undefined> {
+  const row = await selectUnit(db).where('u.id', '=', unitId).executeTakeFirst();
+  return row?.item_id;
+}
+
+/** The live unit, locked FOR UPDATE until the write commits. */
+export function lockUnit(db: ItemsDb, unitId: string) {
+  return selectUnit(db).where('u.id', '=', unitId).forUpdate().executeTakeFirst();
+}
+
+/** What a units.update changes; an absent key keeps its column. */
+export interface UnitChanges {
+  label?: string;
+  capacity?: number;
+  bedType?: string | null;
+  rate?: { amountMinor: number; currency: string } | null;
+  position?: number;
+}
+
+/** Applies the changes and bumps the unit's version. */
+export async function updateUnit(
+  db: ItemsDb,
+  unitId: string,
+  changes: UnitChanges,
+  updatedBy: string,
+): Promise<void> {
+  const { rate } = changes;
+  await db
+    .updateTable('tribo.units')
+    .set((eb) => ({
+      ...(changes.label === undefined ? {} : { label: changes.label }),
+      ...(changes.capacity === undefined ? {} : { capacity: changes.capacity }),
+      ...(changes.bedType === undefined ? {} : { bed_type: changes.bedType }),
+      ...(rate === undefined
+        ? {}
+        : { rate_minor: rate?.amountMinor ?? null, rate_currency: rate?.currency ?? null }),
+      ...(changes.position === undefined ? {} : { position: changes.position }),
+      version: eb('version', '+', 1),
+      updated_at: sql<Date>`now()`,
+      updated_by: updatedBy,
+    }))
+    .where('id', '=', unitId)
+    .execute();
+}
+
+/** The board rows that take a place in the unit: occupants, its driver and passengers. */
+export async function countSeated(db: ItemsDb, unitId: string): Promise<number> {
+  const row = await db
+    .selectFrom('tribo.allocations')
+    .select((eb) => eb.fn.countAll<string>().as('n'))
+    .where('unit_id', '=', unitId)
+    .where('role', 'in', ['occupant', 'driver', 'passenger'])
+    .executeTakeFirstOrThrow();
+  return Number(row.n);
+}
+
 /**
  * One page of an item's live units in id order (UUIDv7, so the order they were added).
  * The caller has already found the item visible.

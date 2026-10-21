@@ -142,7 +142,7 @@
   - Add room or vehicle: label, capacity, rate; trip_archived on archived trips (R29)
   - Roles: item owner, organizer, owner. If-Match: `no`. Idempotency: creates (key).
   - Limit: Takes no Idempotency-Key in 1a: only expenses.create and files.upload honour it; this create follows in 1b.
-- [ ] `units.update` · Drop A · `PATCH /v1/units/{unitId}`
+- [x] `units.update` · Drop A · `PATCH /v1/units/{unitId}`
   - Edit unit; capacity_exceeded if below occupants; trip_archived on archived trips (R29)
   - Roles: item owner, organizer, owner. If-Match: `version`. Idempotency: safe to repeat.
 - [ ] `units.delete` · Drop A · `DELETE /v1/units/{unitId}`

@@ -1,9 +1,15 @@
 // The units of an item (rooms of a lodging, vehicles of a ground rental) and the item's
 // assignment board. Units and allocations are the items module's tables, so they are
 // written here, beside the item service, on the same acting-editor and lock helpers.
-import { UnitInput, type PageQuery } from '@tribo/contract';
+import { UnitInput, UnitPatch, type MaskedValue, type PageQuery } from '@tribo/contract';
 import { forModule, type DB, type ValueOf } from '@tribo/db';
-import { ApiError, encodeCursor, type RequestContext, type WritePath } from '@tribo/platform';
+import {
+  ApiError,
+  encodeCursor,
+  type RequestContext,
+  type Tx,
+  type WritePath,
+} from '@tribo/platform';
 import type { Kysely } from 'kysely';
 import type { CallerMembership } from '../trips/service.js';
 import { writeOperation } from '../write-operation.js';
@@ -17,7 +23,18 @@ import {
   type ActingEditor,
 } from './acting.js';
 import { canListUnit, canManageBoard } from './policy.js';
-import { findUnit, insertUnit, listUnits, type ItemRow, type UnitRow } from './repo.js';
+import {
+  countSeated,
+  findUnit,
+  findUnitItemId,
+  insertUnit,
+  listUnits,
+  lockItem,
+  lockUnit,
+  updateUnit,
+  type ItemRow,
+  type UnitRow,
+} from './repo.js';
 
 export interface UnitRecord {
   id: string;
@@ -43,6 +60,13 @@ export interface UnitsService {
   ): Promise<{ items: UnitRecord[]; nextCursor: string | null }>;
   /** units.create: a room on a lodging or a vehicle on a ground rental. */
   create(ctx: RequestContext, itemId: string, body: unknown): Promise<UnitRecord>;
+  /** units.update: merge-patches the unit under If-Match = its version. */
+  update(
+    ctx: RequestContext,
+    unitId: string,
+    body: unknown,
+    ifMatch: number | undefined,
+  ): Promise<UnitRecord>;
 }
 
 /** The one kind of unit each item type takes; other types have none. */
@@ -52,6 +76,7 @@ const UNIT_KIND: Partial<Record<ValueOf<'tribo.items.type'>, ValueOf<'tribo.unit
 };
 
 const unitsCreate = writeOperation('units.create', UnitInput);
+const unitsUpdate = writeOperation('units.update', UnitPatch);
 
 /** `write` is core's write path (writePath in write-path.ts), passed in to keep imports acyclic. */
 export function createUnitsService(db: Kysely<DB>, write: WritePath): UnitsService {
@@ -121,7 +146,93 @@ export function createUnitsService(db: Kysely<DB>, write: WritePath): UnitsServi
         },
       });
     },
+
+    update(ctx, unitId, body, ifMatch) {
+      let acting: ActingEditor | undefined;
+      return write(ctx, {
+        operation: unitsUpdate,
+        target: { unitId },
+        body,
+        ifMatch,
+        authorize: async (tx, c, target) => {
+          acting = await actingOnUnit(tx, c, target.unitId);
+        },
+        load: lockedUnit,
+        mutate: async (tx, _c, { item, unit }, patch) => {
+          if (!acting) throw new Error('units.update mutated before authorize');
+          const { userId, membership } = acting;
+          if (unit.kind === 'vehicle' && patch.bedType != null) {
+            throw invalid('/bedType', 'a vehicle has no bed type');
+          }
+          const items = forModule(tx, 'items');
+          // Allocations take the item lock lockedUnit holds, so the count stays true to commit.
+          if (
+            patch.capacity !== undefined &&
+            patch.capacity < (await countSeated(items, unit.id))
+          ) {
+            throw new ApiError('capacity_exceeded');
+          }
+          const { rate } = patch;
+          await uniqueLabel(() =>
+            updateUnit(
+              items,
+              unit.id,
+              {
+                ...(patch.label === undefined ? {} : { label: patch.label }),
+                ...(patch.capacity === undefined ? {} : { capacity: patch.capacity }),
+                ...(patch.bedType === undefined ? {} : { bedType: patch.bedType }),
+                ...(rate === undefined ? {} : { rate: unmaskedRate(rate) }),
+                ...(patch.position === undefined ? {} : { position: patch.position }),
+              },
+              userId,
+            ),
+          );
+          const row = await findUnit(items, unit.id);
+          if (!row) throw new Error(`unit ${unit.id} vanished inside its own write`);
+          return {
+            action: 'update',
+            aggregate: 'unit',
+            entityId: unit.id,
+            tripId: item.trip_id,
+            version: row.version,
+            snapshot: unitSnapshot(row),
+            result: unitRecord(row, item, membership),
+          };
+        },
+      });
+    },
   };
+}
+
+/**
+ * Who is acting on a unit: the editor of its item, who must manage the item's units. A unit
+ * that is deleted, or whose item the caller cannot see, does not exist for them.
+ */
+async function actingOnUnit(tx: Tx, ctx: RequestContext, unitId: string): Promise<ActingEditor> {
+  const itemId = await findUnitItemId(forModule(tx, 'items'), unitId);
+  if (itemId === undefined) throw new ApiError('not_found');
+  const acting = await actingEditor(tx, ctx, itemId);
+  if (!canManageBoard(acting.editor)) throw new ApiError('forbidden');
+  return acting;
+}
+
+/**
+ * The write path's load for one unit: its item, then the unit, both locked until commit.
+ * Board saves lock in the same order, so the two never deadlock.
+ */
+async function lockedUnit(tx: Tx, target: { unitId: string }) {
+  const items = forModule(tx, 'items');
+  const itemId = await findUnitItemId(items, target.unitId);
+  const item = itemId === undefined ? undefined : await lockItem(items, itemId);
+  const unit = item ? await lockUnit(items, target.unitId) : undefined;
+  if (!item || !unit) throw new ApiError('not_found');
+  return { tripId: item.trip_id, counter: unit.version, item, unit };
+}
+
+/** A rate as written, refusing the masked rendering a read showed in its place. */
+function unmaskedRate<T extends object>(rate: T | MaskedValue | null): T | null {
+  if (rate !== null && 'masked' in rate) throw new ApiError('masked_field_write');
+  return rate;
 }
 
 /** A label another live unit of the item holds is the caller's to change, not a conflict. */

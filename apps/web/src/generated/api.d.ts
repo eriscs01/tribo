@@ -2312,6 +2312,16 @@ export interface components {
             items: components["schemas"]["Unit"][];
             nextCursor: string | null;
         };
+        UnitPatch: {
+            label?: string;
+            capacity?: number;
+            bedType?: string | null;
+            rate?: (components["schemas"]["MaskedValue"] | {
+                amountMinor: number;
+                currency: components["schemas"]["CurrencyCode"];
+            }) | null;
+            position?: number;
+        };
         Username: string;
         Vendor: {
             id: string;
@@ -6752,11 +6762,26 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UnitPatch"];
+            };
+        };
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            200: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Unit"];
+                };
+            };
+            /** @description Too many writes in this window (rate_limited) */
+            429: {
+                headers: {
+                    /** @description Seconds until the window resets */
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {

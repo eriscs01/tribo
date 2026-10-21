@@ -6,6 +6,7 @@ import { PassThrough } from 'node:stream';
 import { CSRF_HEADER, encodeTypeId, ID_PREFIX, SESSION_COOKIE } from '@tribo/contract';
 import { AppKey } from '@tribo/crypto';
 import {
+  addAllocation,
   addMember,
   createItem,
   createTestDatabase,
@@ -206,5 +207,50 @@ describe('units.create over HTTP', () => {
       problem: 'validation_failed',
     });
     expect(JSON.stringify(linesOf(bad.headers['x-request-id']))).not.toContain('Secret Suite X');
+  });
+});
+
+describe('units.update over HTTP', () => {
+  it('takes If-Match as an entity tag: 428 without, 200 with the unit', async () => {
+    const w = await world();
+    const patch = (headers: Record<string, string>, payload: Record<string, unknown>) =>
+      app.inject({
+        method: 'PATCH',
+        url: `/v1/units/${w.roomPath}`,
+        payload,
+        ...w.owner.auth,
+        headers: { ...w.owner.auth.headers, ...headers },
+      });
+    expect((await patch({}, { capacity: 3 })).statusCode).toBe(428);
+    const res = await patch({ 'if-match': '"1"' }, { capacity: 3 });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ id: w.roomPath, capacity: 3, version: 2 });
+  });
+
+  it('logs capacity_exceeded by operation and code', async () => {
+    const w = await world();
+    for (const membershipId of [w.memberMembershipId, w.viewerMembershipId]) {
+      // eslint-disable-next-line no-await-in-loop -- rows go in one by one
+      await addAllocation(tdb.db, {
+        tripId: w.trip.tripId,
+        itemId: w.itemId,
+        membershipId,
+        role: 'occupant',
+        unitId: w.roomId,
+      });
+    }
+    const res = await app.inject({
+      method: 'PATCH',
+      url: `/v1/units/${w.roomPath}`,
+      payload: { capacity: 1 },
+      ...w.owner.auth,
+      headers: { ...w.owner.auth.headers, 'if-match': '"1"' },
+    });
+    expect(res.statusCode).toBe(409);
+    expect(refusalLine(res.headers['x-request-id'])).toMatchObject({
+      operationId: 'units.update',
+      problem: 'capacity_exceeded',
+      status: 409,
+    });
   });
 });

@@ -7,7 +7,7 @@ import {
   type UnitPage,
 } from '@tribo/contract';
 import type { UnitRecord, UnitsService } from '@tribo/core';
-import { pathId, requestContext, signedIn } from '../context.js';
+import { ifMatch, pathId, requestContext, signedIn } from '../context.js';
 import { parsedQuery, type Handlers } from '../routes.js';
 
 function unitView(unit: UnitRecord): Unit {
@@ -44,5 +44,14 @@ export function unitsHandlers(units: UnitsService): Handlers {
       );
       return reply.code(201).send(unitView(unit));
     },
+    'units.update': async (request) =>
+      unitView(
+        await units.update(
+          requestContext(request),
+          pathId(request, 'unitId'),
+          request.body,
+          ifMatch(request),
+        ),
+      ),
   };
 }

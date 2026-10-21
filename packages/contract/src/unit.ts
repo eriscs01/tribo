@@ -66,3 +66,21 @@ export const UnitInput = z
   .meta({ id: 'UnitInput' });
 
 export type UnitInput = z.infer<typeof UnitInput>;
+
+/**
+ * units.update: JSON Merge Patch of a unit; absent keys stay, null clears. The kind never
+ * changes. Sending back a masked rate is refused with masked_field_write, so echoing a
+ * read never overwrites the real one. A capacity below the unit's current occupants is
+ * capacity_exceeded.
+ */
+export const UnitPatch = z
+  .strictObject({
+    label: z.string().trim().min(1).max(100).optional(),
+    capacity: z.int().min(1).max(100).optional(),
+    bedType: z.string().trim().min(1).max(50).nullable().optional(),
+    rate: z.union([MaskedValue, RateInput]).nullable().optional(),
+    position: z.int().min(0).max(1000).optional(),
+  })
+  .meta({ id: 'UnitPatch' });
+
+export type UnitPatch = z.infer<typeof UnitPatch>;
