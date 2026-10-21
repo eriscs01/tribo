@@ -105,4 +105,12 @@ describe('toOpenApi', () => {
     expect(logout?.output).toBeUndefined();
     expect(paths['/v1/auth/logout']?.post?.responses).toHaveProperty('204');
   });
+
+  it('keeps a path named __proto__ as its own entry, never reaching Object.prototype', () => {
+    const liveness = registry.find((op) => op.id === 'meta.liveness');
+    if (!liveness) throw new Error('meta.liveness missing');
+    const hostile = toOpenApi([{ ...liveness, path: '__proto__' }]);
+    expect(Object.hasOwn(hostile.paths as object, '__proto__')).toBe(true);
+    expect(({} as Record<string, unknown>).get).toBeUndefined();
+  });
 });

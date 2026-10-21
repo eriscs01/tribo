@@ -206,13 +206,14 @@ export function toOpenApi(
   const components: Components = new Map();
   jsonSchema(Problem, 'output', components);
   jsonSchema(ErrorCode, 'output', components);
-  const paths: Record<string, Json> = {};
+  // A Map, so no path string (not even __proto__) can name an existing property.
+  const paths = new Map<string, Json>();
   for (const op of registry) {
-    const item = paths[op.path] ?? {};
-    paths[op.path] = item;
+    const item = paths.get(op.path) ?? {};
+    paths.set(op.path, item);
     item[op.method.toLowerCase()] = operationObject(op, components);
   }
-  const sorted = Object.fromEntries(Object.entries(paths).sort(([a], [b]) => a.localeCompare(b)));
+  const sorted = Object.fromEntries([...paths].sort(([a], [b]) => a.localeCompare(b)));
   return {
     openapi: '3.1.1',
     info: { title: 'Tribo API', version: info.version },
