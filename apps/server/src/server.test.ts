@@ -22,6 +22,7 @@ import type {
   MembersService,
   SignedIn,
   TripsService,
+  UnitsService,
 } from '@tribo/core';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ApiError } from '@tribo/platform';
@@ -116,6 +117,7 @@ const items: ItemsService = {
   rsvp: unused,
   reveal: unused,
 };
+const units: UnitsService = { list: unused };
 const library: LibraryService = {
   search: unused,
   createPerson: unused,
@@ -146,7 +148,7 @@ async function server(overrides: Partial<ServerDeps> = {}) {
     logStream: stream,
     registry: testRegistry,
     handlers: {
-      ...operationHandlers({ identity, csrfSecret: secret, trips, members, items, library }),
+      ...operationHandlers({ identity, csrfSecret: secret, trips, members, items, units, library }),
       'test.ip': (request) => {
         request.log.info('handler ran');
         return Promise.resolve({ ip: request.ip });

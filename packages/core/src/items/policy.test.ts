@@ -6,6 +6,7 @@ import {
   canNarrowVisibility,
   canRevealItem,
   canRsvpItem,
+  canListUnit,
   canUpdateItem,
 } from './policy.js';
 
@@ -82,5 +83,13 @@ describe('canRevealItem', () => {
     expect(canRevealItem(editor('member', true))).toBe(true);
     expect(canRevealItem(editor('member', false, true))).toBe(false);
     expect(canRevealItem(editor('viewer', true))).toBe(false);
+  });
+});
+
+describe('canListUnit', () => {
+  it('lets every trip role list the units of an item it may see', () => {
+    for (const role of ['owner', 'organizer', 'member', 'viewer'] as const) {
+      expect(canListUnit(role)).toBe(true);
+    }
   });
 });

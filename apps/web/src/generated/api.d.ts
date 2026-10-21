@@ -2282,6 +2282,25 @@ export interface components {
         TripRole: "owner" | "organizer" | "member" | "viewer";
         /** @enum {string} */
         TripStatus: "draft" | "planning" | "active" | "completed" | "archived";
+        Unit: {
+            id: string;
+            itemId: string;
+            kind: components["schemas"]["UnitKind"];
+            label: string;
+            capacity: number;
+            bedType: string | null;
+            rate: (components["schemas"]["Money"] | components["schemas"]["MaskedValue"]) | null;
+            position: number;
+            version: number;
+            createdAt: components["schemas"]["Instant"];
+            updatedAt: components["schemas"]["Instant"];
+        };
+        /** @enum {string} */
+        UnitKind: "room" | "vehicle";
+        UnitPage: {
+            items: components["schemas"]["Unit"][];
+            nextCursor: string | null;
+        };
         Username: string;
         Vendor: {
             id: string;
@@ -4358,7 +4377,10 @@ export interface operations {
     };
     "units.list": {
         parameters: {
-            query?: never;
+            query?: {
+                limit?: number;
+                cursor?: string;
+            };
             header?: never;
             path: {
                 itemId: string;
@@ -4367,13 +4389,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["UnitPage"];
                 };
             };
             /** @description Error */

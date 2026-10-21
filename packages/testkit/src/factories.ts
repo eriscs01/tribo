@@ -141,7 +141,14 @@ export async function createTrip(
 
 export async function addMember(
   db: Db,
-  init: { tripId: string; personId: string; role: TripRole; createdBy?: string },
+  init: {
+    tripId: string;
+    personId: string;
+    role: TripRole;
+    createdBy?: string;
+    /** A viewer's cost grant (decision 0007). */
+    canViewCosts?: boolean;
+  },
 ): Promise<string> {
   const { id } = await db
     .insertInto('tribo.memberships')
@@ -149,6 +156,7 @@ export async function addMember(
       trip_id: init.tripId,
       person_id: init.personId,
       trip_role: init.role,
+      can_view_costs: init.canViewCosts ?? false,
       created_by: init.createdBy ?? null,
     })
     .returning('id')
@@ -217,6 +225,8 @@ export async function addAllocation(
     membershipId: string;
     role: ValueOf<'tribo.allocations.role'>;
     rsvp?: ValueOf<'tribo.allocations.rsvp'>;
+    /** The room or vehicle of an occupant, driver or passenger. */
+    unitId?: string;
   },
 ): Promise<string> {
   const { id } = await db
@@ -227,13 +237,41 @@ export async function addAllocation(
       membership_id: init.membershipId,
       role: init.role,
       rsvp: init.rsvp ?? null,
+      unit_id: init.unitId ?? null,
     })
     .returning('id')
     .executeTakeFirstOrThrow();
   return id;
 }
 
-type SoftDeletable = 'tribo.trips' | 'tribo.memberships' | 'tribo.items' | 'tribo.persons';
+/** A room of a lodging or a vehicle of a rental, as units.create would write it. */
+export async function createUnit(
+  db: Db,
+  init: {
+    itemId: string;
+    kind?: ValueOf<'tribo.units.kind'>;
+    label?: string;
+    capacity?: number;
+    rate?: { amountMinor: number; currency: string };
+  },
+): Promise<string> {
+  const { id } = await db
+    .insertInto('tribo.units')
+    .values({
+      item_id: init.itemId,
+      kind: init.kind ?? 'room',
+      label: init.label ?? `Unit ${next()}`,
+      capacity: init.capacity ?? 2,
+      rate_minor: init.rate?.amountMinor ?? null,
+      rate_currency: init.rate?.currency ?? null,
+    })
+    .returning('id')
+    .executeTakeFirstOrThrow();
+  return id;
+}
+
+type SoftDeletable =
+  'tribo.trips' | 'tribo.memberships' | 'tribo.items' | 'tribo.persons' | 'tribo.units';
 
 /** Soft-deletes one root row (sets deleted_at), as the services' delete operations do. */
 export async function softDelete(db: Db, table: SoftDeletable, id: string): Promise<void> {

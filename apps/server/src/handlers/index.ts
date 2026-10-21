@@ -4,6 +4,7 @@ import type {
   LibraryService,
   MembersService,
   TripsService,
+  UnitsService,
 } from '@tribo/core';
 import type { Handlers } from '../routes.js';
 import { authHandlers } from './auth.js';
@@ -13,6 +14,7 @@ import { membersHandlers } from './members.js';
 import { tripHandlers } from './trips.js';
 import { meHandlers } from './me.js';
 import { metaHandlers } from './meta.js';
+import { unitsHandlers } from './units.js';
 
 /** The services the operation handlers call, as the runtime or a test builds them. */
 export interface HandlerServices {
@@ -21,6 +23,7 @@ export interface HandlerServices {
   trips: TripsService;
   members: MembersService;
   items: ItemsService;
+  units: UnitsService;
   library: LibraryService;
 }
 
@@ -38,5 +41,6 @@ export function operationHandlers(services: HandlerServices): Handlers {
     ...libraryHandlers(services.library),
     ...meHandlers(services.identity, services.library),
     ...metaHandlers(),
+    ...unitsHandlers(services.units),
   };
 }

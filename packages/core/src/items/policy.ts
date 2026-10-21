@@ -69,3 +69,10 @@ export function canRevealItem(editor: ItemEditor): boolean {
   if (ITEM_EDITORS.has(editor.role)) return true;
   return editor.role === 'member' && editor.owns;
 }
+
+/** units.list: every role reads the units of an item it can see; masking narrows the rates. */
+const UNITS_LIST_ROLES: ReadonlySet<TripRole> = new Set(['owner', 'organizer', 'member', 'viewer']);
+
+export function canListUnit(role: TripRole): boolean {
+  return UNITS_LIST_ROLES.has(role);
+}

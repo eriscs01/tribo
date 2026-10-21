@@ -7,6 +7,7 @@ export {
   createPlaceholder,
   createResetLink,
   createTrip,
+  createUnit,
   createUser,
   softDelete,
   type TripFixture,

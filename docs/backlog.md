@@ -135,7 +135,7 @@
 
 ## Units & assignments & tickets
 
-- [ ] `units.list` · Drop A · `GET /v1/items/{itemId}/units`
+- [x] `units.list` · Drop A · `GET /v1/items/{itemId}/units`
   - Rooms of a lodging, vehicles of a rental; Rates masked per canViewCosts
   - Roles: owner, organizer, member, viewer. If-Match: `no`. Idempotency: safe to repeat.
 - [ ] `units.create` · Drop A · `POST /v1/items/{itemId}/units`

@@ -341,3 +341,40 @@ export function listBoard(db: ItemsDb, itemId: string) {
     .orderBy('unit_id')
     .execute();
 }
+
+/** A unit's columns; only live units (soft-deleted ones drop out of every read). */
+function selectUnit(db: ItemsDb) {
+  return db
+    .selectFrom('tribo.units as u')
+    .select([
+      'u.id',
+      'u.item_id',
+      'u.kind',
+      'u.label',
+      'u.capacity',
+      'u.bed_type',
+      'u.rate_minor',
+      'u.rate_currency',
+      'u.position',
+      'u.version',
+      'u.created_at',
+      'u.updated_at',
+    ])
+    .where('u.deleted_at', 'is', null);
+}
+
+/**
+ * One page of an item's live units in id order (UUIDv7, so the order they were added).
+ * The caller has already found the item visible.
+ */
+export function listUnits(
+  db: ItemsDb,
+  itemId: string,
+  page: { limit: number; after: string | null },
+) {
+  let query = selectUnit(db).where('u.item_id', '=', itemId);
+  if (page.after !== null) query = query.where('u.id', '>', page.after);
+  return query.orderBy('u.id').limit(page.limit).execute();
+}
+
+export type UnitRow = Awaited<ReturnType<typeof listUnits>>[number];

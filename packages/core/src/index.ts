@@ -23,9 +23,12 @@ export {
 } from './trips/service.js';
 export {
   createItemsService,
+  createUnitsService,
   type ItemRecord,
   type ItemsService,
   type ItemTimeRecord,
+  type UnitRecord,
+  type UnitsService,
 } from './items/service.js';
 export {
   createLibraryService,

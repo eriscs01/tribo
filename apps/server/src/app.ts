@@ -18,13 +18,21 @@ export function buildApp(
     now?: () => number;
   },
 ) {
-  const { identity, trips, members, items, library } = services;
+  const { identity, trips, members, items, units, library } = services;
   const csrf = csrfSecret(services.appKey);
   return buildServer({
     trustedProxies: config.trustedProxies,
     csrfSecret: csrf,
     authenticate: (token) => identity.authenticate(token),
-    handlers: operationHandlers({ identity, csrfSecret: csrf, trips, members, items, library }),
+    handlers: operationHandlers({
+      identity,
+      csrfSecret: csrf,
+      trips,
+      members,
+      items,
+      units,
+      library,
+    }),
     logLevel: config.logLevel,
     ...(config.release ? { release: config.release } : {}),
     ...(config.logStream ? { logStream: config.logStream } : {}),
