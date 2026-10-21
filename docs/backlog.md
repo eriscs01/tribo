@@ -138,7 +138,7 @@
 - [x] `units.list` · Drop A · `GET /v1/items/{itemId}/units`
   - Rooms of a lodging, vehicles of a rental; Rates masked per canViewCosts
   - Roles: owner, organizer, member, viewer. If-Match: `no`. Idempotency: safe to repeat.
-- [ ] `units.create` · Drop A · `POST /v1/items/{itemId}/units`
+- [x] `units.create` · Drop A · `POST /v1/items/{itemId}/units`
   - Add room or vehicle: label, capacity, rate; trip_archived on archived trips (R29)
   - Roles: item owner, organizer, owner. If-Match: `no`. Idempotency: creates (key).
   - Limit: Takes no Idempotency-Key in 1a: only expenses.create and files.upload honour it; this create follows in 1b.

@@ -160,3 +160,51 @@ describe('units.list over HTTP', () => {
     });
   });
 });
+
+describe('units.create over HTTP', () => {
+  const create = (w: Awaited<ReturnType<typeof world>>, caller: Caller, payload: unknown) =>
+    app.inject({
+      method: 'POST',
+      url: `/v1/items/${w.itemPath}/units`,
+      payload: payload as Record<string, unknown>,
+      ...caller.auth,
+      headers: { ...caller.auth.headers, 'idempotency-key': 'room-2' },
+    });
+
+  it('answers 201 with the unit, and ignores an Idempotency-Key in 1a', async () => {
+    const w = await world();
+    const body = { kind: 'room', label: 'Room 2', capacity: 3, bedType: 'twin' };
+    const res = await create(w, w.owner, body);
+    expect(res.statusCode).toBe(201);
+    expect(res.json()).toMatchObject({
+      itemId: w.itemPath,
+      kind: 'room',
+      label: 'Room 2',
+      capacity: 3,
+      bedType: 'twin',
+      rate: null,
+      version: 1,
+    });
+    // No replay: the same request again is a second create, refused for its label.
+    const again = await create(w, w.owner, body);
+    expect(again.json()).toMatchObject({ code: 'validation_failed' });
+  });
+
+  it('logs a forbidden create and a bad body by operation and code, never the values sent', async () => {
+    const w = await world();
+    const refused = await create(w, w.viewer, { kind: 'room', label: 'Room 9', capacity: 2 });
+    expect(refused.statusCode).toBe(403);
+    expect(refusalLine(refused.headers['x-request-id'])).toMatchObject({
+      operationId: 'units.create',
+      problem: 'forbidden',
+      status: 403,
+    });
+    const bad = await create(w, w.owner, { kind: 'room', label: 'Secret Suite X', capacity: 0 });
+    expect(bad.statusCode).toBe(400);
+    expect(refusalLine(bad.headers['x-request-id'])).toMatchObject({
+      operationId: 'units.create',
+      problem: 'validation_failed',
+    });
+    expect(JSON.stringify(linesOf(bad.headers['x-request-id']))).not.toContain('Secret Suite X');
+  });
+});

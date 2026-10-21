@@ -1,7 +1,7 @@
 // Generated from operations.csv by src/scripts/import-operations.ts. A story replaces an
 // entry's status with 'implemented' and adds its input and output schemas.
 import { defineOperation } from '../operation.js';
-import { UnitPage } from '../unit.js';
+import { UnitPage, Unit, UnitInput } from '../unit.js';
 import { PageQuery } from '../page.js';
 
 export const unitsOperations = [
@@ -39,7 +39,9 @@ export const unitsOperations = [
     mcpApproval: false,
     mcpTool: null,
     notes: 'Add room or vehicle: label, capacity, rate; trip_archived on archived trips (R29)',
-    status: 'planned',
+    status: 'implemented',
+    input: UnitInput,
+    output: Unit,
   }),
   defineOperation({
     id: 'units.update',

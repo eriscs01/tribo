@@ -7,7 +7,7 @@ import {
   type UnitPage,
 } from '@tribo/contract';
 import type { UnitRecord, UnitsService } from '@tribo/core';
-import { pathId, signedIn } from '../context.js';
+import { pathId, requestContext, signedIn } from '../context.js';
 import { parsedQuery, type Handlers } from '../routes.js';
 
 function unitView(unit: UnitRecord): Unit {
@@ -35,6 +35,14 @@ export function unitsHandlers(units: UnitsService): Handlers {
         parsedQuery(request, PageQuery),
       );
       return { items: page.items.map(unitView), nextCursor: page.nextCursor };
+    },
+    'units.create': async (request, reply) => {
+      const unit = await units.create(
+        requestContext(request),
+        pathId(request, 'itemId'),
+        request.body,
+      );
+      return reply.code(201).send(unitView(unit));
     },
   };
 }

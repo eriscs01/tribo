@@ -7,6 +7,7 @@ import {
   canRevealItem,
   canRsvpItem,
   canListUnit,
+  canManageBoard,
   canUpdateItem,
 } from './policy.js';
 
@@ -91,5 +92,16 @@ describe('canListUnit', () => {
     for (const role of ['owner', 'organizer', 'member', 'viewer'] as const) {
       expect(canListUnit(role)).toBe(true);
     }
+  });
+});
+
+describe('canManageBoard', () => {
+  it("lets owners and organizers manage any item's units and board, members their own, never viewers", () => {
+    expect(canManageBoard(editor('owner'))).toBe(true);
+    expect(canManageBoard(editor('organizer'))).toBe(true);
+    expect(canManageBoard(editor('member', true))).toBe(true);
+    expect(canManageBoard(editor('member'))).toBe(false);
+    expect(canManageBoard(editor('member', false, true))).toBe(false);
+    expect(canManageBoard(editor('viewer', true))).toBe(false);
   });
 });

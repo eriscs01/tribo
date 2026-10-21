@@ -2295,6 +2295,17 @@ export interface components {
             createdAt: components["schemas"]["Instant"];
             updatedAt: components["schemas"]["Instant"];
         };
+        UnitInput: {
+            kind: components["schemas"]["UnitKind"];
+            label: string;
+            capacity: number;
+            bedType?: string | null;
+            rate?: {
+                amountMinor: number;
+                currency: components["schemas"]["CurrencyCode"];
+            } | null;
+            position?: number;
+        };
         /** @enum {string} */
         UnitKind: "room" | "vehicle";
         UnitPage: {
@@ -4418,11 +4429,26 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UnitInput"];
+            };
+        };
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            201: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Unit"];
+                };
+            };
+            /** @description Too many writes in this window (rate_limited) */
+            429: {
+                headers: {
+                    /** @description Seconds until the window resets */
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {

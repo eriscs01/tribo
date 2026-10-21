@@ -363,6 +363,42 @@ function selectUnit(db: ItemsDb) {
     .where('u.deleted_at', 'is', null);
 }
 
+export interface NewUnit {
+  itemId: string;
+  kind: ValueOf<'tribo.units.kind'>;
+  label: string;
+  capacity: number;
+  bedType: string | null;
+  rate: { amountMinor: number; currency: string } | null;
+  position: number;
+  createdBy: string;
+}
+
+export async function insertUnit(db: ItemsDb, unit: NewUnit): Promise<string> {
+  const row = await db
+    .insertInto('tribo.units')
+    .values({
+      item_id: unit.itemId,
+      kind: unit.kind,
+      label: unit.label,
+      capacity: unit.capacity,
+      bed_type: unit.bedType,
+      rate_minor: unit.rate?.amountMinor ?? null,
+      rate_currency: unit.rate?.currency ?? null,
+      position: unit.position,
+      created_by: unit.createdBy,
+      updated_by: unit.createdBy,
+    })
+    .returning('id')
+    .executeTakeFirstOrThrow();
+  return row.id;
+}
+
+/** For the writer that just changed it, inside its transaction. */
+export function findUnit(db: ItemsDb, unitId: string) {
+  return selectUnit(db).where('u.id', '=', unitId).executeTakeFirst();
+}
+
 /**
  * One page of an item's live units in id order (UUIDv7, so the order they were added).
  * The caller has already found the item visible.
@@ -377,4 +413,4 @@ export function listUnits(
   return query.orderBy('u.id').limit(page.limit).execute();
 }
 
-export type UnitRow = Awaited<ReturnType<typeof listUnits>>[number];
+export type UnitRow = NonNullable<Awaited<ReturnType<typeof findUnit>>>;

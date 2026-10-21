@@ -2,7 +2,7 @@
 import * as z from 'zod';
 import { ID_PREFIX, typeId } from './ids.js';
 import { MaskedValue } from './masked.js';
-import { Money } from './money.js';
+import { CurrencyCode, Money } from './money.js';
 import { page } from './page.js';
 import { Instant } from './time.js';
 
@@ -36,3 +36,33 @@ export type Unit = z.infer<typeof Unit>;
 export const UnitPage = page(Unit, 'UnitPage');
 
 export type UnitPage = z.infer<typeof UnitPage>;
+
+/** A rate as written: never negative. */
+const RateInput = z.strictObject({ amountMinor: z.int().min(0), currency: CurrencyCode });
+
+/**
+ * units.create. A room belongs to a lodging, a vehicle to a ground rental; a bed type is
+ * a room's. Labels are unique among the item's live units.
+ */
+export const UnitInput = z
+  .strictObject({
+    kind: UnitKind,
+    label: z.string().trim().min(1).max(100),
+    capacity: z.int().min(1).max(100),
+    bedType: z.string().trim().min(1).max(50).nullable().optional(),
+    rate: RateInput.nullable().optional(),
+    position: z.int().min(0).max(1000).optional(),
+  })
+  .check((ctx) => {
+    if (ctx.value.kind === 'vehicle' && ctx.value.bedType != null) {
+      ctx.issues.push({
+        code: 'custom',
+        input: ctx.value,
+        path: ['bedType'],
+        message: 'a vehicle has no bed type',
+      });
+    }
+  })
+  .meta({ id: 'UnitInput' });
+
+export type UnitInput = z.infer<typeof UnitInput>;
