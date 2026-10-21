@@ -106,7 +106,7 @@ const trips: TripsService = {
   update: unused,
   delete: unused,
 };
-const members: MembersService = { list: unused };
+const members: MembersService = { list: unused, add: unused };
 const items: ItemsService = {
   create: unused,
   get: unused,

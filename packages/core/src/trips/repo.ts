@@ -185,6 +185,17 @@ export function listMemberTrips(
   return query.orderBy('start_date', 'desc').orderBy('id', 'desc').limit(page.limit).execute();
 }
 
+const MEMBERSHIP_COLUMNS = [
+  'id',
+  'trip_id',
+  'person_id',
+  'trip_role',
+  'can_view_costs',
+  'version',
+  'created_at',
+  'updated_at',
+] as const;
+
 export function insertMembership(
   db: TripsDb,
   membership: { tripId: string; personId: string; role: TripRole; createdBy: string },
@@ -198,7 +209,43 @@ export function insertMembership(
       created_by: membership.createdBy,
       updated_by: membership.createdBy,
     })
-    .returning(['id', 'trip_id', 'person_id', 'trip_role', 'can_view_costs', 'version'])
+    .returning(MEMBERSHIP_COLUMNS)
+    .executeTakeFirstOrThrow();
+}
+
+/**
+ * The person's one membership row in the trip, removed or not ((trip_id, person_id) is
+ * unique across all rows), locked FOR UPDATE until commit; undefined when there is none.
+ */
+export function lockMembershipOf(db: TripsDb, tripId: string, personId: string) {
+  return db
+    .selectFrom('tribo.memberships')
+    .select([...MEMBERSHIP_COLUMNS, 'deleted_at'])
+    .where('trip_id', '=', tripId)
+    .where('person_id', '=', personId)
+    .forUpdate()
+    .executeTakeFirst();
+}
+
+/** Brings a removed membership back with this role and no cost grant, bumping its version. */
+export function undeleteMembership(
+  db: TripsDb,
+  membershipId: string,
+  change: { role: TripRole; updatedBy: string },
+) {
+  return db
+    .updateTable('tribo.memberships')
+    .set((eb) => ({
+      deleted_at: null,
+      deleted_by: null,
+      trip_role: change.role,
+      can_view_costs: false,
+      version: eb('version', '+', 1),
+      updated_at: sql<Date>`now()`,
+      updated_by: change.updatedBy,
+    }))
+    .where('id', '=', membershipId)
+    .returning(MEMBERSHIP_COLUMNS)
     .executeTakeFirstOrThrow();
 }
 
@@ -232,17 +279,6 @@ export async function countActiveMemberships(
   return Number(row.n);
 }
 
-const MEMBERSHIP_COLUMNS = [
-  'id',
-  'trip_id',
-  'person_id',
-  'trip_role',
-  'can_view_costs',
-  'version',
-  'created_at',
-  'updated_at',
-] as const;
-
 /** One page of the trip's active memberships, by id (creation order); `after` is the last id. */
 export function listMemberships(
   db: TripsDb,
@@ -258,4 +294,4 @@ export function listMemberships(
   return query.orderBy('id').limit(page.limit).execute();
 }
 
-export type MembershipRow = Awaited<ReturnType<typeof listMemberships>>[number];
+export type MembershipRow = Awaited<ReturnType<typeof insertMembership>>;

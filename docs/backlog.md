@@ -71,7 +71,7 @@
 - [x] `members.list` · Drop A · `GET /v1/trips/{tripId}/members`
   - Members, roles, placeholders; Emergency contact masked; reveal per person
   - Roles: owner, organizer, member, viewer. If-Match: `no`. Idempotency: safe to repeat.
-- [ ] `members.add` · Drop A · `POST /v1/trips/{tripId}/members`
+- [x] `members.add` · Drop A · `POST /v1/trips/{tripId}/members`
   - Add placeholder traveller (new or visible library person); person_visible on personId; Person must have no account: person_has_account → send an invite (R4); A removed placeholder is undeleted rather than re-added; trip_archived on archived trips (R29)
   - Roles: owner. If-Match: `no`. Idempotency: creates (key).
   - Limit: Takes no Idempotency-Key in 1a: only expenses.create and files.upload honour it; this create follows in 1b.

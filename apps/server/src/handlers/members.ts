@@ -1,6 +1,6 @@
 import { encodeTypeId, ID_PREFIX, PageQuery, type Member, type MemberPage } from '@tribo/contract';
 import type { MemberRecord, MembersService } from '@tribo/core';
-import { pathId, signedIn } from '../context.js';
+import { pathId, requestContext, signedIn } from '../context.js';
 import { parsedQuery, type Handlers } from '../routes.js';
 import { personView } from './library.js';
 
@@ -26,6 +26,14 @@ export function membersHandlers(members: MembersService): Handlers {
         parsedQuery(request, PageQuery),
       );
       return { items: page.items.map(memberView), nextCursor: page.nextCursor };
+    },
+    'members.add': async (request, reply) => {
+      const member = await members.add(
+        requestContext(request),
+        pathId(request, 'tripId'),
+        request.body,
+      );
+      return reply.code(201).send(memberView(member));
     },
   };
 }

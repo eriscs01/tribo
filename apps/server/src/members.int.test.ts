@@ -150,3 +150,82 @@ describe('members.list over HTTP', () => {
     });
   });
 });
+
+describe('members.add over HTTP', () => {
+  it('answers 201 with the new placeholder member, listed afterwards', async () => {
+    const w = await world();
+    const res = await app.inject({
+      method: 'POST',
+      url: w.membersUrl,
+      payload: { person: { displayName: 'Mara' }, role: 'viewer' },
+      ...w.owner.auth,
+    });
+    expect(res.statusCode).toBe(201);
+    const added = res.json<{ id: string; person: { id: string } }>();
+    expect(added).toMatchObject({
+      role: 'viewer',
+      canViewCosts: false,
+      version: 1,
+      person: { displayName: 'Mara', hasAccount: false, emergencyContact: null },
+    });
+    expect(added.id).toMatch(/^mem_/);
+    expect(added.person.id).toMatch(/^per_/);
+    const list = await app.inject({ method: 'GET', url: w.membersUrl, ...w.viewer.auth });
+    expect(list.json<{ items: { id: string }[] }>().items.map((m) => m.id)).toContain(added.id);
+    // The library owns the new person: its creator reads it there, and so does a co-member.
+    for (const reader of [w.owner, w.viewer]) {
+      // eslint-disable-next-line no-await-in-loop -- one reader at a time
+      const person = await app.inject({
+        method: 'GET',
+        url: `/v1/library/people/${added.person.id}`,
+        ...reader.auth,
+      });
+      expect(person.statusCode).toBe(200);
+      expect(person.json()).toMatchObject({ displayName: 'Mara', hasAccount: false });
+    }
+  });
+
+  it('answers 409 person_has_account for an account holder and logs the refusal', async () => {
+    const w = await world();
+    const res = await app.inject({
+      method: 'POST',
+      url: w.membersUrl,
+      payload: { personId: encodeTypeId(ID_PREFIX.person, w.viewer.personId) },
+      ...w.owner.auth,
+    });
+    expect(res.statusCode).toBe(409);
+    expect(res.json()).toMatchObject({ code: 'person_has_account' });
+    const refused = linesOf(res.headers['x-request-id']).find((l) => l.msg === 'request refused');
+    expect(refused).toMatchObject({
+      level: 30,
+      operationId: 'members.add',
+      problem: 'person_has_account',
+      status: 409,
+    });
+  });
+
+  it('answers 403 forbidden to a viewer and 400 validation_failed for a bad body, sending no values to the log', async () => {
+    const w = await world();
+    const viewer = await app.inject({
+      method: 'POST',
+      url: w.membersUrl,
+      payload: { person: { displayName: 'Mara' } },
+      ...w.viewer.auth,
+    });
+    expect(viewer.statusCode).toBe(403);
+    const bad = await app.inject({
+      method: 'POST',
+      url: w.membersUrl,
+      payload: { person: { displayName: 'Secret Traveller Name' }, role: 'owner' },
+      ...w.owner.auth,
+    });
+    expect(bad.statusCode).toBe(400);
+    expect(bad.json()).toMatchObject({ code: 'validation_failed' });
+    const badLines = linesOf(bad.headers['x-request-id']);
+    expect(badLines.find((l) => l.msg === 'request refused')).toMatchObject({
+      operationId: 'members.add',
+      problem: 'validation_failed',
+    });
+    expect(JSON.stringify(badLines)).not.toContain('Secret Traveller Name');
+  });
+});

@@ -7813,12 +7813,12 @@
           }
         ],
         "responses": {
-          "501": {
-            "description": "Registered but not implemented yet (not_implemented)",
+          "201": {
+            "description": "OK",
             "content": {
-              "application/problem+json": {
+              "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Problem"
+                  "$ref": "#/components/schemas/Member"
                 }
               }
             }
@@ -7835,7 +7835,7 @@
           }
         },
         "x-tribo": {
-          "status": "planned",
+          "status": "implemented",
           "slice": "1a",
           "drop": "A",
           "roles": "owner",
@@ -7855,7 +7855,17 @@
               "pattern": "^trp_[0-7][0-9a-hjkmnp-tv-z]{25}$"
             }
           }
-        ]
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MemberAddInput"
+              }
+            }
+          }
+        }
       }
     },
     "/v1/trips/{tripId}/members/{membershipId}": {
@@ -9206,6 +9216,51 @@
           "updatedAt"
         ],
         "additionalProperties": false
+      },
+      "MemberAddInput": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "personId": {
+                "type": "string",
+                "pattern": "^per_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+              },
+              "role": {
+                "type": "string",
+                "enum": [
+                  "organizer",
+                  "member",
+                  "viewer"
+                ]
+              }
+            },
+            "required": [
+              "personId"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "person": {
+                "$ref": "#/components/schemas/PersonInput"
+              },
+              "role": {
+                "type": "string",
+                "enum": [
+                  "organizer",
+                  "member",
+                  "viewer"
+                ]
+              }
+            },
+            "required": [
+              "person"
+            ],
+            "additionalProperties": false
+          }
+        ]
       },
       "MemberPage": {
         "type": "object",

@@ -2,7 +2,7 @@
 import * as z from 'zod';
 import { ID_PREFIX, typeId } from './ids.js';
 import { page } from './page.js';
-import { Person } from './person.js';
+import { Person, PersonInput } from './person.js';
 import { Instant } from './time.js';
 
 /** A membership's role in its trip; the trip has exactly one owner. */
@@ -35,3 +35,20 @@ export type Member = z.infer<typeof Member>;
 export const MemberPage = page(Member, 'MemberPage');
 
 export type MemberPage = z.infer<typeof MemberPage>;
+
+/** The roles members.add gives: a placeholder has no account, so it never owns the trip. */
+const PlaceholderRole = TripRole.exclude(['owner']);
+
+/**
+ * members.add: a placeholder traveller joins the trip, either a person from the caller's
+ * library (one tribo.person_visible lets them see, still without an account) or a new one
+ * made here. `role` defaults to member. People with an account join by invite instead.
+ */
+export const MemberAddInput = z
+  .union([
+    z.strictObject({ personId: typeId(ID_PREFIX.person), role: PlaceholderRole.optional() }),
+    z.strictObject({ person: PersonInput, role: PlaceholderRole.optional() }),
+  ])
+  .meta({ id: 'MemberAddInput' });
+
+export type MemberAddInput = z.infer<typeof MemberAddInput>;

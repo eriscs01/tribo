@@ -67,3 +67,8 @@ export function statusMoveRefusal(from: string, to: string): ErrorCode | null {
 export function canListMembers(role: TripRole): boolean {
   return TRIP_READERS.has(role);
 }
+
+/** members.add: the owner alone adds travellers (and invites, sets roles and removes). */
+export function canAddMember(role: TripRole): boolean {
+  return role === 'owner';
+}

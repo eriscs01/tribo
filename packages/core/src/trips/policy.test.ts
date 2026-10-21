@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { VALUE_SETS } from '@tribo/db';
 import {
+  canAddMember,
   canListMembers,
   LIFECYCLE,
   statusMoveRefusal,
@@ -63,6 +64,15 @@ describe('canListMembers', () => {
   it('lets every role read who is in the trip', () => {
     for (const role of VALUE_SETS['tribo.memberships.trip_role']) {
       expect(canListMembers(role)).toBe(true);
+    }
+  });
+});
+
+describe('canAddMember', () => {
+  it('lets only the owner add travellers', () => {
+    expect(canAddMember('owner')).toBe(true);
+    for (const role of ['organizer', 'member', 'viewer'] as const) {
+      expect(canAddMember(role)).toBe(false);
     }
   });
 });

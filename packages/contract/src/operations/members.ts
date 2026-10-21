@@ -1,7 +1,7 @@
 // Generated from operations.csv by src/scripts/import-operations.ts. A story replaces an
 // entry's status with 'implemented' and adds its input and output schemas.
 import { defineOperation } from '../operation.js';
-import { MemberPage } from '../member.js';
+import { Member, MemberAddInput, MemberPage } from '../member.js';
 import { PageQuery } from '../page.js';
 
 export const membersOperations = [
@@ -40,7 +40,9 @@ export const membersOperations = [
     mcpTool: null,
     notes:
       'Add placeholder traveller (new or visible library person); person_visible on personId; Person must have no account: person_has_account → send an invite (R4); A removed placeholder is undeleted rather than re-added; trip_archived on archived trips (R29)',
-    status: 'planned',
+    status: 'implemented',
+    input: MemberAddInput,
+    output: Member,
   }),
   defineOperation({
     id: 'members.setRole',

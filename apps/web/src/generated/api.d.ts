@@ -2102,6 +2102,15 @@ export interface components {
             createdAt: components["schemas"]["Instant"];
             updatedAt: components["schemas"]["Instant"];
         };
+        MemberAddInput: {
+            personId: string;
+            /** @enum {string} */
+            role?: "organizer" | "member" | "viewer";
+        } | {
+            person: components["schemas"]["PersonInput"];
+            /** @enum {string} */
+            role?: "organizer" | "member" | "viewer";
+        };
         MemberPage: {
             items: components["schemas"]["Member"][];
             nextCursor: string | null;
@@ -6249,15 +6258,19 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberAddInput"];
+            };
+        };
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["Member"];
                 };
             };
             /** @description Error */
