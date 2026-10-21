@@ -40,7 +40,7 @@ export function parsedQuery<S extends z.ZodObject>(
  * Mounts every registry operation as a route. An implemented operation runs its handler;
  * a planned one answers 501 not_implemented. An implemented operation that declares a query
  * has it validated before its handler runs; one that declares an ETag has its handler's
- * view sent through sendRepresentation. A handler without an implemented operation, or
+ * view sent through sendRepresentation with that kind of tag. A handler without an implemented operation, or
  * the reverse, stops the server at start rather than drifting silently.
  */
 export function mountRegistry(
@@ -57,7 +57,7 @@ export function mountRegistry(
   }
   for (const op of registry) {
     const handler = handlers[op.id];
-    const { query } = op;
+    const { query, etag } = op;
     if (op.status === 'implemented' && !handler) {
       throw new Error(`implemented operation ${op.id} has no handler`);
     }
@@ -82,9 +82,9 @@ export function mountRegistry(
           }
         : {}),
       handler:
-        handler && op.etag
+        handler && etag
           ? async (request: FastifyRequest, reply: FastifyReply) =>
-              sendRepresentation(request, reply, await handler(request, reply))
+              sendRepresentation(request, reply, await handler(request, reply), etag)
           : (handler ??
             (() => {
               throw new ApiError('not_implemented', {

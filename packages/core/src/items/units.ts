@@ -11,7 +11,7 @@ import {
   type WritePath,
 } from '@tribo/platform';
 import type { Kysely } from 'kysely';
-import type { CallerMembership } from '../trips/service.js';
+import { licensedMemberships, type CallerMembership } from '../trips/service.js';
 import { writeOperation } from '../write-operation.js';
 import {
   actingEditor,
@@ -23,7 +23,8 @@ import {
   visibleItem,
   type ActingEditor,
 } from './acting.js';
-import { canListUnit, canManageBoard } from './policy.js';
+import { boardWarnings, type BoardWarning } from './board-rules.js';
+import { canListUnit, canManageBoard, canReadBoard } from './policy.js';
 import {
   bumpBoardVersion,
   countSeated,
@@ -31,6 +32,7 @@ import {
   findUnit,
   findUnitItemId,
   insertUnit,
+  itemUnits,
   listBoard,
   listUnits,
   lockItem,
@@ -54,6 +56,22 @@ export interface UnitRecord {
   version: number;
   createdAt: Date;
   updatedAt: Date;
+}
+
+/** One row of an item's assignment board. */
+export interface AllocationRecord {
+  membershipId: string;
+  role: ValueOf<'tribo.allocations.role'>;
+  unitId: string | null;
+  rsvp: ValueOf<'tribo.allocations.rsvp'> | null;
+}
+
+/** The whole board as items.assignments.get and .replace answer it. */
+export interface BoardRecord {
+  itemId: string;
+  boardVersion: number;
+  allocations: AllocationRecord[];
+  warnings: BoardWarning[];
 }
 
 export interface UnitsService {
@@ -82,6 +100,8 @@ export interface UnitsService {
     body: unknown,
     ifMatch: number | undefined,
   ): Promise<void>;
+  /** items.assignments.get: the whole board; not_found unless tribo.item_visible lets the caller see it. */
+  board(userId: string, itemId: string): Promise<BoardRecord>;
 }
 
 /** The one kind of unit each item type takes; other types have none. */
@@ -111,6 +131,16 @@ export function createUnitsService(db: Kysely<DB>, write: WritePath): UnitsServi
         items: units,
         nextCursor: rows.length > query.limit && last ? encodeCursor([last.id]) : null,
       };
+    },
+
+    async board(userId, itemId) {
+      const { row: item, viewer } = await visibleItem(db, userId, itemId);
+      if (!canReadBoard(viewer.role)) throw new ApiError('forbidden');
+      const items = forModule(db, 'items');
+      return boardRecord(db, item, await itemUnits(items, item.id, { lock: false }), {
+        boardVersion: item.board_version,
+        rows: await listBoard(items, item.id),
+      });
     },
 
     create(ctx, itemId, body) {
@@ -322,6 +352,32 @@ function unitSnapshot(row: UnitRow) {
         ? null
         : { amountMinor: Number(row.rate_minor), currency: row.rate_currency },
     position: row.position,
+  };
+}
+
+/** The board at one version, with the advisory checks on it. */
+async function boardRecord(
+  db: Kysely<DB>,
+  item: ItemRow,
+  units: readonly UnitRow[],
+  board: { boardVersion: number; rows: Awaited<ReturnType<typeof listBoard>> },
+): Promise<BoardRecord> {
+  const allocations = board.rows.map((r) => ({
+    membershipId: r.membership_id,
+    role: r.role as AllocationRecord['role'],
+    unitId: r.unit_id,
+    rsvp: r.rsvp as AllocationRecord['rsvp'],
+  }));
+  const drivers = allocations.filter((a) => a.role === 'driver').map((a) => a.membershipId);
+  return {
+    itemId: item.id,
+    boardVersion: board.boardVersion,
+    allocations,
+    warnings: boardWarnings(
+      units.map((u) => ({ id: u.id, kind: u.kind as UnitRecord['kind'], capacity: u.capacity })),
+      allocations,
+      await licensedMemberships(db, item.trip_id, drivers),
+    ),
   };
 }
 

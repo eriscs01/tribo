@@ -1,7 +1,7 @@
 // Leak-test harness: fast-check generates small worlds of users, placeholders, trips,
 // memberships (some soft-deleted, some viewers granted costs), items (shared, private or
 // selected, some deleted, some priced, some with restricted fields) and their units (rooms,
-// some priced, some deleted); a TypeScript oracle states who may see what;
+// some priced, some deleted) and board rows; a TypeScript oracle states who may see what;
 // the property checks that the database's tribo.item_visible and tribo.person_visible agree
 // with it for every pair in the world, that each list operation registered here returns each
 // account exactly what the oracle allows, and that each item read registered here shows a
@@ -10,6 +10,7 @@ import { VALUE_SETS, type DB, type ValueOf } from '@tribo/db';
 import fc from 'fast-check';
 import { sql, type Kysely } from 'kysely';
 import {
+  addAllocation,
   addMember,
   createItem,
   createPlaceholder,
@@ -45,6 +46,8 @@ export interface WorldSpec {
       priced: boolean;
       restricted: MaskedField[];
       units: { priced: boolean; deleted: boolean }[];
+      /** Board rows by member index; units are left out, since visibility never asks. */
+      allocations: { member: number; role: 'attendee' | 'assignee' }[];
     }[];
   }[];
 }
@@ -91,6 +94,13 @@ function tripArb(nUsers: number, nPersons: number) {
         priced: fc.boolean(),
         restricted: fc.subarray([...VALUE_SETS['tribo.items.restricted_fields']]),
         units: fc.array(fc.record({ priced: fc.boolean(), deleted: sometimes }), { maxLength: 2 }),
+        allocations: fc.uniqueArray(
+          fc.record({
+            member: fc.nat({ max: members.length - 1 }),
+            role: fc.constantFrom('attendee' as const, 'assignee' as const),
+          }),
+          { selector: (a) => `${String(a.member)}:${a.role}`, maxLength: 3 },
+        ),
       });
       return fc
         .array(item, { maxLength: 6 })
@@ -142,6 +152,7 @@ export interface BuiltWorld {
       deleted: boolean;
       restrictedFields: MaskedField[];
       units: { id: string; priced: boolean; deleted: boolean }[];
+      allocations: { membershipId: string; role: 'attendee' | 'assignee' }[];
     }[];
   }[];
 }
@@ -320,6 +331,12 @@ export async function buildWorld(db: Kysely<DB>, spec: WorldSpec): Promise<Built
         });
         units.push({ id: unitId, priced: u.priced, deleted: u.deleted });
       }
+      const allocations = [];
+      for (const a of it.allocations) {
+        const membershipId = members[a.member]?.id ?? '';
+        await addAllocation(db, { tripId, itemId: id, membershipId, role: a.role });
+        allocations.push({ membershipId, role: a.role });
+      }
       items.push({
         id,
         ownerMembershipId: itemOwnerId,
@@ -328,6 +345,7 @@ export async function buildWorld(db: Kysely<DB>, spec: WorldSpec): Promise<Built
         deleted: it.deleted,
         restrictedFields: it.restricted,
         units,
+        allocations,
       });
     }
     trips.push({ id: tripId, deleted: t.deleted, members, items });

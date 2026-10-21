@@ -483,6 +483,15 @@ export async function countSeated(db: ItemsDb, unitId: string): Promise<number> 
 }
 
 /**
+ * Every live unit of an item in id order; with `lock`, locked FOR UPDATE until commit, so
+ * a board save checks capacity against units nobody changes under it.
+ */
+export function itemUnits(db: ItemsDb, itemId: string, options: { lock: boolean }) {
+  const query = selectUnit(db).where('u.item_id', '=', itemId).orderBy('u.id');
+  return (options.lock ? query.forUpdate() : query).execute();
+}
+
+/**
  * One page of an item's live units in id order (UUIDv7, so the order they were added).
  * The caller has already found the item visible.
  */

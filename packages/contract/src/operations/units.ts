@@ -3,6 +3,7 @@
 import { defineOperation } from '../operation.js';
 import { UnitPage, Unit, UnitInput, UnitPatch } from '../unit.js';
 import { PageQuery } from '../page.js';
+import { ItemBoard } from '../assignment.js';
 
 export const unitsOperations = [
   defineOperation({
@@ -96,7 +97,9 @@ export const unitsOperations = [
     mcpTool: null,
     notes:
       'Whole board: RSVPs, occupants, drivers, passengers, assignees; Follows item_visible; ETag = boardVersion',
-    status: 'planned',
+    status: 'implemented',
+    etag: 'board_version',
+    output: ItemBoard,
   }),
   defineOperation({
     id: 'items.assignments.replace',

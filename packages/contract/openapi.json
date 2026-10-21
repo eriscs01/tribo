@@ -3020,15 +3020,26 @@
           }
         ],
         "responses": {
-          "501": {
-            "description": "Registered but not implemented yet (not_implemented)",
-            "content": {
-              "application/problem+json": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "ETag": {
+                "description": "The item's boardVersion, quoted; send it back as If-Match to save the board",
                 "schema": {
-                  "$ref": "#/components/schemas/Problem"
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemBoard"
                 }
               }
             }
+          },
+          "304": {
+            "description": "Not modified: If-None-Match names the ETag"
           },
           "default": {
             "description": "Error",
@@ -3042,7 +3053,7 @@
           }
         },
         "x-tribo": {
-          "status": "planned",
+          "status": "implemented",
           "slice": "1a",
           "drop": "A",
           "roles": "owner, organizer, member, viewer",
@@ -3060,6 +3071,15 @@
             "schema": {
               "type": "string",
               "pattern": "^itm_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+            }
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "required": false,
+            "description": "An ETag already held; 304 when it is still current",
+            "schema": {
+              "type": "string"
             }
           }
         ]
@@ -6783,7 +6803,7 @@
             "name": "If-None-Match",
             "in": "header",
             "required": false,
-            "description": "The ETag of a representation already held; 304 when it is still current",
+            "description": "An ETag already held; 304 when it is still current",
             "schema": {
               "type": "string"
             }
@@ -8828,6 +8848,56 @@
         ],
         "additionalProperties": false
       },
+      "Allocation": {
+        "type": "object",
+        "properties": {
+          "membershipId": {
+            "type": "string",
+            "pattern": "^mem_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+          },
+          "role": {
+            "$ref": "#/components/schemas/AllocationRole"
+          },
+          "unitId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^unt_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rsvp": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RsvpState"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "membershipId",
+          "role",
+          "unitId",
+          "rsvp"
+        ],
+        "additionalProperties": false
+      },
+      "AllocationRole": {
+        "type": "string",
+        "enum": [
+          "attendee",
+          "occupant",
+          "driver",
+          "passenger",
+          "assignee"
+        ]
+      },
       "AuthPasswordResetInput": {
         "type": "object",
         "properties": {
@@ -9113,6 +9183,39 @@
           "boardVersion",
           "createdAt",
           "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "ItemBoard": {
+        "type": "object",
+        "properties": {
+          "itemId": {
+            "type": "string",
+            "pattern": "^itm_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+          },
+          "boardVersion": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "allocations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Allocation"
+            }
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Warning"
+            }
+          }
+        },
+        "required": [
+          "itemId",
+          "boardVersion",
+          "allocations",
+          "warnings"
         ],
         "additionalProperties": false
       },
@@ -10282,6 +10385,15 @@
           "maybe"
         ]
       },
+      "RsvpState": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "yes",
+          "no",
+          "maybe"
+        ]
+      },
       "Session": {
         "type": "object",
         "properties": {
@@ -10897,6 +11009,34 @@
           "tz"
         ],
         "additionalProperties": false
+      },
+      "Warning": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "$ref": "#/components/schemas/WarningCode"
+          },
+          "unitId": {
+            "type": "string",
+            "pattern": "^unt_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "additionalProperties": false
+      },
+      "WarningCode": {
+        "type": "string",
+        "enum": [
+          "overlap",
+          "missing_transfer",
+          "non_refundable",
+          "non_changeable",
+          "deposit_due",
+          "missing_add_on",
+          "no_licensed_driver"
+        ]
       }
     },
     "securitySchemes": {

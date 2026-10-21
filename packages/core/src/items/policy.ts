@@ -86,3 +86,10 @@ export function canManageBoard(editor: ItemEditor): boolean {
   if (ITEM_EDITORS.has(editor.role)) return true;
   return editor.role === 'member' && editor.owns;
 }
+
+/** items.assignments.get: every role reads the board of an item it can see. */
+const BOARD_READERS: ReadonlySet<TripRole> = new Set(['owner', 'organizer', 'member', 'viewer']);
+
+export function canReadBoard(role: TripRole): boolean {
+  return BOARD_READERS.has(role);
+}

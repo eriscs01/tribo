@@ -280,3 +280,55 @@ describe('units.delete over HTTP', () => {
     expect(list.json()).toEqual({ items: [], nextCursor: null });
   });
 });
+
+describe('items.assignments.get over HTTP', () => {
+  it('answers the board with ETag = boardVersion, and 304 while it is current', async () => {
+    const w = await world();
+    await addAllocation(tdb.db, {
+      tripId: w.trip.tripId,
+      itemId: w.itemId,
+      membershipId: w.memberMembershipId,
+      role: 'occupant',
+      unitId: w.roomId,
+    });
+    const get = (headers: Record<string, string> = {}) =>
+      app.inject({
+        method: 'GET',
+        url: `/v1/items/${w.itemPath}/assignments`,
+        ...w.viewer.auth,
+        headers: { ...w.viewer.auth.headers, ...headers },
+      });
+    const res = await get();
+    expect(res.statusCode).toBe(200);
+    expect(res.headers.etag).toBe('"1"');
+    expect(res.json()).toEqual({
+      itemId: w.itemPath,
+      boardVersion: 1,
+      allocations: [
+        {
+          membershipId: encodeTypeId(ID_PREFIX.membership, w.memberMembershipId),
+          role: 'occupant',
+          unitId: w.roomPath,
+          rsvp: null,
+        },
+      ],
+      warnings: [],
+    });
+    expect((await get({ 'if-none-match': '"1"' })).statusCode).toBe(304);
+  });
+
+  it('answers 404 to a stranger and logs the refusal', async () => {
+    const w = await world();
+    const stranger = await signedInUser();
+    const res = await app.inject({
+      method: 'GET',
+      url: `/v1/items/${w.itemPath}/assignments`,
+      ...stranger.auth,
+    });
+    expect(res.statusCode).toBe(404);
+    expect(refusalLine(res.headers['x-request-id'])).toMatchObject({
+      operationId: 'items.assignments.get',
+      problem: 'not_found',
+    });
+  });
+});

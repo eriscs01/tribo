@@ -26,9 +26,15 @@ const RATE_LIMITED = {
 };
 
 const ETAG_HEADER = {
-  description: 'SHA-256 (base64url) of this representation, as sent to this caller',
-  schema: { type: 'string' },
-};
+  representation: {
+    description: 'SHA-256 (base64url) of this representation, as sent to this caller',
+    schema: { type: 'string' },
+  },
+  board_version: {
+    description: "The item's boardVersion, quoted; send it back as If-Match to save the board",
+    schema: { type: 'string' },
+  },
+} as const;
 
 /** Named schemas shared through components.schemas, keyed by their Zod `meta({ id })`. */
 type Components = Map<string, Json>;
@@ -130,7 +136,7 @@ function parameters(op: Operation, components: Components): Json[] {
       name: 'If-None-Match',
       in: 'header',
       required: false,
-      description: 'The ETag of a representation already held; 304 when it is still current',
+      description: 'An ETag already held; 304 when it is still current',
       schema: { type: 'string' },
     });
   }
@@ -154,7 +160,7 @@ function operationObject(op: Operation, components: Components): Json {
   } else if (op.output) {
     responses[op.method === 'POST' ? '201' : '200'] = {
       description: 'OK',
-      ...(op.etag ? { headers: { ETag: ETAG_HEADER } } : {}),
+      ...(op.etag ? { headers: { ETag: ETAG_HEADER[op.etag] } } : {}),
       content: { 'application/json': { schema: jsonSchema(op.output, 'output', components) } },
     };
     if (op.etag) responses['304'] = { description: 'Not modified: If-None-Match names the ETag' };

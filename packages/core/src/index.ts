@@ -24,6 +24,8 @@ export {
 export {
   createItemsService,
   createUnitsService,
+  type AllocationRecord,
+  type BoardRecord,
   type ItemRecord,
   type ItemsService,
   type ItemTimeRecord,

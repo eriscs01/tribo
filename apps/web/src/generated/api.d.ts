@@ -1940,6 +1940,14 @@ export interface components {
             /** Format: date */
             date: string;
         };
+        Allocation: {
+            membershipId: string;
+            role: components["schemas"]["AllocationRole"];
+            unitId: string | null;
+            rsvp: components["schemas"]["RsvpState"] | null;
+        };
+        /** @enum {string} */
+        AllocationRole: "attendee" | "occupant" | "driver" | "passenger" | "assignee";
         AuthPasswordResetInput: {
             token: string;
             newPassword: components["schemas"]["NewPassword"];
@@ -1984,6 +1992,12 @@ export interface components {
             boardVersion: number;
             createdAt: components["schemas"]["Instant"];
             updatedAt: components["schemas"]["Instant"];
+        };
+        ItemBoard: {
+            itemId: string;
+            boardVersion: number;
+            allocations: components["schemas"]["Allocation"][];
+            warnings: components["schemas"]["Warning"][];
         };
         ItemInput: {
             type: components["schemas"]["ItemType"];
@@ -2224,6 +2238,8 @@ export interface components {
         };
         /** @enum {string} */
         RsvpAnswer: "yes" | "no" | "maybe";
+        /** @enum {string} */
+        RsvpState: "pending" | "yes" | "no" | "maybe";
         Session: {
             user: {
                 id: string;
@@ -2349,6 +2365,12 @@ export interface components {
             local: string;
             tz: components["schemas"]["TimeZone"];
         };
+        Warning: {
+            code: components["schemas"]["WarningCode"];
+            unitId?: string;
+        };
+        /** @enum {string} */
+        WarningCode: "overlap" | "missing_transfer" | "non_refundable" | "non_changeable" | "deposit_due" | "missing_add_on" | "no_licensed_driver";
     };
     responses: never;
     parameters: never;
@@ -3954,7 +3976,10 @@ export interface operations {
     "items.assignments.get": {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description An ETag already held; 304 when it is still current */
+                "If-None-Match"?: string;
+            };
             path: {
                 itemId: string;
             };
@@ -3962,14 +3987,23 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            200: {
                 headers: {
+                    /** @description The item's boardVersion, quoted; send it back as If-Match to save the board */
+                    ETag?: string;
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["ItemBoard"];
                 };
+            };
+            /** @description Not modified: If-None-Match names the ETag */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {
@@ -5824,7 +5858,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description The ETag of a representation already held; 304 when it is still current */
+                /** @description An ETag already held; 304 when it is still current */
                 "If-None-Match"?: string;
             };
             path: {

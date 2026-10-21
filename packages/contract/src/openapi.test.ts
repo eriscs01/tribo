@@ -69,7 +69,7 @@ describe('toOpenApi', () => {
     expect(declaring.sort()).toEqual([...IDEMPOTENCY_KEY_OPERATIONS].sort());
   });
 
-  it('declares the ETag header and If-None-Match → 304 exactly on reads that send a representation ETag', () => {
+  it('declares the ETag header and If-None-Match → 304 exactly on reads that send an ETag', () => {
     const paths = doc.paths as Record<string, Record<string, Declared>>;
     const tagged = registry.filter((op) => {
       const declared = paths[op.path]?.[op.method.toLowerCase()];
@@ -79,11 +79,21 @@ describe('toOpenApi', () => {
       const etag = declared?.responses['200']?.headers?.ETag !== undefined;
       const notModified = declared?.responses['304'] !== undefined;
       expect([ifNoneMatch ?? false, etag, notModified], op.id).toEqual(
-        Array(3).fill(op.etag === 'representation'),
+        Array(3).fill(op.etag !== undefined),
       );
       return notModified;
     });
-    expect(tagged.map((op) => op.id)).toContain('trips.get');
+    expect(tagged.map((op) => op.id)).toEqual(
+      expect.arrayContaining(['trips.get', 'items.assignments.get']),
+    );
+  });
+
+  it("documents a board_version ETag as the item's boardVersion, the tag If-Match takes back", () => {
+    const paths = doc.paths as Record<string, Record<string, Declared>>;
+    for (const op of registry.filter((o) => o.etag === 'board_version')) {
+      const etag = paths[op.path]?.[op.method.toLowerCase()]?.responses['200']?.headers?.ETag;
+      expect(JSON.stringify(etag), op.id).toContain('boardVersion');
+    }
   });
 
   it('declares 429 with Retry-After exactly on the implemented writes the rate limits count', () => {

@@ -63,7 +63,13 @@ import {
   type ItemRow,
 } from './repo.js';
 
-export { createUnitsService, type UnitRecord, type UnitsService } from './units.js';
+export {
+  createUnitsService,
+  type AllocationRecord,
+  type BoardRecord,
+  type UnitRecord,
+  type UnitsService,
+} from './units.js';
 
 /** A stored time: wall-clock plus zone with its resolved instant, or an all-day date. */
 export type ItemTimeRecord = { local: string; tz: string; at: Date } | { date: string };

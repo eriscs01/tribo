@@ -8,6 +8,7 @@ import {
   canRsvpItem,
   canListUnit,
   canManageBoard,
+  canReadBoard,
   canUpdateItem,
 } from './policy.js';
 
@@ -103,5 +104,13 @@ describe('canManageBoard', () => {
     expect(canManageBoard(editor('member'))).toBe(false);
     expect(canManageBoard(editor('member', false, true))).toBe(false);
     expect(canManageBoard(editor('viewer', true))).toBe(false);
+  });
+});
+
+describe('canReadBoard', () => {
+  it('lets every trip role read the board of an item it may see', () => {
+    for (const role of ['owner', 'organizer', 'member', 'viewer'] as const) {
+      expect(canReadBoard(role)).toBe(true);
+    }
   });
 });
