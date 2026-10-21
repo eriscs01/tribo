@@ -3,7 +3,7 @@
 import { defineOperation } from '../operation.js';
 import { UnitPage, Unit, UnitInput, UnitPatch } from '../unit.js';
 import { PageQuery } from '../page.js';
-import { ItemBoard } from '../assignment.js';
+import { ItemBoard, ItemBoardInput } from '../assignment.js';
 
 export const unitsOperations = [
   defineOperation({
@@ -117,7 +117,9 @@ export const unitsOperations = [
     mcpTool: 'assign',
     notes:
       'Save whole board; capacity checked on final state; capacity_exceeded, room_double_booked, driver_taken; If-Match on boardVersion; trip_archived on archived trips (R29)',
-    status: 'planned',
+    status: 'implemented',
+    input: ItemBoardInput,
+    output: ItemBoard,
   }),
   defineOperation({
     id: 'tickets.list',

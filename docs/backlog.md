@@ -151,7 +151,7 @@
 - [x] `items.assignments.get` · Drop A · `GET /v1/items/{itemId}/assignments`
   - Whole board: RSVPs, occupants, drivers, passengers, assignees; Follows item_visible; ETag = boardVersion
   - Roles: owner, organizer, member, viewer. If-Match: `no`. Idempotency: safe to repeat.
-- [ ] `items.assignments.replace` · Drop A · `PUT /v1/items/{itemId}/assignments`
+- [x] `items.assignments.replace` · Drop A · `PUT /v1/items/{itemId}/assignments`
   - Save whole board; capacity checked on final state; capacity_exceeded, room_double_booked, driver_taken; If-Match on boardVersion; trip_archived on archived trips (R29)
   - Roles: item owner, organizer, owner. If-Match: `board_version`. Idempotency: safe to repeat.
 - [ ] `tickets.list` · Drop B · `GET /v1/items/{itemId}/tickets`

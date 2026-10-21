@@ -1,7 +1,16 @@
 // The units of an item (rooms of a lodging, vehicles of a ground rental) and the item's
 // assignment board. Units and allocations are the items module's tables, so they are
 // written here, beside the item service, on the same acting-editor and lock helpers.
-import { NoBody, UnitInput, UnitPatch, type MaskedValue, type PageQuery } from '@tribo/contract';
+import {
+  decodeTypeId,
+  ID_PREFIX,
+  ItemBoardInput,
+  NoBody,
+  UnitInput,
+  UnitPatch,
+  type MaskedValue,
+  type PageQuery,
+} from '@tribo/contract';
 import { forModule, type DB, type ValueOf } from '@tribo/db';
 import {
   ApiError,
@@ -11,7 +20,11 @@ import {
   type WritePath,
 } from '@tribo/platform';
 import type { Kysely } from 'kysely';
-import { licensedMemberships, type CallerMembership } from '../trips/service.js';
+import {
+  allActiveMemberships,
+  licensedMemberships,
+  type CallerMembership,
+} from '../trips/service.js';
 import { writeOperation } from '../write-operation.js';
 import {
   actingEditor,
@@ -23,7 +36,7 @@ import {
   visibleItem,
   type ActingEditor,
 } from './acting.js';
-import { boardWarnings, type BoardWarning } from './board-rules.js';
+import { boardRefusal, boardWarnings, type BoardWarning } from './board-rules.js';
 import { canListUnit, canManageBoard, canReadBoard } from './policy.js';
 import {
   bumpBoardVersion,
@@ -37,9 +50,12 @@ import {
   listUnits,
   lockItem,
   lockUnit,
+  occupiedElsewhere,
+  replaceBoardRows,
   softDeleteUnit,
   updateUnit,
   type ItemRow,
+  type NewAllocation,
   type UnitRow,
 } from './repo.js';
 
@@ -102,6 +118,16 @@ export interface UnitsService {
   ): Promise<void>;
   /** items.assignments.get: the whole board; not_found unless tribo.item_visible lets the caller see it. */
   board(userId: string, itemId: string): Promise<BoardRecord>;
+  /**
+   * items.assignments.replace: saves the whole board under If-Match = boardVersion, checking
+   * the final state; advisory problems come back in warnings, never as refusals.
+   */
+  replaceBoard(
+    ctx: RequestContext,
+    itemId: string,
+    body: unknown,
+    ifMatch: number | undefined,
+  ): Promise<BoardRecord>;
 }
 
 /** The one kind of unit each item type takes; other types have none. */
@@ -113,6 +139,7 @@ const UNIT_KIND: Partial<Record<ValueOf<'tribo.items.type'>, ValueOf<'tribo.unit
 const unitsCreate = writeOperation('units.create', UnitInput);
 const unitsUpdate = writeOperation('units.update', UnitPatch);
 const unitsDelete = writeOperation('units.delete', NoBody);
+const boardReplace = writeOperation('items.assignments.replace', ItemBoardInput);
 
 /** `write` is core's write path (writePath in write-path.ts), passed in to keep imports acyclic. */
 export function createUnitsService(db: Kysely<DB>, write: WritePath): UnitsService {
@@ -140,6 +167,65 @@ export function createUnitsService(db: Kysely<DB>, write: WritePath): UnitsServi
       return boardRecord(db, item, await itemUnits(items, item.id, { lock: false }), {
         boardVersion: item.board_version,
         rows: await listBoard(items, item.id),
+      });
+    },
+
+    replaceBoard(ctx, itemId, body, ifMatch) {
+      let acting: ActingEditor | undefined;
+      return write(ctx, {
+        operation: boardReplace,
+        target: { itemId },
+        body,
+        ifMatch,
+        authorize: async (tx, c, target) => {
+          acting = await actingEditor(tx, c, target.itemId);
+          if (!canManageBoard(acting.editor)) throw new ApiError('forbidden');
+        },
+        // The item, then its units, locked until commit: the counter is the board's, and
+        // no concurrent save or unit edit moves what the final-state check relies on.
+        load: async (tx, target) => {
+          const { tripId, row } = await lockedItem(tx, target);
+          const units = await itemUnits(forModule(tx, 'items'), row.id, { lock: true });
+          return { tripId, counter: row.board_version, row, units };
+        },
+        mutate: async (tx, _c, { row: item, units }, input) => {
+          if (!acting) throw new Error('items.assignments.replace mutated before authorize');
+          const { userId } = acting;
+          const rows = input.allocations.map((a): NewAllocation => ({
+            membershipId: decodeTypeId(ID_PREFIX.membership, a.membershipId),
+            role: a.role,
+            unitId: a.unitId == null ? null : decodeTypeId(ID_PREFIX.unit, a.unitId),
+            rsvp: a.role === 'attendee' ? (a.rsvp ?? 'pending') : null,
+          }));
+          await checkMemberships(tx, item.trip_id, rows);
+          const refusal = boardRefusal(units.map(boardUnit), rows);
+          if (refusal?.code === 'validation_failed') throw invalid(refusal.path, refusal.message);
+          if (refusal) throw new ApiError(refusal.code);
+          const items = forModule(tx, 'items');
+          const occupants = rows.filter((r) => r.role === 'occupant').map((r) => r.membershipId);
+          if (
+            await occupiedElsewhere(items, { userId, itemId: item.id, membershipIds: occupants })
+          ) {
+            throw new ApiError('room_double_booked');
+          }
+          await replaceBoardRows(items, {
+            tripId: item.trip_id,
+            itemId: item.id,
+            rows,
+            createdBy: userId,
+          });
+          const boardVersion = await bumpBoardVersion(items, item.id);
+          const stored = await listBoard(items, item.id);
+          return {
+            action: 'update',
+            aggregate: 'item_board',
+            entityId: item.id,
+            tripId: item.trip_id,
+            version: boardVersion,
+            snapshot: boardSnapshot(stored),
+            result: await boardRecord(tx, item, units, { boardVersion, rows: stored }),
+          };
+        },
       });
     },
 
@@ -355,6 +441,29 @@ function unitSnapshot(row: UnitRow) {
   };
 }
 
+/**
+ * Every row names an active membership of the item's trip: one of another trip, or one
+ * removed, is refused at the first row that names it.
+ */
+async function checkMemberships(
+  tx: Tx,
+  tripId: string,
+  rows: readonly NewAllocation[],
+): Promise<void> {
+  const ids = rows.map((r) => r.membershipId);
+  if (await allActiveMemberships(tx, tripId, ids)) return;
+  for (const [i, id] of ids.entries()) {
+    // eslint-disable-next-line no-await-in-loop -- only after the set failed, to name the row
+    if (!(await allActiveMemberships(tx, tripId, [id]))) {
+      throw invalid(`/allocations/${String(i)}/membershipId`, 'not a member of this trip');
+    }
+  }
+}
+
+function boardUnit(u: UnitRow) {
+  return { id: u.id, kind: u.kind as UnitRecord['kind'], capacity: u.capacity };
+}
+
 /** The board at one version, with the advisory checks on it. */
 async function boardRecord(
   db: Kysely<DB>,
@@ -374,7 +483,7 @@ async function boardRecord(
     boardVersion: board.boardVersion,
     allocations,
     warnings: boardWarnings(
-      units.map((u) => ({ id: u.id, kind: u.kind as UnitRecord['kind'], capacity: u.capacity })),
+      units.map(boardUnit),
       allocations,
       await licensedMemberships(db, item.trip_id, drivers),
     ),

@@ -506,3 +506,72 @@ export function listUnits(
 }
 
 export type UnitRow = NonNullable<Awaited<ReturnType<typeof findUnit>>>;
+
+/** A board row as written: attendees carry their answer, other roles none. */
+export interface NewAllocation {
+  membershipId: string;
+  role: ValueOf<'tribo.allocations.role'>;
+  unitId: string | null;
+  rsvp: ValueOf<'tribo.allocations.rsvp'> | null;
+}
+
+/** Replaces an item's board whole: allocations are owned rows of the item (R26). */
+export async function replaceBoardRows(
+  db: ItemsDb,
+  board: { tripId: string; itemId: string; rows: readonly NewAllocation[]; createdBy: string },
+): Promise<void> {
+  await db.deleteFrom('tribo.allocations').where('item_id', '=', board.itemId).execute();
+  if (board.rows.length === 0) return;
+  await db
+    .insertInto('tribo.allocations')
+    .values(
+      board.rows.map((r) => ({
+        trip_id: board.tripId,
+        item_id: board.itemId,
+        membership_id: r.membershipId,
+        role: r.role,
+        unit_id: r.unitId,
+        rsvp: r.rsvp,
+        created_by: board.createdBy,
+      })),
+    )
+    .execute();
+}
+
+/** An item's nights, check-in day to check-out day, each in its own zone: [first, last). */
+function nights(alias: 'i' | 'o') {
+  const t = (column: string) => sql.ref(`${alias}.${column}`);
+  const first = sql<string>`coalesce((${t('start_at')} AT TIME ZONE ${t('start_tz')})::date, ${t('start_date')})`;
+  const last = sql<string>`coalesce((${t('end_at')} AT TIME ZONE ${t('end_tz')})::date, ${t('end_date')}, ${first})`;
+  return { first, range: sql`daterange(${first}, greatest(${last}, ${first} + 1))` };
+}
+
+/**
+ * Whether any of these memberships occupies a live room of another live item of the trip,
+ * one the caller can see, on a night this item also covers. Undated stays share no night.
+ */
+export async function occupiedElsewhere(
+  db: ItemsDb,
+  stay: { userId: string; itemId: string; membershipIds: readonly string[] },
+): Promise<boolean> {
+  if (stay.membershipIds.length === 0) return false;
+  const here = nights('i');
+  const there = nights('o');
+  const row = await db
+    .selectFrom('tribo.allocations as a')
+    .innerJoin('tribo.items as o', 'o.id', 'a.item_id')
+    .innerJoin('tribo.units as u', 'u.id', 'a.unit_id')
+    .innerJoin('tribo.items as i', 'i.trip_id', 'o.trip_id')
+    .select('a.id')
+    .where('i.id', '=', stay.itemId)
+    .whereRef('o.id', '<>', 'i.id')
+    .where('a.role', '=', 'occupant')
+    .where('a.membership_id', 'in', stay.membershipIds)
+    .where('o.deleted_at', 'is', null)
+    .where('u.deleted_at', 'is', null)
+    .where(sql<boolean>`tribo.item_visible(${stay.userId}, o.id)`)
+    .where(sql<boolean>`${here.first} IS NOT NULL AND ${there.first} IS NOT NULL`)
+    .where(sql<boolean>`${here.range} && ${there.range}`)
+    .executeTakeFirst();
+  return row !== undefined;
+}

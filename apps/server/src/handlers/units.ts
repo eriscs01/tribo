@@ -81,5 +81,14 @@ export function unitsHandlers(units: UnitsService): Handlers {
     // Sent with ETag = boardVersion, the If-Match items.assignments.replace takes.
     'items.assignments.get': async (request) =>
       boardView(await units.board(signedIn(request).userId, pathId(request, 'itemId'))),
+    'items.assignments.replace': async (request) =>
+      boardView(
+        await units.replaceBoard(
+          requestContext(request),
+          pathId(request, 'itemId'),
+          request.body,
+          ifMatch(request),
+        ),
+      ),
   };
 }

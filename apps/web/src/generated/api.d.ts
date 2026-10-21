@@ -1946,6 +1946,12 @@ export interface components {
             unitId: string | null;
             rsvp: components["schemas"]["RsvpState"] | null;
         };
+        AllocationInput: {
+            membershipId: string;
+            role: components["schemas"]["AllocationRole"];
+            unitId?: string | null;
+            rsvp?: components["schemas"]["RsvpState"];
+        };
         /** @enum {string} */
         AllocationRole: "attendee" | "occupant" | "driver" | "passenger" | "assignee";
         AuthPasswordResetInput: {
@@ -1998,6 +2004,9 @@ export interface components {
             boardVersion: number;
             allocations: components["schemas"]["Allocation"][];
             warnings: components["schemas"]["Warning"][];
+        };
+        ItemBoardInput: {
+            allocations: components["schemas"]["AllocationInput"][];
         };
         ItemInput: {
             type: components["schemas"]["ItemType"];
@@ -4028,11 +4037,26 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ItemBoardInput"];
+            };
+        };
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            200: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ItemBoard"];
+                };
+            };
+            /** @description Too many writes in this window (rate_limited) */
+            429: {
+                headers: {
+                    /** @description Seconds until the window resets */
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {

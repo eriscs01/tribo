@@ -332,3 +332,116 @@ describe('items.assignments.get over HTTP', () => {
     });
   });
 });
+
+describe('items.assignments.replace over HTTP', () => {
+  const put = (
+    w: Awaited<ReturnType<typeof world>>,
+    caller: Caller,
+    payload: unknown,
+    headers: Record<string, string> = {},
+  ) =>
+    app.inject({
+      method: 'PUT',
+      url: `/v1/items/${w.itemPath}/assignments`,
+      payload: payload as Record<string, unknown>,
+      ...caller.auth,
+      headers: { ...caller.auth.headers, ...headers },
+    });
+  const occupant = (membershipId: string, roomPath: string) => ({
+    membershipId: encodeTypeId(ID_PREFIX.membership, membershipId),
+    role: 'occupant',
+    unitId: roomPath,
+  });
+
+  it('saves the board with the ETag the read sent as If-Match, and answers the new board', async () => {
+    const w = await world();
+    const read = await app.inject({
+      method: 'GET',
+      url: `/v1/items/${w.itemPath}/assignments`,
+      ...w.owner.auth,
+    });
+    const body = { allocations: [occupant(w.memberMembershipId, w.roomPath)] };
+    expect((await put(w, w.owner, body)).statusCode).toBe(428);
+    const res = await put(w, w.owner, body, { 'if-match': String(read.headers.etag) });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ itemId: w.itemPath, boardVersion: 2, warnings: [] });
+    const stale = await put(w, w.owner, body, { 'if-match': String(read.headers.etag) });
+    expect(stale.statusCode).toBe(412);
+  });
+
+  it('logs capacity_exceeded and room_double_booked by operation and code', async () => {
+    const w = await world();
+    const third = await signedInUser();
+    const thirdMembershipId = await addMember(tdb.db, {
+      tripId: w.trip.tripId,
+      personId: third.personId,
+      role: 'member',
+    });
+    const full = [w.memberMembershipId, w.viewerMembershipId, thirdMembershipId].map((m) =>
+      occupant(m, w.roomPath),
+    );
+    const over = await put(w, w.owner, { allocations: full }, { 'if-match': '"1"' });
+    expect(over.statusCode).toBe(409);
+    expect(refusalLine(over.headers['x-request-id'])).toMatchObject({
+      operationId: 'items.assignments.replace',
+      problem: 'capacity_exceeded',
+      status: 409,
+    });
+    const room2 = await createUnit(tdb.db, { itemId: w.itemId, label: 'Room 2' });
+    const twice = [
+      occupant(w.memberMembershipId, w.roomPath),
+      occupant(w.memberMembershipId, encodeTypeId(ID_PREFIX.unit, room2)),
+    ];
+    const booked = await put(w, w.owner, { allocations: twice }, { 'if-match': '"1"' });
+    expect(refusalLine(booked.headers['x-request-id'])).toMatchObject({
+      operationId: 'items.assignments.replace',
+      problem: 'room_double_booked',
+      status: 409,
+    });
+  });
+
+  it('logs driver_taken and a forbidden save by operation and code', async () => {
+    const owner = await signedInUser();
+    const member = await signedInUser();
+    const trip = await createTrip(tdb.db, { owner });
+    const memberMembershipId = await addMember(tdb.db, {
+      tripId: trip.tripId,
+      personId: member.personId,
+      role: 'member',
+    });
+    const rental = await createItem(tdb.db, {
+      tripId: trip.tripId,
+      ownerMembershipId: trip.ownerMembershipId,
+      type: 'ground',
+    });
+    const bike = encodeTypeId(
+      ID_PREFIX.unit,
+      await createUnit(tdb.db, { itemId: rental, kind: 'vehicle', capacity: 5 }),
+    );
+    const driver = (m: string) => ({
+      membershipId: encodeTypeId(ID_PREFIX.membership, m),
+      role: 'driver',
+      unitId: bike,
+    });
+    const save = (caller: Caller) =>
+      app.inject({
+        method: 'PUT',
+        url: `/v1/items/${encodeTypeId(ID_PREFIX.item, rental)}/assignments`,
+        payload: { allocations: [driver(trip.ownerMembershipId), driver(memberMembershipId)] },
+        ...caller.auth,
+        headers: { ...caller.auth.headers, 'if-match': '"1"' },
+      });
+    const taken = await save(owner);
+    expect(refusalLine(taken.headers['x-request-id'])).toMatchObject({
+      operationId: 'items.assignments.replace',
+      problem: 'driver_taken',
+      status: 409,
+    });
+    const forbidden = await save(member);
+    expect(refusalLine(forbidden.headers['x-request-id'])).toMatchObject({
+      operationId: 'items.assignments.replace',
+      problem: 'forbidden',
+      status: 403,
+    });
+  });
+});

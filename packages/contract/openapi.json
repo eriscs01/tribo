@@ -3102,12 +3102,31 @@
           }
         ],
         "responses": {
-          "501": {
-            "description": "Registered but not implemented yet (not_implemented)",
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemBoard"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many writes in this window (rate_limited)",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the window resets",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
                 }
               }
             }
@@ -3124,7 +3143,7 @@
           }
         },
         "x-tribo": {
-          "status": "planned",
+          "status": "implemented",
           "slice": "1a",
           "drop": "A",
           "roles": "item owner, organizer, owner",
@@ -3153,7 +3172,17 @@
               "type": "string"
             }
           }
-        ]
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ItemBoardInput"
+              }
+            }
+          }
+        }
       }
     },
     "/v1/items/{itemId}/checklist": {
@@ -8888,6 +8917,37 @@
         ],
         "additionalProperties": false
       },
+      "AllocationInput": {
+        "type": "object",
+        "properties": {
+          "membershipId": {
+            "type": "string",
+            "pattern": "^mem_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+          },
+          "role": {
+            "$ref": "#/components/schemas/AllocationRole"
+          },
+          "unitId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^unt_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rsvp": {
+            "$ref": "#/components/schemas/RsvpState"
+          }
+        },
+        "required": [
+          "membershipId",
+          "role"
+        ],
+        "additionalProperties": false
+      },
       "AllocationRole": {
         "type": "string",
         "enum": [
@@ -9216,6 +9276,22 @@
           "boardVersion",
           "allocations",
           "warnings"
+        ],
+        "additionalProperties": false
+      },
+      "ItemBoardInput": {
+        "type": "object",
+        "properties": {
+          "allocations": {
+            "maxItems": 500,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AllocationInput"
+            }
+          }
+        },
+        "required": [
+          "allocations"
         ],
         "additionalProperties": false
       },

@@ -131,6 +131,7 @@ const units: UnitsService = {
   update: unused,
   delete: unused,
   board: unused,
+  replaceBoard: unused,
 };
 const library: LibraryService = {
   search: unused,
