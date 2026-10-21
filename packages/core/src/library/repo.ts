@@ -30,6 +30,15 @@ export function findAccountPerson(db: LibraryDb, userId: string) {
     .executeTakeFirst();
 }
 
+/** The account behind a person, whatever its state; undefined for an unknown person. */
+export function findPersonAccount(db: LibraryDb, personId: string) {
+  return db
+    .selectFrom('tribo.persons')
+    .select('user_id')
+    .where('id', '=', personId)
+    .executeTakeFirst();
+}
+
 /**
  * A fresh row id, taken before the insert: a sensitive value is sealed to its row id (AAD),
  * so the id must be known when the row is written.
@@ -104,6 +113,18 @@ export function lockPerson(db: LibraryDb, personId: string) {
 /** A live person, for the writer that holds it or just created it. */
 export function findPerson(db: LibraryDb, personId: string) {
   return findLivePerson(db, personId).executeTakeFirst();
+}
+
+/**
+ * The persons behind these memberships, whatever their state: tribo.is_member ignores
+ * persons.deleted_at, so a trip's member list does too (findAccountPerson says why).
+ */
+export function findPersons(db: LibraryDb, personIds: readonly string[]) {
+  return db
+    .selectFrom('tribo.persons as p')
+    .select(PERSON_COLUMNS)
+    .where('p.id', 'in', personIds)
+    .execute();
 }
 
 function findLivePerson(db: LibraryDb, personId: string) {

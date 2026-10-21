@@ -2092,6 +2092,33 @@ export interface components {
             };
             person: components["schemas"]["Person"];
         };
+        Member: {
+            id: string;
+            tripId: string;
+            role: components["schemas"]["TripRole"];
+            canViewCosts: boolean;
+            person: components["schemas"]["Person"];
+            version: number;
+            createdAt: components["schemas"]["Instant"];
+            updatedAt: components["schemas"]["Instant"];
+        };
+        MemberAddInput: {
+            personId: string;
+            /** @enum {string} */
+            role?: "organizer" | "member" | "viewer";
+        } | {
+            person: components["schemas"]["PersonInput"];
+            /** @enum {string} */
+            role?: "organizer" | "member" | "viewer";
+        };
+        MemberPage: {
+            items: components["schemas"]["Member"][];
+            nextCursor: string | null;
+        };
+        MemberPatch: {
+            role?: components["schemas"]["TripRole"];
+            canViewCosts?: boolean;
+        };
         MetaOpenapi: {
             openapi: string;
             info: {
@@ -2251,6 +2278,8 @@ export interface components {
             status?: components["schemas"]["TripStatus"];
             destinations?: string[];
         };
+        /** @enum {string} */
+        TripRole: "owner" | "organizer" | "member" | "viewer";
         /** @enum {string} */
         TripStatus: "draft" | "planning" | "active" | "completed" | "archived";
         Username: string;
@@ -6192,7 +6221,10 @@ export interface operations {
     };
     "members.list": {
         parameters: {
-            query?: never;
+            query?: {
+                limit?: number;
+                cursor?: string;
+            };
             header?: never;
             path: {
                 tripId: string;
@@ -6201,13 +6233,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["MemberPage"];
                 };
             };
             /** @description Error */
@@ -6230,15 +6262,19 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberAddInput"];
+            };
+        };
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["Member"];
                 };
             };
             /** @description Error */
@@ -6300,15 +6336,19 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberPatch"];
+            };
+        };
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["Member"];
                 };
             };
             /** @description Error */

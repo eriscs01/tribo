@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { VALUE_SETS } from '@tribo/db';
-import { LIFECYCLE, statusMoveRefusal, tripCreateRefusal, tripWriteRefusal } from './policy.js';
+import {
+  canAddMember,
+  canListMembers,
+  canSetMemberRole,
+  roleChangeRefusal,
+  takesCostGrant,
+  LIFECYCLE,
+  statusMoveRefusal,
+  tripCreateRefusal,
+  tripWriteRefusal,
+} from './policy.js';
 
 const open = { archived: false, deleted: false };
 const archived = { archived: true, deleted: false };
@@ -50,5 +60,61 @@ describe('statusMoveRefusal', () => {
 
   it('leaves archiving to trips.archive', () => {
     expect(statusMoveRefusal('completed', 'archived')).toBe('invalid_transition');
+  });
+});
+
+describe('canListMembers', () => {
+  it('lets every role read who is in the trip', () => {
+    for (const role of VALUE_SETS['tribo.memberships.trip_role']) {
+      expect(canListMembers(role)).toBe(true);
+    }
+  });
+});
+
+describe('canAddMember', () => {
+  it('lets only the owner add travellers', () => {
+    expect(canAddMember('owner')).toBe(true);
+    for (const role of ['organizer', 'member', 'viewer'] as const) {
+      expect(canAddMember(role)).toBe(false);
+    }
+  });
+});
+
+describe('canSetMemberRole', () => {
+  it('lets only the owner set roles', () => {
+    expect(canSetMemberRole('owner')).toBe(true);
+    for (const role of ['organizer', 'member', 'viewer'] as const) {
+      expect(canSetMemberRole(role)).toBe(false);
+    }
+  });
+});
+
+describe('takesCostGrant', () => {
+  it('is a viewer-only grant: every other role reads costs anyway', () => {
+    expect(takesCostGrant('viewer')).toBe(true);
+    for (const role of ['owner', 'organizer', 'member'] as const) {
+      expect(takesCostGrant(role)).toBe(false);
+    }
+  });
+});
+
+describe('roleChangeRefusal', () => {
+  const other = { ownMembership: false, newOwnerHasMfa: false };
+
+  it('changes any other role freely', () => {
+    for (const to of ['organizer', 'member', 'viewer'] as const) {
+      expect(roleChangeRefusal({ ...other, to })).toBeNull();
+    }
+  });
+
+  it('G14: hands the trip only to an account with MFA', () => {
+    expect(roleChangeRefusal({ ...other, to: 'owner' })).toBe('mfa_required');
+    expect(roleChangeRefusal({ ...other, to: 'owner', newOwnerHasMfa: true })).toBeNull();
+  });
+
+  it('keeps the owner owner until they hand the trip over', () => {
+    const own = { ownMembership: true, newOwnerHasMfa: false };
+    expect(roleChangeRefusal({ ...own, to: 'organizer' })).toBe('owner_transfer_required');
+    expect(roleChangeRefusal({ ...own, to: 'owner' })).toBeNull();
   });
 });

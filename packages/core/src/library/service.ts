@@ -25,6 +25,8 @@ import {
   findAccountPerson,
   findOwnPerson,
   findPerson,
+  findPersons,
+  findPersonAccount,
   findVisiblePerson,
   insertAccountPerson,
   insertPlace,
@@ -135,6 +137,15 @@ const EMERGENCY_CONTACT = (personId: string): FieldRef => ({
   rowId: personId,
 });
 
+/** The emergency contact sealed to its person's row (AAD), or null for none. */
+function sealedContact(
+  keys: Keyring,
+  personId: string,
+  contact: EmergencyContact | null,
+): Buffer | null {
+  return contact === null ? null : sealJson(keys, EMERGENCY_CONTACT(personId), contact);
+}
+
 /** `write` is core's write path (writePath in write-path.ts), passed in to keep imports acyclic. */
 export function createLibraryService(
   db: Kysely<DB>,
@@ -142,7 +153,7 @@ export function createLibraryService(
   keys: Keyring,
 ): LibraryService {
   const sealContact = (personId: string, contact: EmergencyContact | null) =>
-    contact === null ? null : sealJson(keys, EMERGENCY_CONTACT(personId), contact);
+    sealedContact(keys, personId, contact);
 
   /**
    * The one person edit: `authorize` names the person the caller may edit (or throws), the
@@ -242,20 +253,8 @@ export function createLibraryService(
         ifMatch: undefined,
         authorize: signedInOnly,
         load: () => Promise.resolve({ tripId: null }),
-        mutate: async (tx, c, _loaded, input) => {
-          const library = forModule(tx, 'library');
-          const id = await newRowId(library);
-          await insertPlaceholder(library, {
-            id,
-            createdBy: actingUser(c),
-            displayName: input.displayName,
-            contacts: input.contacts ?? {},
-            dietary: input.dietary ?? null,
-            drivingLicence: input.drivingLicence ?? false,
-            emergencyContactEnc: sealContact(id, input.emergencyContact ?? null),
-          });
-          return personChange(tx, 'create', id);
-        },
+        mutate: (tx, c, _loaded, input) =>
+          createPlaceholder(tx, keys, { createdBy: actingUser(c), person: input }),
       }),
 
     updatePerson: (ctx, personId, body, ifMatch) =>
@@ -513,4 +512,58 @@ export async function createAccountPerson(
 export async function accountPersonId(db: Kysely<DB>, userId: string): Promise<string | null> {
   const row = await findAccountPerson(forModule(db, 'library'), userId);
   return row?.id ?? null;
+}
+
+/**
+ * The persons behind a trip's memberships, by id, as members.list shows them. The caller
+ * has checked it shares the trip with them, which is what tribo.person_visible asks.
+ */
+export async function memberPersons(
+  db: Kysely<DB>,
+  personIds: readonly string[],
+): Promise<Map<string, PersonRecord>> {
+  if (personIds.length === 0) return new Map();
+  const rows = await findPersons(forModule(db, 'library'), personIds);
+  return new Map(rows.map((row) => [row.id, personRecord(row)]));
+}
+
+/**
+ * A placeholder traveller its creator alone edits, written in the caller's transaction:
+ * library.people.create, and members.add for a new traveller. Returns the person's create
+ * as a change for the caller to record.
+ */
+export async function createPlaceholder(
+  tx: Tx,
+  keys: Keyring,
+  placeholder: { createdBy: string; person: PersonInput },
+): Promise<Change<PersonRecord>> {
+  const { person } = placeholder;
+  const library = forModule(tx, 'library');
+  const id = await newRowId(library);
+  await insertPlaceholder(library, {
+    id,
+    createdBy: placeholder.createdBy,
+    displayName: person.displayName,
+    contacts: person.contacts ?? {},
+    dietary: person.dietary ?? null,
+    drivingLicence: person.drivingLicence ?? false,
+    emergencyContactEnc: sealedContact(keys, id, person.emergencyContact ?? null),
+  });
+  return personChange(tx, 'create', id);
+}
+
+/** The person if tribo.person_visible lets this account see it (a merged id resolves), or null. */
+export async function visiblePerson(
+  db: Kysely<DB>,
+  userId: string,
+  personId: string,
+): Promise<PersonRecord | null> {
+  const row = await findVisiblePerson(forModule(db, 'library'), userId, personId);
+  return row ? personRecord(row) : null;
+}
+
+/** The account a person is, inside every trip it is a member of; null for a placeholder. */
+export async function personAccountId(db: Kysely<DB>, personId: string): Promise<string | null> {
+  const row = await findPersonAccount(forModule(db, 'library'), personId);
+  return row?.user_id ?? null;
 }

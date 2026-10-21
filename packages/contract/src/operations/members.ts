@@ -1,6 +1,8 @@
 // Generated from operations.csv by src/scripts/import-operations.ts. A story replaces an
 // entry's status with 'implemented' and adds its input and output schemas.
 import { defineOperation } from '../operation.js';
+import { Member, MemberAddInput, MemberPage, MemberPatch } from '../member.js';
+import { PageQuery } from '../page.js';
 
 export const membersOperations = [
   defineOperation({
@@ -18,7 +20,9 @@ export const membersOperations = [
     mcpApproval: false,
     mcpTool: null,
     notes: 'Members, roles, placeholders; Emergency contact masked; reveal per person',
-    status: 'planned',
+    status: 'implemented',
+    query: PageQuery,
+    output: MemberPage,
   }),
   defineOperation({
     id: 'members.add',
@@ -36,7 +40,9 @@ export const membersOperations = [
     mcpTool: null,
     notes:
       'Add placeholder traveller (new or visible library person); person_visible on personId; Person must have no account: person_has_account → send an invite (R4); A removed placeholder is undeleted rather than re-added; trip_archived on archived trips (R29)',
-    status: 'planned',
+    status: 'implemented',
+    input: MemberAddInput,
+    output: Member,
   }),
   defineOperation({
     id: 'members.setRole',
@@ -54,7 +60,9 @@ export const membersOperations = [
     mcpTool: 'manage_member',
     notes:
       'Change role or canViewCosts; Owner transfer to an MFA member demotes the old owner to organizer in the same write (G14); MCP approval; trip_archived on archived trips (R29)',
-    status: 'planned',
+    status: 'implemented',
+    input: MemberPatch,
+    output: Member,
   }),
   defineOperation({
     id: 'members.remove',

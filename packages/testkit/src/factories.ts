@@ -30,6 +30,8 @@ export async function createUser(
     platformRole?: ValueOf<'tribo.users.platform_role'>;
     /** Hashed with Argon2id so the account can sign in; by default it has no password. */
     password?: string;
+    /** MFA enabled, with a random secret nobody holds; enough for rules that ask whether it is on. */
+    mfa?: boolean;
   } = {},
 ): Promise<UserFixture> {
   const n = next();
@@ -41,6 +43,7 @@ export async function createUser(
       platform_role: init.platformRole ?? 'user',
       // An active admin needs MFA; tests that need one enable it themselves.
       status: init.platformRole === 'admin' ? 'disabled' : 'active',
+      ...(init.mfa ? { mfa_secret_enc: randomBytes(32), mfa_enabled_at: new Date() } : {}),
     })
     .returning('id')
     .executeTakeFirstOrThrow();
