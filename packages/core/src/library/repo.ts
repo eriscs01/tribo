@@ -106,6 +106,18 @@ export function findPerson(db: LibraryDb, personId: string) {
   return findLivePerson(db, personId).executeTakeFirst();
 }
 
+/**
+ * The persons behind these memberships, whatever their state: tribo.is_member ignores
+ * persons.deleted_at, so a trip's member list does too (findAccountPerson says why).
+ */
+export function findPersons(db: LibraryDb, personIds: readonly string[]) {
+  return db
+    .selectFrom('tribo.persons as p')
+    .select(PERSON_COLUMNS)
+    .where('p.id', 'in', personIds)
+    .execute();
+}
+
 function findLivePerson(db: LibraryDb, personId: string) {
   return db
     .selectFrom('tribo.persons as p')

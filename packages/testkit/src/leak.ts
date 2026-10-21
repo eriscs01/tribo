@@ -136,6 +136,8 @@ export interface Oracle {
   personVisible(world: BuiltWorld, userId: string, personId: string): boolean;
   /** A trip is the caller's while they hold an active membership in it and it is not deleted. */
   tripVisible(world: BuiltWorld, userId: string, tripId: string): boolean;
+  /** A membership shows to the caller while it is active and its trip is the caller's. */
+  memberVisible(world: BuiltWorld, userId: string, membershipId: string): boolean;
   /**
    * Whether a caller who sees the item may read one of its maskable fields as far as its
    * restrictedFields go: an unrestricted field always, a restricted one only as the item's
@@ -198,6 +200,13 @@ export const oracle: Oracle = {
     const me = personOf(w, userId);
     if (!trip || trip.deleted || !me) return false;
     return trip.members.some((m) => m.personId === me.id && !m.deleted);
+  },
+
+  memberVisible(w, userId, membershipId) {
+    const trip = w.trips.find((t) => t.members.some((m) => m.id === membershipId));
+    const member = trip?.members.find((m) => m.id === membershipId);
+    if (!trip || !member || member.deleted) return false;
+    return oracle.tripVisible(w, userId, trip.id);
   },
 };
 

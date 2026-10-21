@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { VALUE_SETS } from '@tribo/db';
-import { LIFECYCLE, statusMoveRefusal, tripCreateRefusal, tripWriteRefusal } from './policy.js';
+import {
+  canListMembers,
+  LIFECYCLE,
+  statusMoveRefusal,
+  tripCreateRefusal,
+  tripWriteRefusal,
+} from './policy.js';
 
 const open = { archived: false, deleted: false };
 const archived = { archived: true, deleted: false };
@@ -50,5 +56,13 @@ describe('statusMoveRefusal', () => {
 
   it('leaves archiving to trips.archive', () => {
     expect(statusMoveRefusal('completed', 'archived')).toBe('invalid_transition');
+  });
+});
+
+describe('canListMembers', () => {
+  it('lets every role read who is in the trip', () => {
+    for (const role of VALUE_SETS['tribo.memberships.trip_role']) {
+      expect(canListMembers(role)).toBe(true);
+    }
   });
 });

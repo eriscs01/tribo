@@ -1,8 +1,15 @@
-import type { IdentityService, ItemsService, LibraryService, TripsService } from '@tribo/core';
+import type {
+  IdentityService,
+  ItemsService,
+  LibraryService,
+  MembersService,
+  TripsService,
+} from '@tribo/core';
 import type { Handlers } from '../routes.js';
 import { authHandlers } from './auth.js';
 import { itemHandlers } from './items.js';
 import { libraryHandlers } from './library.js';
+import { membersHandlers } from './members.js';
 import { tripHandlers } from './trips.js';
 import { meHandlers } from './me.js';
 import { metaHandlers } from './meta.js';
@@ -12,6 +19,7 @@ export interface HandlerServices {
   identity: IdentityService;
   csrfSecret: Buffer;
   trips: TripsService;
+  members: MembersService;
   items: ItemsService;
   library: LibraryService;
 }
@@ -25,6 +33,7 @@ export function operationHandlers(services: HandlerServices): Handlers {
   return {
     ...authHandlers(services.identity, services.csrfSecret),
     ...tripHandlers(services.trips),
+    ...membersHandlers(services.members),
     ...itemHandlers(services.items),
     ...libraryHandlers(services.library),
     ...meHandlers(services.identity, services.library),

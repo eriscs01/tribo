@@ -25,6 +25,7 @@ import {
   findAccountPerson,
   findOwnPerson,
   findPerson,
+  findPersons,
   findVisiblePerson,
   insertAccountPerson,
   insertPlace,
@@ -513,4 +514,17 @@ export async function createAccountPerson(
 export async function accountPersonId(db: Kysely<DB>, userId: string): Promise<string | null> {
   const row = await findAccountPerson(forModule(db, 'library'), userId);
   return row?.id ?? null;
+}
+
+/**
+ * The persons behind a trip's memberships, by id, as members.list shows them. The caller
+ * has checked it shares the trip with them, which is what tribo.person_visible asks.
+ */
+export async function memberPersons(
+  db: Kysely<DB>,
+  personIds: readonly string[],
+): Promise<Map<string, PersonRecord>> {
+  if (personIds.length === 0) return new Map();
+  const rows = await findPersons(forModule(db, 'library'), personIds);
+  return new Map(rows.map((row) => [row.id, personRecord(row)]));
 }

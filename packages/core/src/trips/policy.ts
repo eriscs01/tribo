@@ -62,3 +62,8 @@ export function statusMoveRefusal(from: string, to: string): ErrorCode | null {
   const target = at(to);
   return target !== -1 && target >= at(from) ? null : 'invalid_transition';
 }
+
+/** members.list: every member reads who else is in the trip, viewers included. */
+export function canListMembers(role: TripRole): boolean {
+  return TRIP_READERS.has(role);
+}

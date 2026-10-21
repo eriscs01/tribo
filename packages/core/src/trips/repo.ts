@@ -231,3 +231,31 @@ export async function countActiveMemberships(
     .executeTakeFirstOrThrow();
   return Number(row.n);
 }
+
+const MEMBERSHIP_COLUMNS = [
+  'id',
+  'trip_id',
+  'person_id',
+  'trip_role',
+  'can_view_costs',
+  'version',
+  'created_at',
+  'updated_at',
+] as const;
+
+/** One page of the trip's active memberships, by id (creation order); `after` is the last id. */
+export function listMemberships(
+  db: TripsDb,
+  tripId: string,
+  page: { limit: number; after: string | null },
+) {
+  let query = db
+    .selectFrom('tribo.memberships')
+    .select(MEMBERSHIP_COLUMNS)
+    .where('trip_id', '=', tripId)
+    .where('deleted_at', 'is', null);
+  if (page.after !== null) query = query.where('id', '>', page.after);
+  return query.orderBy('id').limit(page.limit).execute();
+}
+
+export type MembershipRow = Awaited<ReturnType<typeof listMemberships>>[number];

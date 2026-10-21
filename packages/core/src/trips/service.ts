@@ -5,8 +5,10 @@ import {
   TripCursorKey,
   TripInput,
   TripPatch,
+  Uuid,
   type PageQuery,
 } from '@tribo/contract';
+import type { Keyring } from '@tribo/crypto';
 import { forModule, type DB, type ValueOf } from '@tribo/db';
 import {
   ApiError,
@@ -19,11 +21,12 @@ import {
 } from '@tribo/platform';
 import type { Kysely } from 'kysely';
 import { moneyRecorded } from '../expenses/service.js';
-import { accountPersonId } from '../library/service.js';
+import { accountPersonId, memberPersons, type PersonRecord } from '../library/service.js';
 import { writeOperation } from '../write-operation.js';
 import {
   canDeleteTrip,
   canGetTrip,
+  canListMembers,
   canUpdateTrip,
   statusMoveRefusal,
   tripCreateRefusal,
@@ -35,6 +38,7 @@ import {
   findTrip,
   insertMembership,
   insertTrip,
+  listMemberships,
   listDestinations,
   listMemberTrips,
   lockTrip,
@@ -42,6 +46,7 @@ import {
   replaceDestinations,
   softDeleteTrip,
   updateTrip,
+  type MembershipRow,
   type TripFields,
   type TripRole,
   type TripRow,
@@ -400,6 +405,81 @@ function tripRecord(row: TripRow, destinations: string[]): TripRecord {
     timezone: row.timezone,
     status: row.archived_at === null ? (row.status as TripStatus) : 'archived',
     destinations,
+    version: row.version,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+/** A membership with the person behind it, as members.list shows it. */
+export interface MemberRecord {
+  id: string;
+  tripId: string;
+  role: TripRole;
+  /** Every role but a viewer reads costs; a viewer only with can_view_costs. */
+  canViewCosts: boolean;
+  person: PersonRecord;
+  version: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface MembersService {
+  /** members.list: the trip's active memberships, oldest first, to any member of it. */
+  list(
+    userId: string,
+    tripId: string,
+    page: PageQuery,
+  ): Promise<{ items: MemberRecord[]; nextCursor: string | null }>;
+}
+
+export function createMembersService(
+  db: Kysely<DB>,
+  _write: WritePath,
+  _keys: Keyring,
+): MembersService {
+  return {
+    async list(userId, tripId, page) {
+      await requireRole(db, userId, tripId, canListMembers);
+      const after = page.cursor === undefined ? null : memberCursor(page.cursor);
+      // One extra row says whether another page follows.
+      const rows = await listMemberships(forModule(db, 'trips'), tripId, {
+        limit: page.limit + 1,
+        after,
+      });
+      const shown = rows.slice(0, page.limit);
+      const persons = await memberPersons(
+        db,
+        shown.map((r) => r.person_id),
+      );
+      const items = shown.map((r) => memberRecord(r, persons));
+      const last = items.at(-1);
+      return {
+        items,
+        nextCursor: rows.length > page.limit && last ? encodeCursor([last.id]) : null,
+      };
+    },
+  };
+}
+
+/** A members.list cursor's sort key; anything else is refused before it reaches SQL. */
+function memberCursor(cursor: string): string {
+  const [id] = decodeCursor(cursor, 1);
+  const key = Uuid.safeParse(id);
+  if (!key.success) throw invalidCursor();
+  return key.data;
+}
+
+function memberRecord(row: MembershipRow, persons: Map<string, PersonRecord>): MemberRecord {
+  const person = persons.get(row.person_id);
+  if (!person) throw new Error(`membership ${row.id} has no person ${row.person_id}`);
+  const role = row.trip_role as TripRole;
+  return {
+    id: row.id,
+    tripId: row.trip_id,
+    role,
+    canViewCosts: role !== 'viewer' || row.can_view_costs,
+    person,
     version: row.version,
     createdAt: row.created_at,
     updatedAt: row.updated_at,

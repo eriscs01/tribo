@@ -19,6 +19,7 @@ import type {
   IdentityService,
   ItemsService,
   LibraryService,
+  MembersService,
   SignedIn,
   TripsService,
 } from '@tribo/core';
@@ -105,6 +106,7 @@ const trips: TripsService = {
   update: unused,
   delete: unused,
 };
+const members: MembersService = { list: unused };
 const items: ItemsService = {
   create: unused,
   get: unused,
@@ -144,7 +146,7 @@ async function server(overrides: Partial<ServerDeps> = {}) {
     logStream: stream,
     registry: testRegistry,
     handlers: {
-      ...operationHandlers({ identity, csrfSecret: secret, trips, items, library }),
+      ...operationHandlers({ identity, csrfSecret: secret, trips, members, items, library }),
       'test.ip': (request) => {
         request.log.info('handler ran');
         return Promise.resolve({ ip: request.ip });

@@ -10,7 +10,10 @@ export {
   type SignedIn,
 } from './identity/service.js';
 export {
+  createMembersService,
   createTripsService,
+  type MemberRecord,
+  type MembersService,
   type TripCreator,
   type TripRecord,
   type TripsService,

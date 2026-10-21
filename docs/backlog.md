@@ -68,7 +68,7 @@
 
 ## Members & invites
 
-- [ ] `members.list` · Drop A · `GET /v1/trips/{tripId}/members`
+- [x] `members.list` · Drop A · `GET /v1/trips/{tripId}/members`
   - Members, roles, placeholders; Emergency contact masked; reveal per person
   - Roles: owner, organizer, member, viewer. If-Match: `no`. Idempotency: safe to repeat.
 - [ ] `members.add` · Drop A · `POST /v1/trips/{tripId}/members`
