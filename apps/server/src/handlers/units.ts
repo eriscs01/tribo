@@ -53,5 +53,14 @@ export function unitsHandlers(units: UnitsService): Handlers {
           ifMatch(request),
         ),
       ),
+    'units.delete': async (request, reply) => {
+      await units.delete(
+        requestContext(request),
+        pathId(request, 'unitId'),
+        request.body,
+        ifMatch(request),
+      );
+      return reply.code(204).send();
+    },
   };
 }

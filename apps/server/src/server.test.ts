@@ -117,7 +117,7 @@ const items: ItemsService = {
   rsvp: unused,
   reveal: unused,
 };
-const units: UnitsService = { list: unused, create: unused, update: unused };
+const units: UnitsService = { list: unused, create: unused, update: unused, delete: unused };
 const library: LibraryService = {
   search: unused,
   createPerson: unused,

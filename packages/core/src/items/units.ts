@@ -1,7 +1,7 @@
 // The units of an item (rooms of a lodging, vehicles of a ground rental) and the item's
 // assignment board. Units and allocations are the items module's tables, so they are
 // written here, beside the item service, on the same acting-editor and lock helpers.
-import { UnitInput, UnitPatch, type MaskedValue, type PageQuery } from '@tribo/contract';
+import { NoBody, UnitInput, UnitPatch, type MaskedValue, type PageQuery } from '@tribo/contract';
 import { forModule, type DB, type ValueOf } from '@tribo/db';
 import {
   ApiError,
@@ -15,6 +15,7 @@ import type { CallerMembership } from '../trips/service.js';
 import { writeOperation } from '../write-operation.js';
 import {
   actingEditor,
+  boardSnapshot,
   idCursor,
   invalid,
   lockedItem,
@@ -24,13 +25,17 @@ import {
 } from './acting.js';
 import { canListUnit, canManageBoard } from './policy.js';
 import {
+  bumpBoardVersion,
   countSeated,
+  deleteUnitAllocations,
   findUnit,
   findUnitItemId,
   insertUnit,
+  listBoard,
   listUnits,
   lockItem,
   lockUnit,
+  softDeleteUnit,
   updateUnit,
   type ItemRow,
   type UnitRow,
@@ -67,6 +72,16 @@ export interface UnitsService {
     body: unknown,
     ifMatch: number | undefined,
   ): Promise<UnitRecord>;
+  /**
+   * units.delete: soft-deletes the unit under If-Match and deletes its allocations, which
+   * changes the item's board: that write bumps boardVersion and records its own snapshot.
+   */
+  delete(
+    ctx: RequestContext,
+    unitId: string,
+    body: unknown,
+    ifMatch: number | undefined,
+  ): Promise<void>;
 }
 
 /** The one kind of unit each item type takes; other types have none. */
@@ -77,6 +92,7 @@ const UNIT_KIND: Partial<Record<ValueOf<'tribo.items.type'>, ValueOf<'tribo.unit
 
 const unitsCreate = writeOperation('units.create', UnitInput);
 const unitsUpdate = writeOperation('units.update', UnitPatch);
+const unitsDelete = writeOperation('units.delete', NoBody);
 
 /** `write` is core's write path (writePath in write-path.ts), passed in to keep imports acyclic. */
 export function createUnitsService(db: Kysely<DB>, write: WritePath): UnitsService {
@@ -197,6 +213,48 @@ export function createUnitsService(db: Kysely<DB>, write: WritePath): UnitsServi
             version: row.version,
             snapshot: unitSnapshot(row),
             result: unitRecord(row, item, membership),
+          };
+        },
+      });
+    },
+
+    delete(ctx, unitId, body, ifMatch) {
+      let acting: ActingEditor | undefined;
+      return write(ctx, {
+        operation: unitsDelete,
+        target: { unitId },
+        body,
+        ifMatch,
+        authorize: async (tx, c, target) => {
+          acting = await actingOnUnit(tx, c, target.unitId);
+        },
+        load: lockedUnit,
+        mutate: async (tx, _c, { item, unit }) => {
+          if (!acting) throw new Error('units.delete mutated before authorize');
+          const items = forModule(tx, 'items');
+          const version = await softDeleteUnit(items, unit.id, acting.userId);
+          await deleteUnitAllocations(items, unit.id);
+          const boardVersion = await bumpBoardVersion(items, item.id);
+          return {
+            action: 'delete',
+            aggregate: 'unit',
+            entityId: unit.id,
+            tripId: item.trip_id,
+            version,
+            // The unit as it was: restore copies this snapshot forward.
+            snapshot: unitSnapshot(unit),
+            result: undefined,
+            related: [
+              {
+                action: 'update',
+                aggregate: 'item_board',
+                entityId: item.id,
+                tripId: item.trip_id,
+                versionBefore: item.board_version,
+                version: boardVersion,
+                snapshot: boardSnapshot(await listBoard(items, item.id)),
+              },
+            ],
           };
         },
       });

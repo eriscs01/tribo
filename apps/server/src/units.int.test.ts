@@ -254,3 +254,29 @@ describe('units.update over HTTP', () => {
     });
   });
 });
+
+describe('units.delete over HTTP', () => {
+  it('answers 204 under If-Match, and the unit leaves the list', async () => {
+    const w = await world();
+    const del = (headers: Record<string, string>) =>
+      app.inject({
+        method: 'DELETE',
+        url: `/v1/units/${w.roomPath}`,
+        ...w.owner.auth,
+        headers: { ...w.owner.auth.headers, ...headers },
+      });
+    const stale = await del({ 'if-match': '"9"' });
+    expect(stale.statusCode).toBe(412);
+    expect(refusalLine(stale.headers['x-request-id'])).toMatchObject({
+      operationId: 'units.delete',
+      problem: 'version_conflict',
+    });
+    expect((await del({ 'if-match': '"1"' })).statusCode).toBe(204);
+    const list = await app.inject({
+      method: 'GET',
+      url: `/v1/items/${w.itemPath}/units`,
+      ...w.owner.auth,
+    });
+    expect(list.json()).toEqual({ items: [], nextCursor: null });
+  });
+});

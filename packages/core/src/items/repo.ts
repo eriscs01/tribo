@@ -445,6 +445,32 @@ export async function updateUnit(
     .execute();
 }
 
+/** Stamps deleted_at and bumps the version; returns the new version. */
+export async function softDeleteUnit(
+  db: ItemsDb,
+  unitId: string,
+  deletedBy: string,
+): Promise<number> {
+  const row = await db
+    .updateTable('tribo.units')
+    .set((eb) => ({
+      deleted_at: sql<Date>`now()`,
+      deleted_by: deletedBy,
+      updated_at: sql<Date>`now()`,
+      updated_by: deletedBy,
+      version: eb('version', '+', 1),
+    }))
+    .where('id', '=', unitId)
+    .returning('version')
+    .executeTakeFirstOrThrow();
+  return row.version;
+}
+
+/** Deletes the board rows in one unit: units are soft-deleted, so nothing cascades (R21). */
+export async function deleteUnitAllocations(db: ItemsDb, unitId: string): Promise<void> {
+  await db.deleteFrom('tribo.allocations').where('unit_id', '=', unitId).execute();
+}
+
 /** The board rows that take a place in the unit: occupants, its driver and passengers. */
 export async function countSeated(db: ItemsDb, unitId: string): Promise<number> {
   const row = await db

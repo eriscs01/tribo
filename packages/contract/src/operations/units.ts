@@ -78,7 +78,7 @@ export const unitsOperations = [
     mcpTool: null,
     notes:
       'Remove unit and its allocations; Deletes its allocations explicitly (units are soft-deleted, nothing cascades); bumps boardVersion; trip_archived on archived trips (R29)',
-    status: 'planned',
+    status: 'implemented',
   }),
   defineOperation({
     id: 'items.assignments.get',

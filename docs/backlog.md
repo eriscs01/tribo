@@ -145,7 +145,7 @@
 - [x] `units.update` · Drop A · `PATCH /v1/units/{unitId}`
   - Edit unit; capacity_exceeded if below occupants; trip_archived on archived trips (R29)
   - Roles: item owner, organizer, owner. If-Match: `version`. Idempotency: safe to repeat.
-- [ ] `units.delete` · Drop A · `DELETE /v1/units/{unitId}`
+- [x] `units.delete` · Drop A · `DELETE /v1/units/{unitId}`
   - Remove unit and its allocations; Deletes its allocations explicitly (units are soft-deleted, nothing cascades); bumps boardVersion; trip_archived on archived trips (R29)
   - Roles: item owner, organizer, owner. If-Match: `version`. Idempotency: safe to repeat.
 - [ ] `items.assignments.get` · Drop A · `GET /v1/items/{itemId}/assignments`
