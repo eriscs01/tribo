@@ -1,5 +1,5 @@
 // @module-tag drop-a
-// items.assignments.get (Drop A): Whole board: RSVPs, occupants, drivers, passengers, assignees; Follows item_visible; ETag = boardVersion
+// items.assignments.get (Drop A): Whole board: RSVPs, occupants, drivers, passengers, assignees; Follows item_visible; ETag = SHA-256 of the representation (warnings come from the library); read boardVersion from the body for If-Match
 import type { UnitsService } from '@tribo/core';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { boardWorld, refusal, unitsService, type Member } from './board-world.js';

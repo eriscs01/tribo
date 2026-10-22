@@ -78,7 +78,7 @@ export function unitsHandlers(units: UnitsService): Handlers {
       );
       return reply.code(204).send();
     },
-    // Sent with ETag = boardVersion, the If-Match items.assignments.replace takes.
+    // The ETag covers the whole body; a client reads boardVersion from it for If-Match.
     'items.assignments.get': async (request) =>
       boardView(await units.board(signedIn(request).userId, pathId(request, 'itemId'))),
     'items.assignments.replace': async (request) =>

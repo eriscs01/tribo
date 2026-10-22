@@ -282,7 +282,7 @@ describe('units.delete over HTTP', () => {
 });
 
 describe('items.assignments.get over HTTP', () => {
-  it('answers the board with ETag = boardVersion, and 304 while it is current', async () => {
+  it('answers the board with an ETag over its representation, and 304 while it is current', async () => {
     const w = await world();
     await addAllocation(tdb.db, {
       tripId: w.trip.tripId,
@@ -300,7 +300,8 @@ describe('items.assignments.get over HTTP', () => {
       });
     const res = await get();
     expect(res.statusCode).toBe(200);
-    expect(res.headers.etag).toBe('"1"');
+    const etag = String(res.headers.etag);
+    expect(etag).toMatch(/^"[\w-]{43}"$/);
     expect(res.json()).toEqual({
       itemId: w.itemPath,
       boardVersion: 1,
@@ -314,7 +315,63 @@ describe('items.assignments.get over HTTP', () => {
       ],
       warnings: [],
     });
-    expect((await get({ 'if-none-match': '"1"' })).statusCode).toBe(304);
+    expect((await get({ 'if-none-match': etag })).statusCode).toBe(304);
+  });
+
+  it('sends a new ETag when a library change drops a warning, so a poll never keeps a stale one', async () => {
+    const w = await world();
+    const rental = await createItem(tdb.db, {
+      tripId: w.trip.tripId,
+      ownerMembershipId: w.trip.ownerMembershipId,
+      type: 'ground',
+    });
+    const bike = encodeTypeId(
+      ID_PREFIX.unit,
+      await createUnit(tdb.db, { itemId: rental, kind: 'vehicle', capacity: 2 }),
+    );
+    const url = `/v1/items/${encodeTypeId(ID_PREFIX.item, rental)}/assignments`;
+    const saved = await app.inject({
+      method: 'PUT',
+      url,
+      payload: {
+        allocations: [
+          {
+            membershipId: encodeTypeId(ID_PREFIX.membership, w.memberMembershipId),
+            role: 'driver',
+            unitId: bike,
+          },
+        ],
+      },
+      ...w.owner.auth,
+      headers: { ...w.owner.auth.headers, 'if-match': '"1"' },
+    });
+    expect(saved.statusCode).toBe(200);
+    const poll = (headers: Record<string, string> = {}) =>
+      app.inject({
+        method: 'GET',
+        url,
+        ...w.viewer.auth,
+        headers: { ...w.viewer.auth.headers, ...headers },
+      });
+    const first = await poll();
+    expect(first.json()).toMatchObject({
+      warnings: [{ code: 'no_licensed_driver', unitId: bike }],
+    });
+    const etag = String(first.headers.etag);
+    expect((await poll({ 'if-none-match': etag })).statusCode).toBe(304);
+
+    const licence = await app.inject({
+      method: 'PATCH',
+      url: '/v1/me',
+      cookies: w.member.auth.cookies,
+      headers: { ...w.member.auth.headers, 'if-match': '"1"' },
+      payload: { drivingLicence: true },
+    });
+    expect(licence.statusCode).toBe(200);
+    const after = await poll({ 'if-none-match': etag });
+    expect(after.statusCode).toBe(200);
+    expect(after.json()).toMatchObject({ boardVersion: 2, warnings: [] });
+    expect(after.headers.etag).not.toBe(etag);
   });
 
   it('answers 404 to a stranger and logs the refusal', async () => {
@@ -353,7 +410,7 @@ describe('items.assignments.replace over HTTP', () => {
     unitId: roomPath,
   });
 
-  it('saves the board with the ETag the read sent as If-Match, and answers the new board', async () => {
+  it('saves the board with the boardVersion the read body carried as If-Match, and answers the new board', async () => {
     const w = await world();
     const read = await app.inject({
       method: 'GET',
@@ -361,11 +418,12 @@ describe('items.assignments.replace over HTTP', () => {
       ...w.owner.auth,
     });
     const body = { allocations: [occupant(w.memberMembershipId, w.roomPath)] };
+    const current = `"${String(read.json<{ boardVersion: number }>().boardVersion)}"`;
     expect((await put(w, w.owner, body)).statusCode).toBe(428);
-    const res = await put(w, w.owner, body, { 'if-match': String(read.headers.etag) });
+    const res = await put(w, w.owner, body, { 'if-match': current });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toMatchObject({ itemId: w.itemPath, boardVersion: 2, warnings: [] });
-    const stale = await put(w, w.owner, body, { 'if-match': String(read.headers.etag) });
+    const stale = await put(w, w.owner, body, { 'if-match': current });
     expect(stale.statusCode).toBe(412);
   });
 

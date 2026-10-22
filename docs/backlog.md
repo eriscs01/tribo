@@ -149,7 +149,7 @@
   - Remove unit and its allocations; Deletes its allocations explicitly (units are soft-deleted, nothing cascades); bumps boardVersion; trip_archived on archived trips (R29)
   - Roles: item owner, organizer, owner. If-Match: `version`. Idempotency: safe to repeat.
 - [x] `items.assignments.get` · Drop A · `GET /v1/items/{itemId}/assignments`
-  - Whole board: RSVPs, occupants, drivers, passengers, assignees; Follows item_visible; ETag = boardVersion
+  - Whole board: RSVPs, occupants, drivers, passengers, assignees; Follows item_visible; ETag = SHA-256 of the representation (warnings come from the library); read boardVersion from the body for If-Match
   - Roles: owner, organizer, member, viewer. If-Match: `no`. Idempotency: safe to repeat.
 - [x] `items.assignments.replace` · Drop A · `PUT /v1/items/{itemId}/assignments`
   - Save whole board; capacity checked on final state; capacity_exceeded, room_double_booked, driver_taken; If-Match on boardVersion; trip_archived on archived trips (R29)

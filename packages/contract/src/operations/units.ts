@@ -96,9 +96,9 @@ export const unitsOperations = [
     mcpApproval: false,
     mcpTool: null,
     notes:
-      'Whole board: RSVPs, occupants, drivers, passengers, assignees; Follows item_visible; ETag = boardVersion',
+      'Whole board: RSVPs, occupants, drivers, passengers, assignees; Follows item_visible; ETag = SHA-256 of the representation (warnings come from the library); read boardVersion from the body for If-Match',
     status: 'implemented',
-    etag: 'board_version',
+    etag: 'representation',
     output: ItemBoard,
   }),
   defineOperation({

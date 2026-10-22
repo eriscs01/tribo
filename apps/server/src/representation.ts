@@ -16,16 +16,8 @@ function noneMatch(header: string | undefined, tag: string): boolean {
     .some((t) => t === '*' || t === tag);
 }
 
-/** The counter a board read carries: the tag its If-Match write takes back. */
-function boardVersionTag(view: unknown): string {
-  const counter = (view as { boardVersion?: unknown } | null)?.boardVersion;
-  if (typeof counter !== 'number') throw new Error('a board_version read sent no boardVersion');
-  return `"${String(counter)}"`;
-}
-
-const TAGS: Record<NonNullable<Operation['etag']>, (body: string, view: unknown) => string> = {
-  representation: (body) => representationTag(body),
-  board_version: (_body, view) => boardVersionTag(view),
+const TAGS: Record<NonNullable<Operation['etag']>, (body: string) => string> = {
+  representation: representationTag,
 };
 
 /**
@@ -39,7 +31,7 @@ export function sendRepresentation(
   kind: NonNullable<Operation['etag']>,
 ) {
   const body = JSON.stringify(view);
-  const tag = TAGS[kind](body, view);
+  const tag = TAGS[kind](body);
   reply.header('etag', tag);
   if (noneMatch(request.headers['if-none-match'], tag)) return reply.code(304).send();
   return reply.type('application/json; charset=utf-8').send(body);

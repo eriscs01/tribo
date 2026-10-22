@@ -30,11 +30,11 @@ export interface Operation {
   status: OperationStatus;
   /**
    * A read that sends an ETag, and answers 304 to an If-None-Match naming it.
-   * `representation` is the SHA-256 of the per-caller body (rule 4); `board_version` is the
-   * item's boardVersion the body carries, the same counter its board write takes as
-   * If-Match. The REST adapter and the OpenAPI document both follow this declaration.
+   * `representation` is the SHA-256 of the per-caller body (rule 4), so anything the body
+   * derives from other rows moves the tag too. The REST adapter and the OpenAPI document
+   * both follow this declaration.
    */
-  etag?: 'representation' | 'board_version';
+  etag?: 'representation';
   /** Query parameters, one per key; GET reads take these instead of a body. */
   query?: z.ZodObject;
   input?: z.ZodType;

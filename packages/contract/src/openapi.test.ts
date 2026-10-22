@@ -88,14 +88,6 @@ describe('toOpenApi', () => {
     );
   });
 
-  it("documents a board_version ETag as the item's boardVersion, the tag If-Match takes back", () => {
-    const paths = doc.paths as Record<string, Record<string, Declared>>;
-    for (const op of registry.filter((o) => o.etag === 'board_version')) {
-      const etag = paths[op.path]?.[op.method.toLowerCase()]?.responses['200']?.headers?.ETag;
-      expect(JSON.stringify(etag), op.id).toContain('boardVersion');
-    }
-  });
-
   it('declares 429 with Retry-After exactly on the implemented writes the rate limits count', () => {
     const paths = doc.paths as Record<string, Record<string, Declared>>;
     for (const op of registry) {

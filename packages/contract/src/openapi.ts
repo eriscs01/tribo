@@ -30,10 +30,6 @@ const ETAG_HEADER = {
     description: 'SHA-256 (base64url) of this representation, as sent to this caller',
     schema: { type: 'string' },
   },
-  board_version: {
-    description: "The item's boardVersion, quoted; send it back as If-Match to save the board",
-    schema: { type: 'string' },
-  },
 } as const;
 
 /** Named schemas shared through components.schemas, keyed by their Zod `meta({ id })`. */
