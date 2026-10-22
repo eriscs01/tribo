@@ -160,81 +160,90 @@ afterEach(() => {
 });
 
 describe('web shell', () => {
-  it('signs in with TOTP, creates a trip, adds an item and reads it back', async () => {
-    const user = userEvent.setup();
-    const router = renderApp('/trips');
+  // One scenario over ten screens and about a hundred keystrokes: 2.2 s alone, so under load
+  // it can pass Vitest's 5 s default. `delay: null` stops userEvent yielding a macrotask per
+  // key; the timeout is for this walk only, not the project.
+  it(
+    'signs in with TOTP, creates a trip, adds an item and reads it back',
+    { timeout: 20_000 },
+    async () => {
+      const user = userEvent.setup({ delay: null });
+      const router = renderApp('/trips');
 
-    // No session: the trip list sends the visitor to sign in, remembering where they were.
-    await screen.findByRole('heading', { name: m.signIn.title });
-    expect(router.state.location.search).toEqual({ redirect: '/trips' });
+      // No session: the trip list sends the visitor to sign in, remembering where they were.
+      await screen.findByRole('heading', { name: m.signIn.title });
+      expect(router.state.location.search).toEqual({ redirect: '/trips' });
 
-    await user.type(screen.getByLabelText(m.signIn.username), 'ana');
-    await user.type(screen.getByLabelText(m.signIn.password), 'correct horse battery');
-    await user.click(screen.getByRole('button', { name: m.signIn.submit }));
-    expect((await screen.findByRole('alert')).textContent).toBe(
-      `${m.signIn.needCode} ${m.errors.reference('req-1')}`,
-    );
-    const code = screen.getByLabelText(new RegExp(m.signIn.code));
-    expect(document.activeElement).toBe(code);
-
-    await user.type(code, '123456');
-    await user.click(screen.getByRole('button', { name: m.signIn.submit }));
-    await screen.findByRole('heading', { name: m.trips.title });
-    expect(screen.getByText(m.trips.empty)).toBeTruthy();
-    expect(server.log.find((r) => r.path === '/v1/auth/login' && r.body)?.body).toMatchObject({
-      username: 'ana',
-    });
-
-    await user.click(screen.getByRole('link', { name: m.trips.create }));
-    await user.type(await screen.findByLabelText(m.newTrip.name), 'Island weekend');
-    await user.type(screen.getByLabelText(m.newTrip.startDate), '2026-11-11');
-    await user.type(screen.getByLabelText(m.newTrip.endDate), '2026-11-14');
-    const zone = screen.getByLabelText(m.newTrip.timezone);
-    await user.clear(zone);
-    await user.type(zone, 'Asia/Manila');
-    await user.click(screen.getByRole('button', { name: m.newTrip.submit }));
-
-    await screen.findByRole('heading', { name: 'Island weekend' });
-    expect(router.state.location.pathname).toBe(`/trips/${TRIP_ID}`);
-    const created = server.log.find((r) => r.method === 'POST' && r.path === '/v1/trips');
-    expect(created).toMatchObject({
-      csrf: CSRF,
-      body: {
-        name: 'Island weekend',
-        startDate: '2026-11-11',
-        endDate: '2026-11-14',
-        currency: 'PHP',
-        timezone: 'Asia/Manila',
-      },
-    });
-
-    await user.selectOptions(screen.getByLabelText(m.addItem.type), 'transport');
-    await user.type(screen.getByLabelText(m.addItem.itemTitle), 'Morning ferry');
-    await user.click(screen.getByLabelText(m.addItem.timingTimed));
-    await user.type(screen.getByLabelText(m.addItem.start), '2026-11-11T07:40');
-    await user.click(screen.getByRole('button', { name: m.addItem.submit }));
-
-    await screen.findByRole('heading', { name: 'Morning ferry' });
-    expect(router.state.location.pathname).toBe(`/items/${ITEM_ID}`);
-    expect(server.log.find((r) => r.method === 'POST' && r.path.endsWith('/items'))?.body).toEqual({
-      type: 'transport',
-      title: 'Morning ferry',
-      visibility: 'shared',
-      start: { local: '2026-11-11T07:40', tz: 'Asia/Manila' },
-    });
-    expect(screen.getByText(m.itemType.transport)).toBeTruthy();
-    expect(screen.getByText(/Nov 11, 2026, 7:40\sAM GMT\+8/)).toBeTruthy();
-
-    // A reload reads the item back with items.get rather than from the create response.
-    cleanup();
-    renderApp(`/items/${ITEM_ID}`);
-    await screen.findByRole('heading', { name: 'Morning ferry' });
-    await waitFor(() => {
-      expect(server.log.some((r) => r.method === 'GET' && r.path === `/v1/items/${ITEM_ID}`)).toBe(
-        true,
+      await user.type(screen.getByLabelText(m.signIn.username), 'ana');
+      await user.type(screen.getByLabelText(m.signIn.password), 'correct horse battery');
+      await user.click(screen.getByRole('button', { name: m.signIn.submit }));
+      expect((await screen.findByRole('alert')).textContent).toBe(
+        `${m.signIn.needCode} ${m.errors.reference('req-1')}`,
       );
-    });
-  });
+      const code = screen.getByLabelText(new RegExp(m.signIn.code));
+      expect(document.activeElement).toBe(code);
+
+      await user.type(code, '123456');
+      await user.click(screen.getByRole('button', { name: m.signIn.submit }));
+      await screen.findByRole('heading', { name: m.trips.title });
+      expect(screen.getByText(m.trips.empty)).toBeTruthy();
+      expect(server.log.find((r) => r.path === '/v1/auth/login' && r.body)?.body).toMatchObject({
+        username: 'ana',
+      });
+
+      await user.click(screen.getByRole('link', { name: m.trips.create }));
+      await user.type(await screen.findByLabelText(m.newTrip.name), 'Island weekend');
+      await user.type(screen.getByLabelText(m.newTrip.startDate), '2026-11-11');
+      await user.type(screen.getByLabelText(m.newTrip.endDate), '2026-11-14');
+      const zone = screen.getByLabelText(m.newTrip.timezone);
+      await user.clear(zone);
+      await user.type(zone, 'Asia/Manila');
+      await user.click(screen.getByRole('button', { name: m.newTrip.submit }));
+
+      await screen.findByRole('heading', { name: 'Island weekend' });
+      expect(router.state.location.pathname).toBe(`/trips/${TRIP_ID}`);
+      const created = server.log.find((r) => r.method === 'POST' && r.path === '/v1/trips');
+      expect(created).toMatchObject({
+        csrf: CSRF,
+        body: {
+          name: 'Island weekend',
+          startDate: '2026-11-11',
+          endDate: '2026-11-14',
+          currency: 'PHP',
+          timezone: 'Asia/Manila',
+        },
+      });
+
+      await user.selectOptions(screen.getByLabelText(m.addItem.type), 'transport');
+      await user.type(screen.getByLabelText(m.addItem.itemTitle), 'Morning ferry');
+      await user.click(screen.getByLabelText(m.addItem.timingTimed));
+      await user.type(screen.getByLabelText(m.addItem.start), '2026-11-11T07:40');
+      await user.click(screen.getByRole('button', { name: m.addItem.submit }));
+
+      await screen.findByRole('heading', { name: 'Morning ferry' });
+      expect(router.state.location.pathname).toBe(`/items/${ITEM_ID}`);
+      expect(
+        server.log.find((r) => r.method === 'POST' && r.path.endsWith('/items'))?.body,
+      ).toEqual({
+        type: 'transport',
+        title: 'Morning ferry',
+        visibility: 'shared',
+        start: { local: '2026-11-11T07:40', tz: 'Asia/Manila' },
+      });
+      expect(screen.getByText(m.itemType.transport)).toBeTruthy();
+      expect(screen.getByText(/Nov 11, 2026, 7:40\sAM GMT\+8/)).toBeTruthy();
+
+      // A reload reads the item back with items.get rather than from the create response.
+      cleanup();
+      renderApp(`/items/${ITEM_ID}`);
+      await screen.findByRole('heading', { name: 'Morning ferry' });
+      await waitFor(() => {
+        expect(
+          server.log.some((r) => r.method === 'GET' && r.path === `/v1/items/${ITEM_ID}`),
+        ).toBe(true);
+      });
+    },
+  );
 
   it('answers a wrong password without saying which part was wrong', async () => {
     const user = userEvent.setup();
