@@ -47,6 +47,7 @@ export { guardTrip } from './trip-guard.js';
 export {
   createInvitesService,
   type CreatedInvite,
+  type InvitePreviewRecord,
   type InviteRecord,
   type InvitesService,
 } from './invites.js';

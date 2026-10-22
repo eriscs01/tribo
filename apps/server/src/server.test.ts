@@ -117,7 +117,12 @@ const trips: TripsService = {
   delete: unused,
 };
 const members: MembersService = { list: unused, add: unused, setRole: unused };
-const invites: InvitesService = { create: unused, list: unused, revoke: unused };
+const invites: InvitesService = {
+  create: unused,
+  list: unused,
+  revoke: unused,
+  preview: unused,
+};
 const items: ItemsService = {
   create: unused,
   get: unused,

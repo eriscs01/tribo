@@ -4,6 +4,7 @@ import {
   PageQuery,
   type Invite,
   type InviteCreated,
+  type InvitePreview,
   type InvitePage,
 } from '@tribo/contract';
 import type { InviteRecord, InvitesService } from '@tribo/core';
@@ -45,6 +46,10 @@ export function invitesHandlers(invites: InvitesService): Handlers {
       );
       const created: InviteCreated = { ...inviteView(invite), token, link, redacted };
       return reply.code(201).send(created);
+    },
+    'invites.preview': async (request) => {
+      const preview: InvitePreview = await invites.preview(request.body);
+      return preview;
     },
     'invites.revoke': async (request) =>
       inviteView(

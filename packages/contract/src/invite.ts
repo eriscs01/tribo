@@ -85,3 +85,31 @@ export type InviteInput = z.infer<typeof InviteInput>;
 export const InvitePage = page(Invite, 'InvitePage');
 
 export type InvitePage = z.infer<typeof InvitePage>;
+
+/**
+ * The secret an invite link carries, as the join page posts it from the `/join#<token>`
+ * fragment: in a body, never a URL. Any string is a token; one that matches nothing is
+ * invite_invalid like every other link that opens nothing.
+ */
+const InviteToken = z.string().min(1).max(128);
+
+/** invites.preview body. */
+export const InvitePreviewInput = z
+  .strictObject({ token: InviteToken })
+  .meta({ id: 'InvitePreviewInput' });
+
+export type InvitePreviewInput = z.infer<typeof InvitePreviewInput>;
+
+/**
+ * invites.preview response: what the join page shows before anyone signs up, and nothing
+ * more. `placeholderName` names the traveller a placeholder invite lets the joiner claim.
+ */
+export const InvitePreview = z
+  .strictObject({
+    tripName: z.string(),
+    role: InviteRole,
+    placeholderName: z.string().nullable(),
+  })
+  .meta({ id: 'InvitePreview' });
+
+export type InvitePreview = z.infer<typeof InvitePreview>;

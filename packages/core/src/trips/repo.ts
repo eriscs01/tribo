@@ -417,3 +417,42 @@ export function revokeInvite(db: TripsDb, inviteId: string) {
     .returning(INVITE_COLUMNS)
     .executeTakeFirstOrThrow();
 }
+
+/**
+ * The invite this token hash opens, or undefined, in one statement whatever the reason: a
+ * token that matches nothing and one whose invite is revoked, expired, used up, on an
+ * archived or deleted trip, or pre-linked to a placeholder no longer active in the trip,
+ * all cost the same single index lookup. With `lock`, the invite row is locked FOR UPDATE
+ * until commit, so two joins never both take its last use.
+ */
+export function findLiveInvite(db: TripsDb, tokenHash: Buffer, options: { lock: boolean }) {
+  const query = db
+    .selectFrom('tribo.invites as i')
+    .innerJoin('tribo.trips as t', 't.id', 'i.trip_id')
+    .leftJoin('tribo.memberships as m', (join) =>
+      join.onRef('m.trip_id', '=', 'i.trip_id').onRef('m.person_id', '=', 'i.person_id'),
+    )
+    .select([
+      'i.id',
+      'i.trip_id',
+      'i.role',
+      'i.person_id',
+      'i.max_uses',
+      'i.uses',
+      't.name as trip_name',
+      'm.id as placeholder_membership_id',
+    ])
+    .where('i.token_hash', '=', tokenHash)
+    .where('i.revoked_at', 'is', null)
+    .where('i.expires_at', '>', sql<Date>`now()`)
+    .where((eb) => eb.or([eb('i.max_uses', 'is', null), eb('i.uses', '<', eb.ref('i.max_uses'))]))
+    .where('t.deleted_at', 'is', null)
+    .where('t.archived_at', 'is', null)
+    .where((eb) =>
+      eb.or([
+        eb('i.person_id', 'is', null),
+        eb.and([eb('m.id', 'is not', null), eb('m.deleted_at', 'is', null)]),
+      ]),
+    );
+  return (options.lock ? query.forUpdate('i') : query).executeTakeFirst();
+}

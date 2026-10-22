@@ -2020,6 +2020,14 @@ export interface components {
             items: components["schemas"]["Invite"][];
             nextCursor: string | null;
         };
+        InvitePreview: {
+            tripName: string;
+            role: components["schemas"]["InviteRole"];
+            placeholderName: string | null;
+        };
+        InvitePreviewInput: {
+            token: string;
+        };
         /** @enum {string} */
         InviteRole: "organizer" | "member" | "viewer";
         /** @enum {string} */
@@ -3882,11 +3890,26 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvitePreviewInput"];
+            };
+        };
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            201: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvitePreview"];
+                };
+            };
+            /** @description Too many writes in this window (rate_limited) */
+            429: {
+                headers: {
+                    /** @description Seconds until the window resets */
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {

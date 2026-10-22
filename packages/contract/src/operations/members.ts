@@ -3,7 +3,14 @@
 import { defineOperation } from '../operation.js';
 import { Member, MemberAddInput, MemberPage, MemberPatch } from '../member.js';
 import { PageQuery } from '../page.js';
-import { Invite, InviteCreated, InviteInput, InvitePage } from '../invite.js';
+import {
+  Invite,
+  InviteCreated,
+  InviteInput,
+  InvitePage,
+  InvitePreviewInput,
+  InvitePreview,
+} from '../invite.js';
 
 export const membersOperations = [
   defineOperation({
@@ -156,7 +163,9 @@ export const membersOperations = [
     mcpTool: null,
     notes:
       'Trip name, role, placeholder name for a token; Token in body; invite_invalid; Read only; no key (R2)',
-    status: 'planned',
+    status: 'implemented',
+    input: InvitePreviewInput,
+    output: InvitePreview,
   }),
   defineOperation({
     id: 'invites.accept',

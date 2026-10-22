@@ -91,7 +91,7 @@
 - [x] `invites.revoke` · Drop A · `POST /v1/trips/{tripId}/invites/{inviteId}/revoke`
   - Revoke an invite link; Invites carry no version; trip_archived on archived trips (R29)
   - Roles: owner. If-Match: `no`. Idempotency: safe to repeat.
-- [ ] `invites.preview` · Drop A · `POST /v1/invites/preview`
+- [x] `invites.preview` · Drop A · `POST /v1/invites/preview`
   - Trip name, role, placeholder name for a token; Token in body; invite_invalid; Read only; no key (R2)
   - Roles: anyone with link. If-Match: `no`. Idempotency: safe to repeat.
 - [ ] `invites.accept` · Drop A · `POST /v1/invites/accept`

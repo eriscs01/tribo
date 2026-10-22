@@ -217,3 +217,50 @@ describe('invites.revoke over HTTP', () => {
     expect(res.json()).toMatchObject({ id: created.id, status: 'revoked' });
   });
 });
+
+/** A public request from a fresh client address, as a new joiner's browser sends it. */
+const anonymous = (url: string, payload: object) =>
+  app.inject({ method: 'POST', url, payload, remoteAddress: address() });
+
+/** A problem body without the parts that name the request. */
+const problemShape = (body: Record<string, unknown>) => {
+  const { requestId: _requestId, ...rest } = body;
+  return rest;
+};
+
+describe('invites.preview over HTTP', () => {
+  it('answers anyone holding the link, with no session, from a token in the body', async () => {
+    const w = await world();
+    const { body: created } = await createInvite(w, {
+      personId: encodeTypeId(ID_PREFIX.person, w.guestId),
+    });
+    const res = await anonymous('/v1/invites/preview', { token: created.token });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({
+      tripName: 'Siargao surf week',
+      role: 'member',
+      placeholderName: 'Tito Boy',
+    });
+    expect(raw.join('')).not.toContain(created.token);
+  });
+
+  it('answers every dead link the same 410 invite_invalid, logged without the token', async () => {
+    const w = await world();
+    const { body: revoked } = await createInvite(w, { role: 'member' });
+    await app.inject({
+      method: 'POST',
+      url: `${w.invitesUrl}/${revoked.id}/revoke`,
+      ...w.owner.auth,
+    });
+    const unknown = await anonymous('/v1/invites/preview', { token: 'b'.repeat(43) });
+    const dead = await anonymous('/v1/invites/preview', { token: revoked.token });
+    for (const res of [unknown, dead]) {
+      expect(res.statusCode).toBe(410);
+      expect(
+        linesOf(res.headers['x-request-id']).find((l) => l.msg === 'request refused'),
+      ).toMatchObject({ operationId: 'invites.preview', problem: 'invite_invalid', status: 410 });
+    }
+    expect(problemShape(dead.json())).toEqual(problemShape(unknown.json()));
+    expect(raw.join('')).not.toContain(revoked.token);
+  });
+});

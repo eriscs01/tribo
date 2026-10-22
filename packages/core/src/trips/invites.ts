@@ -2,8 +2,15 @@
 // Invites are the trips module's table and credentials (0001_init.sql, rule 1): never
 // versioned or snapshotted, so their writes record a metadata-only event, never a value.
 // service.ts exposes this file.
-import { decodeTypeId, ID_PREFIX, InviteInput, NoBody, type PageQuery } from '@tribo/contract';
-import { newToken } from '@tribo/crypto';
+import {
+  decodeTypeId,
+  ID_PREFIX,
+  InviteInput,
+  InvitePreviewInput,
+  NoBody,
+  type PageQuery,
+} from '@tribo/contract';
+import { newToken, tokenHash } from '@tribo/crypto';
 import { forModule, type DB } from '@tribo/db';
 import {
   ApiError,
@@ -16,11 +23,12 @@ import {
 } from '@tribo/platform';
 import type { Kysely } from 'kysely';
 import { recordEvent } from '../audit/service.js';
-import { personAccountId } from '../library/service.js';
+import { memberPersons, personAccountId } from '../library/service.js';
 import { writeOperation } from '../write-operation.js';
 import { actingUser, idCursor, requireRole } from './membership.js';
 import { canManageInvites, inviteStatus } from './policy.js';
 import {
+  findLiveInvite,
   insertInvite,
   listInvites,
   lockInvite,
@@ -71,6 +79,19 @@ export interface InvitesService {
     inviteId: string,
     body: unknown,
   ): Promise<InviteRecord>;
+  /**
+   * invites.preview: what an invite link opens, for anyone holding it: the trip's name, the
+   * role and the placeholder to claim. Read only. Every link that opens nothing (unknown,
+   * expired, revoked, used up, or its trip or placeholder gone) is the same invite_invalid,
+   * reached through the same single query.
+   */
+  preview(body: unknown): Promise<InvitePreviewRecord>;
+}
+
+export interface InvitePreviewRecord {
+  tripName: string;
+  role: InviteRole;
+  placeholderName: string | null;
 }
 
 const invitesCreate = writeOperation('invites.create', InviteInput);
@@ -114,6 +135,23 @@ export function createInvitesService(db: Kysely<DB>, publicUrl: URL): InvitesSer
           result: { ...inviteRecord(row, new Date()), token, link, redacted: false },
         };
       }),
+
+    async preview(body) {
+      const { token } = validate(InvitePreviewInput, body);
+      const invite = await findLiveInvite(forModule(db, 'trips'), tokenHash(token), {
+        lock: false,
+      });
+      if (!invite) throw new ApiError('invite_invalid');
+      const placeholder =
+        invite.person_id === null
+          ? undefined
+          : (await memberPersons(db, [invite.person_id])).get(invite.person_id);
+      return {
+        tripName: invite.trip_name,
+        role: invite.role as InviteRole,
+        placeholderName: placeholder?.displayName ?? null,
+      };
+    },
 
     revoke: (ctx, tripId, inviteId, body) =>
       inviteWrite(db, ctx, invitesRevoke, { tripId, body }, async (tx) => {

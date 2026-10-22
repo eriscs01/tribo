@@ -15,6 +15,7 @@ export {
   createMembersService,
   createTripsService,
   type CreatedInvite,
+  type InvitePreviewRecord,
   type InviteRecord,
   type InvitesService,
   type MemberRecord,
