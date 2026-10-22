@@ -523,3 +523,13 @@ To see a pattern rather than one request, grep for the message and the code, for
    ```
 
    Log lines carry client IPs and user agents (personal data): keep saved files on the host or on your own disk, delete them when the problem is closed, and quote only the request id, operation id and problem code in issues.
+
+## Maintaining the repository
+
+### The dependency graph is out of date
+
+GitHub's dependency graph cannot read pnpm 12's lockfile, so CI job "Dependency graph" submits it on every push to `main` ([decision 0010](decisions/0010-dependency-graph-submitted-from-ci.md)). If Dependabot alerts or `gh api repos/eriscs01/tribo/dependency-graph/sbom` look stale after a merge:
+
+1. Open the job's log on the merge commit. It prints `submitted N packages from M projects` on success, or `dependency submission refused: <status> <body>` with GitHub's answer (a 403 means the job lost `contents: write`).
+2. Reproduce without sending anything: `pnpm submit:deps --dry-run` prints the snapshot.
+3. Re-run the job from the Actions tab. The job is not a required check, so a failure never blocks a merge.
