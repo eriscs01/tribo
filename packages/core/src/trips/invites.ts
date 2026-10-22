@@ -2,7 +2,7 @@
 // Invites are the trips module's table and credentials (0001_init.sql, rule 1): never
 // versioned or snapshotted, so their writes record a metadata-only event, never a value.
 // service.ts exposes this file.
-import { decodeTypeId, ID_PREFIX, InviteInput, type PageQuery } from '@tribo/contract';
+import { decodeTypeId, ID_PREFIX, InviteInput, NoBody, type PageQuery } from '@tribo/contract';
 import { newToken } from '@tribo/crypto';
 import { forModule, type DB } from '@tribo/db';
 import {
@@ -23,7 +23,9 @@ import { canManageInvites, inviteStatus } from './policy.js';
 import {
   insertInvite,
   listInvites,
+  lockInvite,
   lockMembershipOf,
+  revokeInvite,
   type InviteRole,
   type InviteRow,
 } from './repo.js';
@@ -59,9 +61,20 @@ export interface InvitesService {
     tripId: string,
     page: PageQuery,
   ): Promise<{ items: InviteRecord[]; nextCursor: string | null }>;
+  /**
+   * invites.revoke: the owner closes a link for good. Invites carry no version, so it takes
+   * no If-Match; revoking a revoked link answers it unchanged.
+   */
+  revoke(
+    ctx: RequestContext,
+    tripId: string,
+    inviteId: string,
+    body: unknown,
+  ): Promise<InviteRecord>;
 }
 
 const invitesCreate = writeOperation('invites.create', InviteInput);
+const invitesRevoke = writeOperation('invites.revoke', NoBody);
 
 /** `publicUrl` is the configured origin invite links name, never the Host header. */
 export function createInvitesService(db: Kysely<DB>, publicUrl: URL): InvitesService {
@@ -101,13 +114,28 @@ export function createInvitesService(db: Kysely<DB>, publicUrl: URL): InvitesSer
           result: { ...inviteRecord(row, new Date()), token, link, redacted: false },
         };
       }),
+
+    revoke: (ctx, tripId, inviteId, body) =>
+      inviteWrite(db, ctx, invitesRevoke, { tripId, body }, async (tx) => {
+        const trips = forModule(tx, 'trips');
+        const invite = await lockInvite(trips, { tripId, inviteId });
+        if (!invite) throw new ApiError('not_found');
+        if (invite.revoked_at !== null) {
+          return { row: invite, action: null, result: inviteRecord(invite, new Date()) };
+        }
+        const row = await revokeInvite(trips, invite.id);
+        return { row, action: 'revoke', result: inviteRecord(row, new Date()) };
+      }),
   };
 }
 
-/** What one invite write did: the invite it touched, its event's action and the answer. */
+/**
+ * What one invite write did: the invite it touched, its event's action (null when it
+ * changed nothing, as a second revoke) and the answer.
+ */
 interface InviteAct<R> {
   row: InviteRow;
-  action: 'create' | 'revoke';
+  action: 'create' | 'revoke' | null;
   result: R;
 }
 
@@ -129,12 +157,14 @@ function inviteWrite<I, R>(
     const input = validate(operation.input, target.body);
     await guardTrip(tx, target.tripId, operation.id);
     const { row, action, result } = await act(tx, userId, input);
-    await recordEvent(tx, ctx, {
-      action,
-      entityType: 'invite',
-      entityId: row.id,
-      tripId: row.trip_id,
-    });
+    if (action !== null) {
+      await recordEvent(tx, ctx, {
+        action,
+        entityType: 'invite',
+        entityId: row.id,
+        tripId: row.trip_id,
+      });
+    }
     return result;
   });
 }

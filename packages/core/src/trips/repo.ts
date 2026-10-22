@@ -396,3 +396,24 @@ export function listInvites(
   if (page.after !== null) query = query.where('id', '>', page.after);
   return query.orderBy('id').limit(page.limit).execute();
 }
+
+/** The trip's invite, in any state, locked FOR UPDATE until commit; undefined when there is none. */
+export function lockInvite(db: TripsDb, target: { tripId: string; inviteId: string }) {
+  return db
+    .selectFrom('tribo.invites')
+    .select(INVITE_COLUMNS)
+    .where('id', '=', target.inviteId)
+    .where('trip_id', '=', target.tripId)
+    .forUpdate()
+    .executeTakeFirst();
+}
+
+/** Stamps revoked_at: the link opens nothing from now on. */
+export function revokeInvite(db: TripsDb, inviteId: string) {
+  return db
+    .updateTable('tribo.invites')
+    .set({ revoked_at: sql<Date>`now()` })
+    .where('id', '=', inviteId)
+    .returning(INVITE_COLUMNS)
+    .executeTakeFirstOrThrow();
+}

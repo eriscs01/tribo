@@ -201,3 +201,19 @@ describe('invites.list over HTTP', () => {
     expect(res.body).not.toContain(created.token);
   });
 });
+
+describe('invites.revoke over HTTP', () => {
+  it('answers 200 with the revoked invite, and a viewer 403 with its refusal logged', async () => {
+    const w = await world();
+    const { body: created } = await createInvite(w, { role: 'member' });
+    const url = `${w.invitesUrl}/${created.id}/revoke`;
+    const refused = await app.inject({ method: 'POST', url, ...w.viewer.auth });
+    expect(refused.statusCode).toBe(403);
+    expect(
+      linesOf(refused.headers['x-request-id']).find((l) => l.msg === 'request refused'),
+    ).toMatchObject({ operationId: 'invites.revoke', problem: 'forbidden' });
+    const res = await app.inject({ method: 'POST', url, ...w.owner.auth });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ id: created.id, status: 'revoked' });
+  });
+});

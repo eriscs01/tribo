@@ -3,7 +3,7 @@
 import { defineOperation } from '../operation.js';
 import { Member, MemberAddInput, MemberPage, MemberPatch } from '../member.js';
 import { PageQuery } from '../page.js';
-import { InviteCreated, InviteInput, InvitePage } from '../invite.js';
+import { Invite, InviteCreated, InviteInput, InvitePage } from '../invite.js';
 
 export const membersOperations = [
   defineOperation({
@@ -137,7 +137,8 @@ export const membersOperations = [
     mcpApproval: false,
     mcpTool: null,
     notes: 'Revoke an invite link; Invites carry no version; trip_archived on archived trips (R29)',
-    status: 'planned',
+    status: 'implemented',
+    output: Invite,
   }),
   defineOperation({
     id: 'invites.preview',

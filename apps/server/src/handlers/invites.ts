@@ -46,5 +46,14 @@ export function invitesHandlers(invites: InvitesService): Handlers {
       const created: InviteCreated = { ...inviteView(invite), token, link, redacted };
       return reply.code(201).send(created);
     },
+    'invites.revoke': async (request) =>
+      inviteView(
+        await invites.revoke(
+          requestContext(request),
+          pathId(request, 'tripId'),
+          pathId(request, 'inviteId'),
+          request.body,
+        ),
+      ),
   };
 }
