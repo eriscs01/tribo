@@ -323,3 +323,33 @@ export function searchVendors(db: LibraryDb, search: NameSearch) {
     .limit(search.limit)
     .execute();
 }
+
+/**
+ * R28: scrubs a placeholder whose last membership was claimed, soft-deletes it and points
+ * it at the claimer's person, bumping its version (persons_merged_scrubbed holds what a
+ * scrub clears). Only a placeholder (user_id null) is ever merged.
+ */
+export function mergePlaceholder(
+  db: LibraryDb,
+  merge: { personId: string; into: string; by: string },
+) {
+  return db
+    .updateTable('tribo.persons as p')
+    .set((eb) => ({
+      contacts: jsonb({}),
+      dietary: null,
+      emergency_contact_enc: null,
+      id_doc_enc: null,
+      passport_enc: null,
+      merged_into: merge.into,
+      deleted_at: sql<Date>`now()`,
+      deleted_by: merge.by,
+      version: eb('p.version', '+', 1),
+      updated_at: sql<Date>`now()`,
+      updated_by: merge.by,
+    }))
+    .where('p.id', '=', merge.personId)
+    .where('p.user_id', 'is', null)
+    .returning([...PERSON_COLUMNS, 'p.merged_into'])
+    .executeTakeFirstOrThrow();
+}

@@ -94,7 +94,7 @@
 - [x] `invites.preview` · Drop A · `POST /v1/invites/preview`
   - Trip name, role, placeholder name for a token; Token in body; invite_invalid; Read only; no key (R2)
   - Roles: anyone with link. If-Match: `no`. Idempotency: safe to repeat.
-- [ ] `invites.accept` · Drop A · `POST /v1/invites/accept`
+- [x] `invites.accept` · Drop A · `POST /v1/invites/accept`
   - Join: new account (username+password) or signed-in; claims placeholder; username_taken, already_member, invite_invalid; Claim is per trip (R28): new account → its own person is created first; then only this trip's placeholder membership moves to the caller's person (tickets, allocations, shares follow the membership id); the placeholder never gains an account and stays in its other trips; when it has no membership rows left it is scrubbed, soft-deleted and mergedInto the caller; claim_conflict if the caller's person already has a row in this trip. Rejoin undeletes the caller's earlier membership in the trip. Anonymous Idempotency-Key caller = invite:<inviteId>; Set-Cookie never replayed
   - Roles: anyone with link. If-Match: `no`. Idempotency: creates (key).
   - Limit: Takes no Idempotency-Key in 1a: only expenses.create and files.upload honour it; this create follows in 1b.

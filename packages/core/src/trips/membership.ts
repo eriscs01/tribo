@@ -136,7 +136,7 @@ export function membershipSnapshot(row: MembershipRow) {
 }
 
 /** The write's change for a membership just written, with the person behind it. */
-type MembershipAction = 'create' | 'restore' | 'role_change' | 'delete';
+type MembershipAction = 'create' | 'restore' | 'role_change' | 'delete' | 'claim';
 
 export function membershipChange(
   action: MembershipAction,

@@ -5,9 +5,9 @@ import {
   accountHasMfa,
   createInvitesService,
   createMembersService,
+  invitedAccounts,
   memberItems,
   writePath,
-  type InvitesService,
   type MembersService,
 } from '@tribo/core';
 import type { DB } from '@tribo/db';
@@ -28,8 +28,9 @@ export type Member = UserFixture & { membershipId: string };
 /** Links name this deployment; the token goes in the fragment. */
 const PUBLIC_URL = new URL('https://tribo.test');
 
-export function invitesService(tdb: TestDatabase): InvitesService {
-  return createInvitesService(tdb.db, PUBLIC_URL);
+/** The invites service as runtime.ts composes it, identity's and items' sides included. */
+export function invitesService(tdb: TestDatabase | { db: Kysely<DB> }) {
+  return createInvitesService(tdb.db, PUBLIC_URL, { accounts: invitedAccounts, memberItems });
 }
 
 /** The members service as runtime.ts composes it, items side and MFA check included. */

@@ -1,7 +1,9 @@
 // Invite schemas: a trip's invite links, as the owner creates, lists and revokes them.
 import * as z from 'zod';
 import { ID_PREFIX, typeId } from './ids.js';
-import { TripRole } from './member.js';
+import { NewPassword, Session, Username } from './account.js';
+import { Member, TripRole } from './member.js';
+import { DisplayName } from './person.js';
 import { Instant } from './time.js';
 import { page } from './page.js';
 
@@ -113,3 +115,34 @@ export const InvitePreview = z
   .meta({ id: 'InvitePreview' });
 
 export type InvitePreview = z.infer<typeof InvitePreview>;
+
+/**
+ * invites.accept body. A new joiner chooses a username and password here (the account's
+ * own person is named `displayName`, by default the placeholder it claims or else the
+ * username); a signed-in caller sends the token alone and joins as themself.
+ */
+export const InviteAcceptInput = z
+  .strictObject({
+    token: InviteToken,
+    account: z
+      .strictObject({
+        username: Username,
+        password: NewPassword,
+        displayName: DisplayName.optional(),
+      })
+      .optional(),
+  })
+  .meta({ id: 'InviteAcceptInput' });
+
+export type InviteAcceptInput = z.infer<typeof InviteAcceptInput>;
+
+/**
+ * invites.accept response: the caller's membership in the trip. A new account comes back
+ * signed in: `session` is its session (the cookie is set with it); a signed-in caller's is
+ * null, since their session is the one they joined with.
+ */
+export const InviteAccept = z
+  .strictObject({ member: Member, session: Session.nullable() })
+  .meta({ id: 'InviteAccept' });
+
+export type InviteAccept = z.infer<typeof InviteAccept>;

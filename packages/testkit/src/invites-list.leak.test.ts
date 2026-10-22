@@ -2,10 +2,10 @@
 // invites.list against the oracle: every account lists exactly the invite links the oracle
 // allows (the owner's own trip's, revoked and expired ones included), and never a token.
 import { PAGE_LIMIT_MAX } from '@tribo/contract';
-import { createInvitesService } from '@tribo/core';
 import { ApiError } from '@tribo/platform';
 import fc from 'fast-check';
 import { afterAll, beforeAll, describe, it } from 'vitest';
+import { invitesService } from './invite-world.js';
 import { createTestDatabase, type TestDatabase } from './database.js';
 import { leakRunOptions, listProperty, oracle, type ListRead } from './leak.js';
 
@@ -17,7 +17,7 @@ const options = leakRunOptions();
  * but do not own answers forbidden: both list nothing.
  */
 const read: ListRead = async (db, userId) => {
-  const invites = createInvitesService(db, new URL('https://tribo.test'));
+  const invites = invitesService({ db });
   const trips = await db.selectFrom('tribo.trips').select('id').execute();
   const listed: string[] = [];
   for (const trip of trips) {

@@ -51,6 +51,7 @@ export {
   type InviteRecord,
   type InvitesService,
 } from './invites.js';
+export type { AcceptedInvite, InviteAccounts, JoinClient } from './join.js';
 export { createMembersService, type MembersService, type MfaCheck } from './members.js';
 export {
   allActiveMemberships,

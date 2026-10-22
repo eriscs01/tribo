@@ -1991,6 +1991,18 @@ export interface components {
             revokedAt: components["schemas"]["Instant"] | null;
             createdAt: components["schemas"]["Instant"];
         };
+        InviteAccept: {
+            member: components["schemas"]["Member"];
+            session: components["schemas"]["Session"] | null;
+        };
+        InviteAcceptInput: {
+            token: string;
+            account?: {
+                username: components["schemas"]["Username"];
+                password: components["schemas"]["NewPassword"];
+                displayName?: string;
+            };
+        };
         InviteCreated: {
             id: string;
             tripId: string;
@@ -3861,11 +3873,26 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InviteAcceptInput"];
+            };
+        };
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            201: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InviteAccept"];
+                };
+            };
+            /** @description Too many writes in this window (rate_limited) */
+            429: {
+                headers: {
+                    /** @description Seconds until the window resets */
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {

@@ -17,6 +17,7 @@ import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { buildApp } from './app.js';
 import { composeServices, type Services } from './runtime.js';
+import { csrfSecret, csrfTokenFor } from './session.js';
 
 const PASSWORD = 'correct horse battery';
 
@@ -262,5 +263,97 @@ describe('invites.preview over HTTP', () => {
     }
     expect(problemShape(dead.json())).toEqual(problemShape(unknown.json()));
     expect(raw.join('')).not.toContain(revoked.token);
+  });
+});
+
+describe('invites.accept over HTTP', () => {
+  it('signs a new account in with the session cookie, and logs neither token nor password', async () => {
+    const w = await world();
+    const { body: invite } = await createInvite(w, { role: 'member' });
+    const res = await anonymous('/v1/invites/accept', {
+      token: invite.token,
+      account: { username: 'new_joiner_http', password: PASSWORD, displayName: 'Kuya Ben' },
+    });
+    expect(res.statusCode).toBe(201);
+    const body = res.json<{
+      member: { id: string; role: string };
+      session: { csrfToken: string };
+    }>();
+    expect(body.member).toMatchObject({ role: 'member', person: { displayName: 'Kuya Ben' } });
+    const cookie = res.cookies.find((c) => c.name === SESSION_COOKIE);
+    expect(cookie).toMatchObject({ httpOnly: true, secure: true, path: '/' });
+    // The cookie it set is a live session in the trip it joined.
+    const members = await app.inject({
+      method: 'GET',
+      url: `/v1/trips/${encodeTypeId(ID_PREFIX.trip, w.trip.tripId)}/members`,
+      cookies: { [SESSION_COOKIE]: cookie?.value ?? '' },
+    });
+    expect(members.statusCode).toBe(200);
+    const logs = raw.join('');
+    for (const secret of [invite.token, PASSWORD, cookie?.value ?? '']) {
+      expect(logs).not.toContain(secret);
+    }
+    const audit = await auditRows(res.headers['x-request-id']);
+    expect(audit.length).toBeGreaterThan(0);
+    expect(JSON.stringify(audit)).not.toContain(invite.token);
+  });
+
+  it('joins the signed-in caller with the token alone, under their CSRF token', async () => {
+    const w = await world();
+    const joiner = await signedInUser();
+    const { body: invite } = await createInvite(w, { role: 'viewer' });
+    const withoutCsrf = await app.inject({
+      method: 'POST',
+      url: '/v1/invites/accept',
+      payload: { token: invite.token },
+      cookies: joiner.auth.cookies,
+    });
+    expect(withoutCsrf.statusCode).toBe(403);
+    const res = await app.inject({
+      method: 'POST',
+      url: '/v1/invites/accept',
+      payload: { token: invite.token },
+      ...joiner.auth,
+    });
+    expect(res.statusCode).toBe(201);
+    expect(res.json()).toMatchObject({
+      member: { role: 'viewer', person: { id: encodeTypeId(ID_PREFIX.person, joiner.personId) } },
+      session: null,
+    });
+    expect(res.cookies.find((c) => c.name === SESSION_COOKIE)).toBeUndefined();
+  });
+
+  it('treats a dead session cookie as nobody: a new account still joins', async () => {
+    const w = await world();
+    const { body: invite } = await createInvite(w, { role: 'member' });
+    const stale = 'not-a-live-session';
+    const res = await app.inject({
+      method: 'POST',
+      url: '/v1/invites/accept',
+      payload: {
+        token: invite.token,
+        account: { username: 'stale_cookie_joiner', password: PASSWORD },
+      },
+      cookies: { [SESSION_COOKIE]: stale },
+      // CSRF holds for any request that carries a cookie, live or not.
+      headers: { [CSRF_HEADER]: csrfTokenFor(csrfSecret(services.appKey), stale) },
+      remoteAddress: address(),
+    });
+    expect(res.statusCode).toBe(201);
+    expect(res.json()).toMatchObject({
+      member: { role: 'member' },
+      session: { mfaVerified: false },
+    });
+  });
+
+  it('answers a dead link 410 invite_invalid, logged with its request id and operation', async () => {
+    const res = await anonymous('/v1/invites/accept', {
+      token: 'd'.repeat(43),
+      account: { username: 'nobody_joins', password: PASSWORD },
+    });
+    expect(res.statusCode).toBe(410);
+    expect(
+      linesOf(res.headers['x-request-id']).find((l) => l.msg === 'request refused'),
+    ).toMatchObject({ operationId: 'invites.accept', problem: 'invite_invalid', status: 410 });
   });
 });

@@ -10,6 +10,8 @@ import {
   InvitePage,
   InvitePreviewInput,
   InvitePreview,
+  InviteAcceptInput,
+  InviteAccept,
 } from '../invite.js';
 
 export const membersOperations = [
@@ -183,6 +185,8 @@ export const membersOperations = [
     mcpTool: null,
     notes:
       "Join: new account (username+password) or signed-in; claims placeholder; username_taken, already_member, invite_invalid; Claim is per trip (R28): new account → its own person is created first; then only this trip's placeholder membership moves to the caller's person (tickets, allocations, shares follow the membership id); the placeholder never gains an account and stays in its other trips; when it has no membership rows left it is scrubbed, soft-deleted and mergedInto the caller; claim_conflict if the caller's person already has a row in this trip. Rejoin undeletes the caller's earlier membership in the trip. Anonymous Idempotency-Key caller = invite:<inviteId>; Set-Cookie never replayed",
-    status: 'planned',
+    status: 'implemented',
+    input: InviteAcceptInput,
+    output: InviteAccept,
   }),
 ] as const;

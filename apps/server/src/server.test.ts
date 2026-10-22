@@ -117,11 +117,12 @@ const trips: TripsService = {
   delete: unused,
 };
 const members: MembersService = { list: unused, add: unused, setRole: unused, remove: unused };
-const invites: InvitesService = {
+const invites: InvitesService<{ token: string; session: SignedIn }> = {
   create: unused,
   list: unused,
   revoke: unused,
   preview: unused,
+  accept: unused,
 };
 const items: ItemsService = {
   create: unused,

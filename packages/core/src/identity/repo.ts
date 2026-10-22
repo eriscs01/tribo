@@ -331,3 +331,15 @@ export async function hasMfaEnabled(db: IdentityDb, userId: string): Promise<boo
     .executeTakeFirst();
   return (row?.mfa_enabled_at ?? null) !== null;
 }
+
+/** An account a joiner makes from an invite link: an active user, never an admin. */
+export function insertInvitedAccount(
+  db: IdentityDb,
+  account: { username: string; passwordHash: string },
+) {
+  return db
+    .insertInto('tribo.users')
+    .values({ username: account.username, password_hash: account.passwordHash })
+    .returning(['id', 'username', 'platform_role', 'status', 'mfa_enabled_at', 'version'])
+    .executeTakeFirstOrThrow();
+}

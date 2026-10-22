@@ -4,7 +4,7 @@ import { ifMatch, pathId, requestContext, signedIn } from '../context.js';
 import { parsedQuery, type Handlers } from '../routes.js';
 import { personView } from './library.js';
 
-function memberView(member: MemberRecord): Member {
+export function memberView(member: MemberRecord): Member {
   return {
     id: encodeTypeId(ID_PREFIX.membership, member.id),
     tripId: encodeTypeId(ID_PREFIX.trip, member.tripId),

@@ -1,7 +1,7 @@
 // @module-tag drop-a
 // invites.preview (Drop A): Trip name, role, placeholder name for a token; Token in body; invite_invalid; Read only; no key (R2)
 import { encodeTypeId, ID_PREFIX } from '@tribo/contract';
-import { createInvitesService, type InvitesService } from '@tribo/core';
+import type { InvitesService } from '@tribo/core';
 import { ApiError } from '@tribo/platform';
 import type { KyselyPlugin } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -147,10 +147,7 @@ describe('invites.preview', () => {
       },
       transformResult: (args) => Promise.resolve(args.result),
     };
-    const counted = createInvitesService(
-      tdb.db.withPlugin(counting),
-      new URL('https://tribo.test'),
-    );
+    const counted = invitesService({ db: tdb.db.withPlugin(counting) });
     const perCase: Record<string, number> = {};
     for (const [name, token] of Object.entries(links)) {
       queries = 0;

@@ -4,6 +4,7 @@ import type {
   ItemsService,
   LibraryService,
   MembersService,
+  SignedIn,
   TripsService,
   UnitsService,
 } from '@tribo/core';
@@ -24,7 +25,7 @@ export interface HandlerServices {
   csrfSecret: Buffer;
   trips: TripsService;
   members: MembersService;
-  invites: InvitesService;
+  invites: InvitesService<{ token: string; session: SignedIn }>;
   items: ItemsService;
   units: UnitsService;
   library: LibraryService;
@@ -40,7 +41,7 @@ export function operationHandlers(services: HandlerServices): Handlers {
     ...authHandlers(services.identity, services.csrfSecret),
     ...tripHandlers(services.trips),
     ...membersHandlers(services.members),
-    ...invitesHandlers(services.invites),
+    ...invitesHandlers(services.invites, services.csrfSecret),
     ...itemHandlers(services.items),
     ...libraryHandlers(services.library),
     ...meHandlers(services.identity, services.library),

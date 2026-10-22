@@ -475,3 +475,69 @@ export function findLiveInvite(db: TripsDb, tokenHash: Buffer, options: { lock: 
     );
   return (options.lock ? query.forUpdate('i') : query).executeTakeFirst();
 }
+
+/**
+ * R28: moves a placeholder's membership to the claimer's person, with the role the invite
+ * gives (and the cost grant only if it stays a viewer's), bumping its version. The id stays,
+ * so everything that references it (tickets, allocations, shares) follows; the invite's
+ * pre-link follows through its ON UPDATE CASCADE.
+ */
+export function claimMembership(
+  db: TripsDb,
+  membershipId: string,
+  claim: { personId: string; role: TripRole; canViewCosts: boolean; updatedBy: string },
+) {
+  return db
+    .updateTable('tribo.memberships')
+    .set((eb) => ({
+      person_id: claim.personId,
+      trip_role: claim.role,
+      can_view_costs: claim.canViewCosts,
+      version: eb('version', '+', 1),
+      updated_at: sql<Date>`now()`,
+      updated_by: claim.updatedBy,
+    }))
+    .where('id', '=', membershipId)
+    .returning(MEMBERSHIP_COLUMNS)
+    .executeTakeFirstOrThrow();
+}
+
+/** How many membership rows the person has in any trip, removed ones included. */
+export async function countMembershipRows(db: TripsDb, personId: string): Promise<number> {
+  const row = await db
+    .selectFrom('tribo.memberships')
+    .select((eb) => eb.fn.countAll<string>().as('n'))
+    .where('person_id', '=', personId)
+    .executeTakeFirstOrThrow();
+  return Number(row.n);
+}
+
+/** Counts one join against the invite's uses (invites_uses_cap keeps it within max_uses). */
+export async function useInvite(db: TripsDb, inviteId: string): Promise<void> {
+  await db
+    .updateTable('tribo.invites')
+    .set((eb) => ({ uses: eb('uses', '+', 1) }))
+    .where('id', '=', inviteId)
+    .execute();
+}
+
+/**
+ * Revokes the trip's other open invites pre-linked to this placeholder: once it is claimed
+ * none of them can be (their pre-link follows the membership to the claimer). Returns the
+ * ids it revoked.
+ */
+export async function revokePlaceholderInvites(
+  db: TripsDb,
+  claim: { tripId: string; personId: string; exceptInviteId: string },
+): Promise<string[]> {
+  const rows = await db
+    .updateTable('tribo.invites')
+    .set({ revoked_at: sql<Date>`now()` })
+    .where('trip_id', '=', claim.tripId)
+    .where('person_id', '=', claim.personId)
+    .where('id', '<>', claim.exceptInviteId)
+    .where('revoked_at', 'is', null)
+    .returning('id')
+    .execute();
+  return rows.map((r) => r.id).sort();
+}

@@ -269,7 +269,12 @@ export function createIdentityService(
 
       return db.transaction().execute(async (tx) => {
         const txIdentity = forModule(tx, 'identity');
-        const created = await insertAdmin(tx, username, passwordHash ?? '');
+        const created = await uniqueUsername(() =>
+          repo.insertDisabledAdmin(forModule(tx, 'identity'), {
+            username,
+            passwordHash: passwordHash ?? '',
+          }),
+        );
         await recordWrite(tx, ctx, {
           action: 'create',
           aggregate: 'user',
@@ -414,9 +419,9 @@ export function createIdentityService(
 }
 
 /** Two concurrent creates of one username: the unique index decides, as username_taken. */
-async function insertAdmin(tx: Tx, username: string, passwordHash: string) {
+async function uniqueUsername<T>(insert: () => Promise<T>): Promise<T> {
   try {
-    return await repo.insertDisabledAdmin(forModule(tx, 'identity'), { username, passwordHash });
+    return await insert();
   } catch (error) {
     if (
       error instanceof Error &&
@@ -448,3 +453,72 @@ function userSnapshot(row: {
 export function accountHasMfa(db: Kysely<DB>, userId: string): Promise<boolean> {
   return repo.hasMfaEnabled(forModule(db, 'identity'), userId);
 }
+
+/**
+ * What invites.accept asks of identity, in the join's transaction: the joiner's password
+ * hashed (before the transaction: Argon2id is slow), their new account with its own person
+ * (R28: created first, so a claim has a person to move to), and the session the join signs
+ * them in with. Each write is recorded as the new account's own.
+ */
+export const invitedAccounts = {
+  hashPassword: (password: string): Promise<string> => hashSecret(password),
+
+  async create(
+    tx: Tx,
+    ctx: RequestContext,
+    account: { username: string; passwordHash: string; displayName: string },
+  ): Promise<{ userId: string; personId: string }> {
+    const created = await uniqueUsername(() =>
+      repo.insertInvitedAccount(forModule(tx, 'identity'), account),
+    );
+    const own = { ...ctx, userId: created.id };
+    await recordWrite(tx, own, {
+      action: 'create',
+      aggregate: 'user',
+      entityId: created.id,
+      tripId: null,
+      version: created.version,
+      versionBefore: null,
+      snapshot: userSnapshot(created),
+    });
+    const { result, ...person } = await createAccountPerson(tx, {
+      userId: created.id,
+      displayName: account.displayName,
+    });
+    await recordWrite(tx, own, { ...person, versionBefore: null });
+    return { userId: created.id, personId: result.personId };
+  },
+
+  async signIn(
+    tx: Tx,
+    ctx: RequestContext,
+    account: { userId: string; username: string },
+    client: ClientInfo,
+  ): Promise<{ token: string; session: SignedIn }> {
+    const { token, hash } = newToken();
+    const identity = forModule(tx, 'identity');
+    await repo.recordLogin(identity, account.userId);
+    const row = await repo.insertSession(identity, {
+      userId: account.userId,
+      tokenHash: hash,
+      mfaVerified: false,
+      ...client,
+    });
+    await recordEvent(
+      tx,
+      { ...ctx, userId: account.userId },
+      { action: 'login', entityType: 'user', entityId: account.userId, tripId: null },
+    );
+    return {
+      token,
+      session: {
+        sessionId: row.id,
+        userId: account.userId,
+        username: account.username,
+        platformRole: 'user',
+        mfaVerified: false,
+        expiresAt: row.absolute_expires_at,
+      },
+    };
+  },
+};
