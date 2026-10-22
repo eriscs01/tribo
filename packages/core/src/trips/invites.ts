@@ -23,17 +23,22 @@ import {
 } from '@tribo/platform';
 import type { Kysely } from 'kysely';
 import { recordEvent } from '../audit/service.js';
-import { memberPersons, personAccountId } from '../library/service.js';
+import { memberPersons } from '../library/service.js';
 import { writeOperation } from '../write-operation.js';
 import { acceptInvite, type AcceptedInvite, type InviteAccounts, type JoinClient } from './join.js';
-import { actingUser, idCursor, requireRole, type MemberItems } from './membership.js';
+import {
+  actingUser,
+  activePlaceholder,
+  idCursor,
+  requireRole,
+  type MemberItems,
+} from './membership.js';
 import { canManageInvites, inviteStatus } from './policy.js';
 import {
   findLiveInvite,
   insertInvite,
   listInvites,
   lockInvite,
-  lockMembershipOf,
   revokeInvite,
   type InviteRole,
   type InviteRow,
@@ -252,12 +257,11 @@ async function inviteTerms(
     return { role: input.role, personId: null, maxUses: input.maxUses ?? null };
   }
   const personId = decodeTypeId(ID_PREFIX.person, input.personId);
-  const membership = await lockMembershipOf(forModule(tx, 'trips'), tripId, personId);
-  if (membership?.deleted_at !== null || (await personAccountId(tx, personId)) !== null) {
-    throw new ApiError('invite_invalid');
-  }
+  const placeholder = await activePlaceholder(tx, tripId, personId);
+  if (!placeholder) throw new ApiError('invite_invalid');
   // A placeholder never owns the trip, so its role is always one an invite gives.
-  return { role: input.role ?? (membership.trip_role as InviteRole), personId, maxUses: 1 };
+  const role = input.role ?? (placeholder.membership.trip_role as InviteRole);
+  return { role, personId, maxUses: 1 };
 }
 
 function inviteRecord(row: InviteRow, now: Date): InviteRecord {

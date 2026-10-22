@@ -13,11 +13,17 @@ import {
   type WriteRecord,
 } from '@tribo/platform';
 import type { Kysely } from 'kysely';
-import { accountPersonId, memberPersons, type PersonRecord } from '../library/service.js';
+import {
+  accountPersonId,
+  memberPersons,
+  personAccountId,
+  type PersonRecord,
+} from '../library/service.js';
 import {
   countActiveMemberships,
   findActiveMembership,
   findMembershipPersons,
+  lockMembershipOf,
   type MembershipRow,
   type TripRole,
 } from './repo.js';
@@ -85,6 +91,23 @@ export async function requireRole(
   const membership = await callerMembership(db, userId, tripId);
   if (membership === null) throw new ApiError('not_found');
   if (!allowed(membership.role)) throw new ApiError('forbidden');
+}
+
+/**
+ * R28: the person's membership of the trip while it is active and the person still a
+ * placeholder (no account), locked FOR UPDATE until commit, with the person; null
+ * otherwise. What a placeholder invite needs, at create and again at accept.
+ */
+export async function activePlaceholder(
+  tx: Tx,
+  tripId: string,
+  personId: string,
+): Promise<{ membership: MembershipRow; person: PersonRecord } | null> {
+  const membership = await lockMembershipOf(forModule(tx, 'trips'), tripId, personId);
+  if (membership?.deleted_at !== null) return null;
+  const person = (await memberPersons(tx, [personId])).get(personId);
+  if (!person || (await personAccountId(tx, personId)) !== null) return null;
+  return { membership, person };
 }
 
 /** A cursor over rows in id order (memberships, invites); anything else is refused before SQL. */

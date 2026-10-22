@@ -12,13 +12,9 @@ import {
 } from '@tribo/platform';
 import type { Kysely } from 'kysely';
 import { recordEvent, recordWrite } from '../audit/service.js';
+import { accountPersonId, memberPersons, mergeClaimedPlaceholder } from '../library/service.js';
 import {
-  accountPersonId,
-  memberPersons,
-  mergeClaimedPlaceholder,
-  personAccountId,
-} from '../library/service.js';
-import {
+  activePlaceholder,
   memberRecord,
   membershipWrite,
   type MemberItems,
@@ -115,8 +111,9 @@ export function acceptInvite<S>(
     const passwordHash = input.account ? await accounts.hashPassword(input.account.password) : null;
 
     return db.transaction().execute(async (tx) => {
-      const trips = forModule(tx, 'trips');
-      const invite = await findLiveInvite(trips, tokenHash(input.token), { lock: true });
+      const invite = await findLiveInvite(forModule(tx, 'trips'), tokenHash(input.token), {
+        lock: true,
+      });
       if (!invite) throw new ApiError('invite_invalid');
       await guardTrip(tx, invite.trip_id, 'invites.accept');
       const placeholder =
@@ -137,63 +134,15 @@ export function acceptInvite<S>(
         joiner = await signedInJoiner(tx, ctx);
       }
       const as = { ...ctx, userId: joiner.userId };
-      const role = invite.role as InviteRole;
-      const move = { tripId: invite.trip_id, userId: joiner.userId };
-
-      const records: WriteRecord[] = [];
-      let row: MembershipRow;
-      if (placeholder) {
-        if (await lockMembershipOf(trips, invite.trip_id, joiner.personId)) {
-          throw new ApiError('claim_conflict');
-        }
-        const others = await revokePlaceholderInvites(trips, {
-          tripId: invite.trip_id,
-          personId: placeholder.personId,
-          exceptInviteId: invite.id,
-        });
-        row = await claimMembership(trips, placeholder.membership.id, {
-          personId: joiner.personId,
-          role,
-          canViewCosts: takesCostGrant(role) && placeholder.membership.can_view_costs,
-          updatedBy: joiner.userId,
-        });
-        records.push({
-          ...membershipWrite('claim', row),
-          versionBefore: placeholder.membership.version,
-        });
-        if ((await countMembershipRows(trips, placeholder.personId)) === 0) {
-          records.push(
-            await mergeClaimedPlaceholder(tx, {
-              personId: placeholder.personId,
-              into: joiner.personId,
-              by: joiner.userId,
-            }),
-          );
-        }
-        // eslint-disable-next-line no-await-in-loop -- audit events chain, so they append in order
-        for (const id of others) await revoked(tx, as, id, invite.trip_id);
-      } else {
-        const existing = await lockMembershipOf(trips, invite.trip_id, joiner.personId);
-        if (existing?.deleted_at === null) throw new ApiError('already_member');
-        if (existing) {
-          // A rejoin: the earlier membership comes back, with what its removal took (R32).
-          row = await undeleteMembership(trips, existing.id, { role, updatedBy: joiner.userId });
-          records.push({ ...membershipWrite('restore', row), versionBefore: existing.version });
-          records.push(...(await memberItems.rejoin(tx, { ...move, membershipId: row.id })));
-        } else {
-          row = await insertMembership(trips, {
-            tripId: invite.trip_id,
-            personId: joiner.personId,
-            role,
-            createdBy: joiner.userId,
-          });
-          records.push({ ...membershipWrite('create', row), versionBefore: null });
-        }
-      }
+      const { row, records, closed } = placeholder
+        ? await claim(tx, { invite, placeholder, joiner })
+        : await join(tx, memberItems, { invite, joiner });
       // eslint-disable-next-line no-await-in-loop -- audit events chain, so they append in order
       for (const record of records) await recordWrite(tx, as, record);
+      // eslint-disable-next-line no-await-in-loop -- as above
+      for (const id of closed) await revoked(tx, as, id, invite.trip_id);
 
-      await useInvite(trips, invite.id);
+      await useInvite(forModule(tx, 'trips'), invite.id);
       await recordEvent(tx, as, {
         action: 'update',
         entityType: 'invite',
@@ -220,16 +169,98 @@ export function acceptInvite<S>(
  * still a placeholder, else the link opens nothing (invite_invalid, as for any dead link).
  */
 async function lockedPlaceholder(tx: Tx, tripId: string, personId: string): Promise<Placeholder> {
-  const membership = await lockMembershipOf(forModule(tx, 'trips'), tripId, personId);
-  const person = (await memberPersons(tx, [personId])).get(personId);
-  if (
-    membership?.deleted_at !== null ||
-    !person ||
-    (await personAccountId(tx, personId)) !== null
-  ) {
-    throw new ApiError('invite_invalid');
+  const found = await activePlaceholder(tx, tripId, personId);
+  if (!found) throw new ApiError('invite_invalid');
+  return { personId, membership: found.membership, displayName: found.person.displayName };
+}
+
+/** The live invite a join takes one use of, as findLiveInvite reads it. */
+type LiveInvite = NonNullable<Awaited<ReturnType<typeof findLiveInvite>>>;
+
+/** What a claim or an open join wrote: the membership, its records, the links it closed. */
+interface Joined {
+  row: MembershipRow;
+  records: WriteRecord[];
+  closed: string[];
+}
+
+/**
+ * R28, the claim: only this trip's placeholder membership moves to the joiner's person,
+ * with the invite's role; the trip's other links to the placeholder close; and a
+ * placeholder left with no membership row anywhere is merged into the joiner.
+ */
+async function claim(
+  tx: Tx,
+  { invite, placeholder, joiner }: { invite: LiveInvite; placeholder: Placeholder; joiner: Joiner },
+): Promise<Joined> {
+  const trips = forModule(tx, 'trips');
+  if (await lockMembershipOf(trips, invite.trip_id, joiner.personId)) {
+    throw new ApiError('claim_conflict');
   }
-  return { personId, membership, displayName: person.displayName };
+  const closed = await revokePlaceholderInvites(trips, {
+    tripId: invite.trip_id,
+    personId: placeholder.personId,
+    exceptInviteId: invite.id,
+  });
+  const role = invite.role as InviteRole;
+  const row = await claimMembership(trips, placeholder.membership.id, {
+    personId: joiner.personId,
+    role,
+    canViewCosts: takesCostGrant(role) && placeholder.membership.can_view_costs,
+    updatedBy: joiner.userId,
+  });
+  const records: WriteRecord[] = [
+    { ...membershipWrite('claim', row), versionBefore: placeholder.membership.version },
+  ];
+  if ((await countMembershipRows(trips, placeholder.personId)) === 0) {
+    records.push(
+      await mergeClaimedPlaceholder(tx, {
+        personId: placeholder.personId,
+        into: joiner.personId,
+        by: joiner.userId,
+      }),
+    );
+  }
+  return { row, records, closed };
+}
+
+/**
+ * An open invite: the joiner's new membership with the invite's role, or, for a rejoin,
+ * their earlier membership back with what its removal took (R32).
+ */
+async function join(
+  tx: Tx,
+  memberItems: MemberItems,
+  { invite, joiner }: { invite: LiveInvite; joiner: Joiner },
+): Promise<Joined> {
+  const trips = forModule(tx, 'trips');
+  const role = invite.role as InviteRole;
+  const existing = await lockMembershipOf(trips, invite.trip_id, joiner.personId);
+  if (existing?.deleted_at === null) throw new ApiError('already_member');
+  if (!existing) {
+    const row = await insertMembership(trips, {
+      tripId: invite.trip_id,
+      personId: joiner.personId,
+      role,
+      createdBy: joiner.userId,
+    });
+    return {
+      row,
+      records: [{ ...membershipWrite('create', row), versionBefore: null }],
+      closed: [],
+    };
+  }
+  const row = await undeleteMembership(trips, existing.id, { role, updatedBy: joiner.userId });
+  const items = await memberItems.rejoin(tx, {
+    tripId: invite.trip_id,
+    membershipId: row.id,
+    userId: joiner.userId,
+  });
+  return {
+    row,
+    records: [{ ...membershipWrite('restore', row), versionBefore: existing.version }, ...items],
+    closed: [],
+  };
 }
 
 /** The signed-in caller as a joiner; every account has its own person. */
