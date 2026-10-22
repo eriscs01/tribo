@@ -3,10 +3,8 @@ import {
   base32,
   hashSecret,
   newRecoveryCode,
-  newToken,
   normalizeRecoveryCode,
   NO_PASSWORD,
-  tokenHash,
   totpAt,
   totpUri,
   totpValid,
@@ -55,13 +53,6 @@ describe('secrets', () => {
   it("never verifies against '!' or a malformed hash", async () => {
     expect(await verifySecret(NO_PASSWORD, '!')).toBe(false);
     expect(await verifySecret('not-a-hash', 'x')).toBe(false);
-  });
-
-  it('keeps only the SHA-256 of a session token', () => {
-    const { token, hash } = newToken();
-    expect(Buffer.from(token, 'base64url')).toHaveLength(32);
-    expect(hash).toHaveLength(32);
-    expect(tokenHash(token).equals(hash)).toBe(true);
   });
 
   it('forgives case and a missing dash in a typed recovery code', () => {

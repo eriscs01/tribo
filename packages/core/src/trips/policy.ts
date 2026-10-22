@@ -99,3 +99,21 @@ export function roleChangeRefusal(change: {
   if (change.to === 'owner' && !change.newOwnerHasMfa) return 'mfa_required';
   return null;
 }
+
+/** invites.create: owner (operations.csv). The story adds what a trip role can't say. */
+const INVITES_CREATE_ROLES: ReadonlySet<TripRole> = new Set(['owner']);
+
+export function canCreateInvite(role: TripRole): boolean {
+  return INVITES_CREATE_ROLES.has(role);
+}
+
+/** An invite's standing, derived on every read from its row and the clock (R40). */
+export function inviteStatus(
+  invite: { revokedAt: Date | null; expiresAt: Date; uses: number; maxUses: number | null },
+  now: Date,
+): 'active' | 'revoked' | 'expired' | 'used_up' {
+  if (invite.revokedAt !== null) return 'revoked';
+  if (invite.expiresAt <= now) return 'expired';
+  if (invite.maxUses !== null && invite.uses >= invite.maxUses) return 'used_up';
+  return 'active';
+}

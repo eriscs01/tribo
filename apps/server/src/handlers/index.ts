@@ -1,5 +1,6 @@
 import type {
   IdentityService,
+  InvitesService,
   ItemsService,
   LibraryService,
   MembersService,
@@ -8,6 +9,7 @@ import type {
 } from '@tribo/core';
 import type { Handlers } from '../routes.js';
 import { authHandlers } from './auth.js';
+import { invitesHandlers } from './invites.js';
 import { itemHandlers } from './items.js';
 import { libraryHandlers } from './library.js';
 import { membersHandlers } from './members.js';
@@ -22,6 +24,7 @@ export interface HandlerServices {
   csrfSecret: Buffer;
   trips: TripsService;
   members: MembersService;
+  invites: InvitesService;
   items: ItemsService;
   units: UnitsService;
   library: LibraryService;
@@ -37,6 +40,7 @@ export function operationHandlers(services: HandlerServices): Handlers {
     ...authHandlers(services.identity, services.csrfSecret),
     ...tripHandlers(services.trips),
     ...membersHandlers(services.members),
+    ...invitesHandlers(services.invites),
     ...itemHandlers(services.items),
     ...libraryHandlers(services.library),
     ...meHandlers(services.identity, services.library),

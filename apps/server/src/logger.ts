@@ -13,7 +13,7 @@ const REDACT_PATHS = [
   `req.headers["${CSRF_HEADER}"]`,
   'res.headers["set-cookie"]',
   ...['password', 'newPassword', 'currentPassword', 'totp', 'totpCode', 'code', 'recoveryCode'],
-  ...['token', 'sessionToken', 'csrfToken', 'secret', 'appKey'],
+  ...['token', 'sessionToken', 'csrfToken', 'secret', 'appKey', 'link'],
 ].flatMap((path) => (path.includes('.') ? [path] : [path, `*.${path}`]));
 
 /** Every line names the release that wrote it, beside pino's own pid and hostname. */

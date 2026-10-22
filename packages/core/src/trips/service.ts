@@ -28,7 +28,6 @@ import {
   canUpdateTrip,
   statusMoveRefusal,
   tripCreateRefusal,
-  tripWriteRefusal,
 } from './policy.js';
 import {
   findTrip,
@@ -37,7 +36,6 @@ import {
   listDestinations,
   listMemberTrips,
   lockTrip,
-  lockTripForWrite,
   replaceDestinations,
   softDeleteTrip,
   updateTrip,
@@ -45,6 +43,13 @@ import {
   type TripRow,
 } from './repo.js';
 
+export { guardTrip } from './trip-guard.js';
+export {
+  createInvitesService,
+  type CreatedInvite,
+  type InviteRecord,
+  type InvitesService,
+} from './invites.js';
 export { createMembersService, type MembersService, type MfaCheck } from './members.js';
 export {
   allActiveMemberships,
@@ -256,18 +261,6 @@ export function createTripsService(db: Kysely<DB>, write: WritePath): TripsServi
         },
       }),
   };
-}
-
-/** The write path's trip guard: the trip exists, is open to this operation and stays so until commit. */
-export async function guardTrip(tx: Tx, tripId: string, operationId: string): Promise<void> {
-  const trip = await lockTripForWrite(forModule(tx, 'trips'), tripId);
-  const refusal = trip
-    ? tripWriteRefusal(
-        { archived: trip.archived_at !== null, deleted: trip.deleted_at !== null },
-        operationId,
-      )
-    : 'not_found';
-  if (refusal) throw new ApiError(refusal);
 }
 
 /**

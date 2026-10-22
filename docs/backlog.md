@@ -84,7 +84,7 @@
 - [ ] `invites.list` · Drop A · `GET /v1/trips/{tripId}/invites`
   - Invite links with role, expiry, uses; Token never returned after create
   - Roles: owner. If-Match: `no`. Idempotency: safe to repeat.
-- [ ] `invites.create` · Drop A · `POST /v1/trips/{tripId}/invites`
+- [x] `invites.create` · Drop A · `POST /v1/trips/{tripId}/invites`
   - Create link: role, expiry, maxUses, optional placeholder; Token shown once; placeholder invite single use; Secret omitted on idempotent replay (redacted = true): revoke and recreate (R2); Link format /join#<token> (fragment, never in proxy logs); Pre-linked person must be an active placeholder member of this trip (FK + check), else invite_invalid (R28); trip_archived on archived trips (R29)
   - Roles: owner. If-Match: `no`. Idempotency: creates (key).
   - Limit: Takes no Idempotency-Key in 1a: only expenses.create and files.upload honour it; this create follows in 1b.

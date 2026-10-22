@@ -341,3 +341,47 @@ export function listMemberships(
 }
 
 export type MembershipRow = Awaited<ReturnType<typeof insertMembership>>;
+
+const INVITE_COLUMNS = [
+  'id',
+  'trip_id',
+  'role',
+  'person_id',
+  'expires_at',
+  'max_uses',
+  'uses',
+  'revoked_at',
+  'created_at',
+] as const;
+
+export type InviteRole = ValueOf<'tribo.invites.role'>;
+
+/** Stores a new invite by its token's hash; the token itself is never written. */
+export function insertInvite(
+  db: TripsDb,
+  invite: {
+    tripId: string;
+    tokenHash: Buffer;
+    role: InviteRole;
+    personId: string | null;
+    expiresAt: Date;
+    maxUses: number | null;
+    createdBy: string;
+  },
+) {
+  return db
+    .insertInto('tribo.invites')
+    .values({
+      trip_id: invite.tripId,
+      token_hash: invite.tokenHash,
+      role: invite.role,
+      person_id: invite.personId,
+      expires_at: invite.expiresAt,
+      max_uses: invite.maxUses,
+      created_by: invite.createdBy,
+    })
+    .returning(INVITE_COLUMNS)
+    .executeTakeFirstOrThrow();
+}
+
+export type InviteRow = Awaited<ReturnType<typeof insertInvite>>;

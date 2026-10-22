@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { VALUE_SETS } from '@tribo/db';
 import {
   canAddMember,
+  canCreateInvite,
+  inviteStatus,
   canListMembers,
   canSetMemberRole,
   roleChangeRefusal,
@@ -116,5 +118,37 @@ describe('roleChangeRefusal', () => {
     const own = { ownMembership: true, newOwnerHasMfa: false };
     expect(roleChangeRefusal({ ...own, to: 'organizer' })).toBe('owner_transfer_required');
     expect(roleChangeRefusal({ ...own, to: 'owner' })).toBeNull();
+  });
+});
+
+describe('canCreateInvite', () => {
+  it('lets only the owner create invite links', () => {
+    expect(canCreateInvite('owner')).toBe(true);
+    for (const role of ['organizer', 'member', 'viewer'] as const) {
+      expect(canCreateInvite(role)).toBe(false);
+    }
+  });
+});
+
+describe('inviteStatus', () => {
+  const now = new Date('2026-11-01T00:00:00Z');
+  const live = {
+    revokedAt: null,
+    expiresAt: new Date('2026-11-02T00:00:00Z'),
+    uses: 0,
+    maxUses: null,
+  };
+
+  it('is active until revoked, expired or used up', () => {
+    expect(inviteStatus(live, now)).toBe('active');
+    expect(inviteStatus({ ...live, uses: 4, maxUses: 5 }, now)).toBe('active');
+  });
+
+  it('derives each closed state, a revoke first', () => {
+    expect(inviteStatus({ ...live, uses: 5, maxUses: 5 }, now)).toBe('used_up');
+    expect(inviteStatus({ ...live, expiresAt: now }, now)).toBe('expired');
+    expect(
+      inviteStatus({ ...live, revokedAt: now, expiresAt: now, uses: 1, maxUses: 1 }, now),
+    ).toBe('revoked');
   });
 });

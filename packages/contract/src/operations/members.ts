@@ -3,6 +3,7 @@
 import { defineOperation } from '../operation.js';
 import { Member, MemberAddInput, MemberPage, MemberPatch } from '../member.js';
 import { PageQuery } from '../page.js';
+import { InviteCreated, InviteInput } from '../invite.js';
 
 export const membersOperations = [
   defineOperation({
@@ -115,7 +116,9 @@ export const membersOperations = [
     mcpTool: null,
     notes:
       'Create link: role, expiry, maxUses, optional placeholder; Token shown once; placeholder invite single use; Secret omitted on idempotent replay (redacted = true): revoke and recreate (R2); Link format /join#<token> (fragment, never in proxy logs); Pre-linked person must be an active placeholder member of this trip (FK + check), else invite_invalid (R28); trip_archived on archived trips (R29)',
-    status: 'planned',
+    status: 'implemented',
+    input: InviteInput,
+    output: InviteCreated,
   }),
   defineOperation({
     id: 'invites.revoke',

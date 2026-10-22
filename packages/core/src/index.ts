@@ -11,8 +11,12 @@ export {
   type SignedIn,
 } from './identity/service.js';
 export {
+  createInvitesService,
   createMembersService,
   createTripsService,
+  type CreatedInvite,
+  type InviteRecord,
+  type InvitesService,
   type MemberRecord,
   type MembersService,
   type MfaCheck,

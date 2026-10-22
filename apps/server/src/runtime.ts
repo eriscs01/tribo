@@ -1,6 +1,7 @@
 import {
   accountHasMfa,
   createIdentityService,
+  createInvitesService,
   createItemsService,
   createLibraryService,
   createMembersService,
@@ -31,6 +32,7 @@ export function composeServices(db: Kysely<DB>, appKey: AppKey, publicUrl: URL) 
     identity: createIdentityService(db, keys, issuer),
     trips: createTripsService(db, write),
     members: createMembersService(db, write, keys, accountHasMfa),
+    invites: createInvitesService(db, publicUrl),
     items: createItemsService(db, write, keys),
     units: createUnitsService(db, write),
     library: createLibraryService(db, write, keys),

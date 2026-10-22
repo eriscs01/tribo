@@ -7,7 +7,7 @@ import {
   type LoginInput,
   type MfaConfirm,
 } from '@tribo/contract';
-import { open, seal, type FieldRef, type Keyring } from '@tribo/crypto';
+import { newToken, open, seal, tokenHash, type FieldRef, type Keyring } from '@tribo/crypto';
 import { forModule, type DB, type ValueOf } from '@tribo/db';
 import { ApiError, validate, type RequestContext, type Tx } from '@tribo/platform';
 import type { Kysely } from 'kysely';
@@ -19,12 +19,10 @@ import {
   burnPasswordCheck,
   hashSecret,
   newRecoveryCode,
-  newToken,
   newTotpSecret,
   normalizeRecoveryCode,
   RECOVERY_CODE_COUNT,
   base32,
-  tokenHash,
   totpUri,
   totpValid,
   verifySecret,

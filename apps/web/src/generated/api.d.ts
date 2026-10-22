@@ -1979,6 +1979,35 @@ export interface components {
         ErrorCode: "unauthenticated" | "mfa_required" | "forbidden" | "not_found" | "validation_failed" | "if_match_required" | "version_conflict" | "idempotency_key_reused" | "capacity_exceeded" | "room_double_booked" | "driver_taken" | "invalid_transition" | "masked_field_write" | "rate_limited" | "file_too_large" | "file_type_not_allowed" | "file_purged" | "username_taken" | "invite_invalid" | "already_member" | "claim_conflict" | "person_has_account" | "owner_transfer_required" | "reset_link_used" | "currency_locked" | "trip_archived" | "trip_retired" | "approval_required" | "approval_not_pending" | "internal_error" | "not_implemented";
         /** Format: date-time */
         Instant: string;
+        InviteCreated: {
+            id: string;
+            tripId: string;
+            role: components["schemas"]["InviteRole"];
+            personId: string | null;
+            expiresAt: components["schemas"]["Instant"];
+            maxUses: number | null;
+            uses: number;
+            status: components["schemas"]["InviteStatus"];
+            revokedAt: components["schemas"]["Instant"] | null;
+            createdAt: components["schemas"]["Instant"];
+            token?: string;
+            /** Format: uri */
+            link?: string;
+            redacted: boolean;
+        };
+        InviteInput: {
+            role: components["schemas"]["InviteRole"];
+            expiresAt: components["schemas"]["Instant"];
+            maxUses?: number;
+        } | {
+            personId: string;
+            role?: components["schemas"]["InviteRole"];
+            expiresAt: components["schemas"]["Instant"];
+        };
+        /** @enum {string} */
+        InviteRole: "organizer" | "member" | "viewer";
+        /** @enum {string} */
+        InviteStatus: "active" | "revoked" | "expired" | "used_up";
         Item: {
             id: string;
             tripId: string;
@@ -6375,11 +6404,26 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InviteInput"];
+            };
+        };
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            201: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InviteCreated"];
+                };
+            };
+            /** @description Too many writes in this window (rate_limited) */
+            429: {
+                headers: {
+                    /** @description Seconds until the window resets */
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {
