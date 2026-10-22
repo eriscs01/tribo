@@ -19,7 +19,8 @@ function timeView(time: ItemTimeRecord | null): ItemTime | null {
     : { local: time.local, tz: time.tz, at: time.at.toISOString() };
 }
 
-function itemView(item: ItemRecord): Item {
+/** An item as every read shows it; reads that embed items (itinerary, dashboard) use it too. */
+export function itemView(item: ItemRecord): Item {
   return {
     id: encodeTypeId(ID_PREFIX.item, item.id),
     tripId: encodeTypeId(ID_PREFIX.trip, item.tripId),

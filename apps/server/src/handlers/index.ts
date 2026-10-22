@@ -1,7 +1,9 @@
 import type {
+  DashboardService,
   IdentityService,
   InvitesService,
   ItemsService,
+  ItineraryService,
   LibraryService,
   MembersService,
   SignedIn,
@@ -10,8 +12,10 @@ import type {
 } from '@tribo/core';
 import type { Handlers } from '../routes.js';
 import { authHandlers } from './auth.js';
+import { dashboardHandlers } from './dashboard.js';
 import { invitesHandlers } from './invites.js';
 import { itemHandlers } from './items.js';
+import { itineraryHandlers } from './itinerary.js';
 import { libraryHandlers } from './library.js';
 import { membersHandlers } from './members.js';
 import { tripHandlers } from './trips.js';
@@ -27,6 +31,8 @@ export interface HandlerServices {
   members: MembersService;
   invites: InvitesService<{ token: string; session: SignedIn }>;
   items: ItemsService;
+  itinerary: ItineraryService;
+  dashboard: DashboardService;
   units: UnitsService;
   library: LibraryService;
 }
@@ -43,6 +49,8 @@ export function operationHandlers(services: HandlerServices): Handlers {
     ...membersHandlers(services.members),
     ...invitesHandlers(services.invites, services.csrfSecret),
     ...itemHandlers(services.items),
+    ...itineraryHandlers(services.itinerary),
+    ...dashboardHandlers(services.dashboard),
     ...libraryHandlers(services.library),
     ...meHandlers(services.identity, services.library),
     ...metaHandlers(),

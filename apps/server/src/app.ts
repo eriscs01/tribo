@@ -18,7 +18,8 @@ export function buildApp(
     now?: () => number;
   },
 ) {
-  const { identity, trips, members, invites, items, units, library } = services;
+  const { identity, trips, members, invites, items, itinerary, dashboard, units, library } =
+    services;
   const csrf = csrfSecret(services.appKey);
   return buildServer({
     trustedProxies: config.trustedProxies,
@@ -31,6 +32,8 @@ export function buildApp(
       members,
       invites,
       items,
+      itinerary,
+      dashboard,
       units,
       library,
     }),

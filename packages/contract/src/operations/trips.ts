@@ -1,6 +1,7 @@
 // Generated from operations.csv by src/scripts/import-operations.ts. A story replaces an
 // entry's status with 'implemented' and adds its input and output schemas.
 import { PageQuery } from '../page.js';
+import { TripDashboard } from '../dashboard.js';
 import { Trip, TripInput, TripPage, TripPatch } from '../trip.js';
 import { defineOperation } from '../operation.js';
 
@@ -153,7 +154,9 @@ export const tripsOperations = [
     mcpTool: null,
     notes:
       'Countdown, next item, open tasks, due soon, my share (sum of my expense shares; no balance or who-owes-whom, R36), warnings; Costs masked for viewers w/o canViewCosts; Poll with If-None-Match on the representation ETag (rule 4)',
-    status: 'planned',
+    status: 'implemented',
+    etag: 'representation',
+    output: TripDashboard,
   }),
   defineOperation({
     id: 'trips.offlineBundle',

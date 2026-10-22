@@ -7372,15 +7372,26 @@
           }
         ],
         "responses": {
-          "501": {
-            "description": "Registered but not implemented yet (not_implemented)",
-            "content": {
-              "application/problem+json": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "ETag": {
+                "description": "SHA-256 (base64url) of this representation, as sent to this caller",
                 "schema": {
-                  "$ref": "#/components/schemas/Problem"
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TripDashboard"
                 }
               }
             }
+          },
+          "304": {
+            "description": "Not modified: If-None-Match names the ETag"
           },
           "default": {
             "description": "Error",
@@ -7394,7 +7405,7 @@
           }
         },
         "x-tribo": {
-          "status": "planned",
+          "status": "implemented",
           "slice": "1a",
           "drop": "A",
           "roles": "owner, organizer, member, viewer",
@@ -7412,6 +7423,15 @@
             "schema": {
               "type": "string",
               "pattern": "^trp_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+            }
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "required": false,
+            "description": "An ETag already held; 304 when it is still current",
+            "schema": {
+              "type": "string"
             }
           }
         ]
@@ -8253,12 +8273,12 @@
           }
         ],
         "responses": {
-          "501": {
-            "description": "Registered but not implemented yet (not_implemented)",
+          "200": {
+            "description": "OK",
             "content": {
-              "application/problem+json": {
+              "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Problem"
+                  "$ref": "#/components/schemas/Itinerary"
                 }
               }
             }
@@ -8275,7 +8295,7 @@
           }
         },
         "x-tribo": {
-          "status": "planned",
+          "status": "implemented",
           "slice": "1a",
           "drop": "A",
           "roles": "owner, organizer, member, viewer",
@@ -8293,6 +8313,35 @@
             "schema": {
               "type": "string",
               "pattern": "^trp_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+            }
+          },
+          {
+            "name": "view",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": "group",
+              "$ref": "#/components/schemas/ItineraryView"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
             }
           }
         ]
@@ -9180,9 +9229,65 @@
         },
         "additionalProperties": false
       },
+      "Countdown": {
+        "type": "object",
+        "properties": {
+          "startDate": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "timezone": {
+            "$ref": "#/components/schemas/TimeZone"
+          },
+          "daysToStart": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "phase": {
+            "$ref": "#/components/schemas/TripPhase"
+          }
+        },
+        "required": [
+          "startDate",
+          "endDate",
+          "timezone",
+          "daysToStart",
+          "phase"
+        ],
+        "additionalProperties": false
+      },
       "CurrencyCode": {
         "type": "string",
         "pattern": "^[A-Z]{3}$"
+      },
+      "DueSoon": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/DueSoonKind"
+          },
+          "item": {
+            "$ref": "#/components/schemas/Item"
+          }
+        },
+        "required": [
+          "kind",
+          "item"
+        ],
+        "additionalProperties": false
+      },
+      "DueSoonKind": {
+        "type": "string",
+        "enum": [
+          "task_due"
+        ]
       },
       "EmergencyContact": {
         "type": "object",
@@ -10132,6 +10237,139 @@
           "selected"
         ]
       },
+      "Itinerary": {
+        "type": "object",
+        "properties": {
+          "view": {
+            "$ref": "#/components/schemas/ItineraryView"
+          },
+          "from": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "to": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "days": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ItineraryDay"
+            }
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Item"
+            }
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Warning"
+            }
+          }
+        },
+        "required": [
+          "view",
+          "from",
+          "to",
+          "days",
+          "items",
+          "warnings"
+        ],
+        "additionalProperties": false
+      },
+      "ItineraryDay": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ItineraryEntry"
+            }
+          }
+        },
+        "required": [
+          "date",
+          "entries"
+        ],
+        "additionalProperties": false
+      },
+      "ItineraryEntry": {
+        "type": "object",
+        "properties": {
+          "itemId": {
+            "type": "string",
+            "pattern": "^itm_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+          },
+          "part": {
+            "$ref": "#/components/schemas/ItineraryPart"
+          },
+          "time": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tz": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TimeZone"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "itemId",
+          "part",
+          "time",
+          "tz"
+        ],
+        "additionalProperties": false
+      },
+      "ItineraryPart": {
+        "type": "string",
+        "enum": [
+          "whole",
+          "start",
+          "end",
+          "check_in",
+          "staying",
+          "check_out"
+        ]
+      },
+      "ItineraryView": {
+        "type": "string",
+        "enum": [
+          "me",
+          "group"
+        ]
+      },
       "LatLng": {
         "type": "object",
         "properties": {
@@ -11078,6 +11316,70 @@
         ],
         "additionalProperties": false
       },
+      "TripDashboard": {
+        "type": "object",
+        "properties": {
+          "tripId": {
+            "type": "string",
+            "pattern": "^trp_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "countdown": {
+            "$ref": "#/components/schemas/Countdown"
+          },
+          "nextItem": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Item"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "openTasks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Item"
+            }
+          },
+          "dueSoon": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DueSoon"
+            }
+          },
+          "myShare": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Money"
+              },
+              {
+                "$ref": "#/components/schemas/MaskedValue"
+              }
+            ]
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Warning"
+            }
+          }
+        },
+        "required": [
+          "tripId",
+          "name",
+          "countdown",
+          "nextItem",
+          "openTasks",
+          "dueSoon",
+          "myShare",
+          "warnings"
+        ],
+        "additionalProperties": false
+      },
       "TripInput": {
         "type": "object",
         "properties": {
@@ -11179,6 +11481,14 @@
           }
         },
         "additionalProperties": false
+      },
+      "TripPhase": {
+        "type": "string",
+        "enum": [
+          "upcoming",
+          "underway",
+          "over"
+        ]
       },
       "TripRole": {
         "type": "string",
@@ -11572,6 +11882,14 @@
         "properties": {
           "code": {
             "$ref": "#/components/schemas/WarningCode"
+          },
+          "itemId": {
+            "type": "string",
+            "pattern": "^itm_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+          },
+          "withItemId": {
+            "type": "string",
+            "pattern": "^itm_[0-7][0-9a-hjkmnp-tv-z]{25}$"
           },
           "unitId": {
             "type": "string",

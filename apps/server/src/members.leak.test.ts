@@ -85,7 +85,8 @@ describe('members.list masks emergency contacts for every role', () => {
         .json<{ items: { person: { id: string; emergencyContact: unknown } }[] }>()
         .items.find((m) => m.person.id === encodeTypeId(ID_PREFIX.person, guest.id));
       expect(mara?.person.emergencyContact).toEqual({ masked: true });
-      expect(res.body).not.toMatch(/Nena|Santos|aunt|917/);
+      // The phone as written: a bare `917` also matches a timestamp's milliseconds.
+      expect(res.body).not.toMatch(/Nena|Santos|aunt|917 555/);
     }
   });
 });

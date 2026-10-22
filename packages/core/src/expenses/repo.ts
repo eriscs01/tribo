@@ -17,3 +17,20 @@ export async function hasMoneyRows(db: ExpensesDb, tripId: string): Promise<bool
   const row = await expense.unionAll(line).limit(1).executeTakeFirst();
   return row !== undefined;
 }
+
+/** The sum of one membership's shares on the trip's expenses that are not voided. */
+export async function sumShares(
+  db: ExpensesDb,
+  tripId: string,
+  membershipId: string,
+): Promise<number> {
+  const row = await db
+    .selectFrom('tribo.expense_shares as s')
+    .innerJoin('tribo.expenses as e', 'e.id', 's.expense_id')
+    .select(sql<string>`coalesce(sum(s.share_minor), 0)::text`.as('total'))
+    .where('e.trip_id', '=', tripId)
+    .where('e.deleted_at', 'is', null)
+    .where('s.membership_id', '=', membershipId)
+    .executeTakeFirstOrThrow();
+  return Number(row.total);
+}

@@ -1,9 +1,11 @@
 import {
   accountHasMfa,
   memberItems,
+  createDashboardService,
   createIdentityService,
   createInvitesService,
   createItemsService,
+  createItineraryService,
   createLibraryService,
   createMembersService,
   createTripsService,
@@ -28,15 +30,18 @@ export function composeServices(db: Kysely<DB>, appKey: AppKey, publicUrl: URL) 
   const keys = keyring(appKey);
   /** How authenticator apps name this deployment. */
   const issuer = `Tribo (${publicUrl.host})`;
+  const trips = createTripsService(db, write);
   return {
     appKey,
     issuer,
     identity: createIdentityService(db, keys, issuer),
-    trips: createTripsService(db, write),
+    trips,
     members: createMembersService(db, write, keys, accountHasMfa, memberItems),
     invites: createInvitesService(db, publicUrl, { accounts: invitedAccounts, memberItems }),
     items: createItemsService(db, write, keys),
     units: createUnitsService(db, write),
+    itinerary: createItineraryService(db),
+    dashboard: createDashboardService(db, { trips }),
     library: createLibraryService(db, write, keys),
     verifyAudit: (chainKey?: string) => verifyChains(db, chainKey),
     requestAudit: (requestId: string) => requestEvents(db, requestId),
