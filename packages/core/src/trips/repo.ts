@@ -439,18 +439,15 @@ export function revokeInvite(db: TripsDb, inviteId: string) {
 
 /**
  * The invite this token hash opens, or undefined, in one statement whatever the reason: a
- * token that matches nothing and one whose invite is revoked, expired, used up, on an
- * archived or deleted trip, or pre-linked to a placeholder no longer active in the trip,
- * all cost the same single index lookup. With `lock`, the invite row is locked FOR UPDATE
+ * token that matches nothing and one whose invite is revoked, expired, used up or on an
+ * archived or deleted trip all cost the same single index lookup. (A placeholder's removal
+ * revokes its invites, so nothing else decides a dead link.) With `lock`, the invite row is locked FOR UPDATE
  * until commit, so two joins never both take its last use.
  */
 export function findLiveInvite(db: TripsDb, tokenHash: Buffer, options: { lock: boolean }) {
   const query = db
     .selectFrom('tribo.invites as i')
     .innerJoin('tribo.trips as t', 't.id', 'i.trip_id')
-    .leftJoin('tribo.memberships as m', (join) =>
-      join.onRef('m.trip_id', '=', 'i.trip_id').onRef('m.person_id', '=', 'i.person_id'),
-    )
     .select([
       'i.id',
       'i.trip_id',
@@ -459,20 +456,13 @@ export function findLiveInvite(db: TripsDb, tokenHash: Buffer, options: { lock: 
       'i.max_uses',
       'i.uses',
       't.name as trip_name',
-      'm.id as placeholder_membership_id',
     ])
     .where('i.token_hash', '=', tokenHash)
     .where('i.revoked_at', 'is', null)
     .where('i.expires_at', '>', sql<Date>`now()`)
     .where((eb) => eb.or([eb('i.max_uses', 'is', null), eb('i.uses', '<', eb.ref('i.max_uses'))]))
     .where('t.deleted_at', 'is', null)
-    .where('t.archived_at', 'is', null)
-    .where((eb) =>
-      eb.or([
-        eb('i.person_id', 'is', null),
-        eb.and([eb('m.id', 'is not', null), eb('m.deleted_at', 'is', null)]),
-      ]),
-    );
+    .where('t.archived_at', 'is', null);
   return (options.lock ? query.forUpdate('i') : query).executeTakeFirst();
 }
 
@@ -522,22 +512,22 @@ export async function useInvite(db: TripsDb, inviteId: string): Promise<void> {
 }
 
 /**
- * Revokes the trip's other open invites pre-linked to this placeholder: once it is claimed
- * none of them can be (their pre-link follows the membership to the claimer). Returns the
- * ids it revoked.
+ * Revokes the trip's open invites pre-linked to this placeholder, except the one named: once
+ * the placeholder is claimed or removed none of them can be used (a claim moves their
+ * pre-link to the claimer). Revocation is the one owner of "dead link". Returns the ids it
+ * revoked.
  */
 export async function revokePlaceholderInvites(
   db: TripsDb,
-  claim: { tripId: string; personId: string; exceptInviteId: string },
+  target: { tripId: string; personId: string; exceptInviteId?: string },
 ): Promise<string[]> {
-  const rows = await db
+  let query = db
     .updateTable('tribo.invites')
     .set({ revoked_at: sql<Date>`now()` })
-    .where('trip_id', '=', claim.tripId)
-    .where('person_id', '=', claim.personId)
-    .where('id', '<>', claim.exceptInviteId)
-    .where('revoked_at', 'is', null)
-    .returning('id')
-    .execute();
+    .where('trip_id', '=', target.tripId)
+    .where('person_id', '=', target.personId)
+    .where('revoked_at', 'is', null);
+  if (target.exceptInviteId !== undefined) query = query.where('id', '<>', target.exceptInviteId);
+  const rows = await query.returning('id').execute();
   return rows.map((r) => r.id).sort();
 }

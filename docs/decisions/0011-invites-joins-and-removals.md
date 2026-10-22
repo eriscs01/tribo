@@ -29,8 +29,10 @@ took, or what a claim does to the trip's other links to the same placeholder.
   by default they still do. The response carries `token` and `link` once, with
   `redacted: false`, as `auth.mfa.confirm` does for its codes.
 - **Every dead link is the same `invite_invalid`.** Unknown, expired, revoked and used-up
-  tokens, tokens of an archived or deleted trip, and placeholder invites whose placeholder
-  left the trip all fail the same single statement (`findLiveInvite`), with the same body.
+  tokens, and tokens of an archived or deleted trip all fail the same single statement
+  (`findLiveInvite`), with the same body. Revocation is the one owner of "dead link": a
+  placeholder invite whose placeholder left the trip is revoked by the removal itself, in
+  its transaction, so the statement needs no join to memberships (_amended in Q1_).
   An accept on an archived trip is therefore `invite_invalid`, not `trip_archived`: the
   trip guard's answer would tell that token apart. invites.create and .revoke, which the
   owner calls on their own trip, refuse `trip_archived` as usual. Preview is a POST, so the
@@ -55,6 +57,10 @@ took, or what a claim does to the trip's other links to the same placeholder.
   dietary, emergency contact, ID and passport), keeps the display name, soft-deletes the
   row and points `merged_into` at the claimer's person; its snapshot adds `mergedInto`. A
   removed membership row elsewhere still counts as a row, so the placeholder stays.
+- **members.remove revokes the removed placeholder's open invites**, with a `revoke` event
+  each, in the same transaction (`revokePlaceholderInvites`, as a claim does for the others).
+  Without that, `invites.list` showed them `active` and a `members.add` re-adding the
+  placeholder made an old link work again with nobody acting on it (_amended in Q1_).
 - **members.remove** is the owner removing anyone but themself, or a non-owner removing
   themself; the owner leaving is `owner_transfer_required` (as for stepping down in
   members.setRole), anyone else's removal by a non-owner is `forbidden`. The member leaves
@@ -74,9 +80,9 @@ took, or what a claim does to the trip's other links to the same placeholder.
 
 - A user whose link fails cannot learn why from the API; the owner's invite list shows each
   link's status, and the runbook says what to tell them.
-- Restoring items on a rejoin depends on the removal's audit events; once retention purges
-  them (1b), a rejoin brings the membership back without those items, which stay
-  soft-deleted and restorable one by one.
+- Restoring items on a rejoin depends on the removal's audit events. Retention (1b) retires
+  a trip's chains only after the trip is archived or deleted, and such a trip takes no
+  joins, so a rejoin always finds them (_corrected in Q1_).
 - A merged placeholder's earlier snapshots in `entity_versions` still hold the fields the
   merge cleared; erasure (1b) is the flow that deletes snapshots.
 - The Idempotency-Key and its `invite:<inviteId>` caller arrive in 1b; until then a retried

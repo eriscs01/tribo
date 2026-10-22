@@ -32,6 +32,7 @@ import {
   memberRecord,
   membershipChange,
   membershipWrite,
+  recordInviteRevoked,
   requireRole,
   type MemberItems,
   type MemberRecord,
@@ -49,6 +50,7 @@ import {
   listMemberships,
   lockMembership,
   lockMembershipOf,
+  revokePlaceholderInvites,
   softDeleteMembership,
   undeleteMembership,
   updateMembershipRole,
@@ -280,7 +282,15 @@ export function createMembersService(
         },
         mutate: async (tx, c, { row }) => {
           const userId = actingUser(c);
-          const removed = await softDeleteMembership(forModule(tx, 'trips'), row.id, userId);
+          const trips = forModule(tx, 'trips');
+          const removed = await softDeleteMembership(trips, row.id, userId);
+          // A removed placeholder's links die with it, so a re-add never revives them.
+          const closed = await revokePlaceholderInvites(trips, {
+            tripId: row.trip_id,
+            personId: row.person_id,
+          });
+          // eslint-disable-next-line no-await-in-loop -- audit events chain, so they append in order
+          for (const id of closed) await recordInviteRevoked(tx, c, id, row.trip_id);
           const related = await memberItems.leave(tx, {
             tripId: row.trip_id,
             membershipId: row.id,

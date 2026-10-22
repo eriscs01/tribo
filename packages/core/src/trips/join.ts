@@ -18,6 +18,7 @@ import {
   memberRecord,
   membershipWrite,
   type MemberItems,
+  recordInviteRevoked,
   type MemberRecord,
 } from './membership.js';
 import { takesCostGrant } from './policy.js';
@@ -140,7 +141,7 @@ export function acceptInvite<S>(
       // eslint-disable-next-line no-await-in-loop -- audit events chain, so they append in order
       for (const record of records) await recordWrite(tx, as, record);
       // eslint-disable-next-line no-await-in-loop -- as above
-      for (const id of closed) await revoked(tx, as, id, invite.trip_id);
+      for (const id of closed) await recordInviteRevoked(tx, as, id, invite.trip_id);
 
       await useInvite(forModule(tx, 'trips'), invite.id);
       await recordEvent(tx, as, {
@@ -269,14 +270,4 @@ async function signedInJoiner(tx: Tx, ctx: RequestContext): Promise<Joiner> {
   const personId = await accountPersonId(tx, ctx.userId);
   if (personId === null) throw new ApiError('forbidden');
   return { userId: ctx.userId, personId, username: null };
-}
-
-/** The revoke event of an invite a claim closed. */
-function revoked(tx: Tx, ctx: RequestContext, inviteId: string, tripId: string) {
-  return recordEvent(tx, ctx, {
-    action: 'revoke',
-    entityType: 'invite',
-    entityId: inviteId,
-    tripId,
-  });
 }

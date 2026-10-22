@@ -8,7 +8,13 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { archive, contexts, refusal } from './board-world.js';
 import { createTestDatabase, type TestDatabase } from './database.js';
 import { softDelete } from './factories.js';
-import { invitesService, inviteWorld, storedInvite, tomorrow } from './invite-world.js';
+import {
+  invitesService,
+  inviteWorld,
+  membersService,
+  storedInvite,
+  tomorrow,
+} from './invite-world.js';
 
 let tdb: TestDatabase;
 let invites: InvitesService;
@@ -39,7 +45,7 @@ async function deadLinks() {
     personId: encodeTypeId(ID_PREFIX.person, w.guest.personId),
     expiresAt: tomorrow(),
   });
-  await softDelete(tdb.db, 'tribo.memberships', w.guest.membershipId);
+  await membersService(tdb.db).remove(as(w.owner), w.tripId, w.guest.membershipId, undefined, 1);
 
   const archived = await inviteWorld(tdb);
   const onArchived = await invites.create(as(archived.owner), archived.tripId, {
