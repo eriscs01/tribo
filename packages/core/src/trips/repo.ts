@@ -385,3 +385,14 @@ export function insertInvite(
 }
 
 export type InviteRow = Awaited<ReturnType<typeof insertInvite>>;
+
+/** One page of the trip's invites in any state, by id (creation order); `after` is the last id. */
+export function listInvites(
+  db: TripsDb,
+  tripId: string,
+  page: { limit: number; after: string | null },
+) {
+  let query = db.selectFrom('tribo.invites').select(INVITE_COLUMNS).where('trip_id', '=', tripId);
+  if (page.after !== null) query = query.where('id', '>', page.after);
+  return query.orderBy('id').limit(page.limit).execute();
+}

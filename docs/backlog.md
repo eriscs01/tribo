@@ -81,7 +81,7 @@
 - [ ] `members.remove` · Drop A · `DELETE /v1/trips/{tripId}/members/{membershipId}`
   - Remove member (soft delete); ledger rows stay; MCP approval; Also deletes the member's allocations (bumps boardVersion of each item); trip_archived on archived trips (R29); Also soft-deletes the private items the member owns; rejoin undeletes them (R32)
   - Roles: owner; self (non-owner leaving, G14). If-Match: `version`. Idempotency: safe to repeat.
-- [ ] `invites.list` · Drop A · `GET /v1/trips/{tripId}/invites`
+- [x] `invites.list` · Drop A · `GET /v1/trips/{tripId}/invites`
   - Invite links with role, expiry, uses; Token never returned after create
   - Roles: owner. If-Match: `no`. Idempotency: safe to repeat.
 - [x] `invites.create` · Drop A · `POST /v1/trips/{tripId}/invites`

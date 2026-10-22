@@ -1,7 +1,8 @@
 // Leak-test harness: fast-check generates small worlds of users, placeholders, trips,
 // memberships (some soft-deleted, some viewers granted costs), items (shared, private or
-// selected, some deleted, some priced, some with restricted fields) and their units (rooms,
-// some priced, some deleted) and board rows; a TypeScript oracle states who may see what;
+// selected, some deleted, some priced, some with restricted fields), their units (rooms,
+// some priced, some deleted) and board rows, and invite links (some revoked or expired);
+// a TypeScript oracle states who may see what;
 // the property checks that the database's tribo.item_visible and tribo.person_visible agree
 // with it for every pair in the world, that each list operation registered here returns each
 // account exactly what the oracle allows, and that each item read registered here shows a
@@ -12,6 +13,7 @@ import { sql, type Kysely } from 'kysely';
 import {
   addAllocation,
   addMember,
+  createInvite,
   createItem,
   createPlaceholder,
   createTrip,
@@ -49,6 +51,8 @@ export interface WorldSpec {
       /** Board rows by member index; units are left out, since visibility never asks. */
       allocations: { member: number; role: 'attendee' | 'assignee' }[];
     }[];
+    /** Invite links the owner made: open ones, revoked ones and expired ones. */
+    invites: { revoked: boolean; expired: boolean }[];
   }[];
 }
 
@@ -102,9 +106,16 @@ function tripArb(nUsers: number, nPersons: number) {
           { selector: (a) => `${String(a.member)}:${a.role}`, maxLength: 3 },
         ),
       });
+      const invite = fc.record({ revoked: sometimes, expired: sometimes });
       return fc
-        .array(item, { maxLength: 6 })
-        .map((items) => ({ owner: t.owner, deleted: t.deleted, members, items }));
+        .tuple(fc.array(item, { maxLength: 6 }), fc.array(invite, { maxLength: 2 }))
+        .map(([items, invites]) => ({
+          owner: t.owner,
+          deleted: t.deleted,
+          members,
+          items,
+          invites,
+        }));
     });
 }
 
@@ -154,6 +165,7 @@ export interface BuiltWorld {
       units: { id: string; priced: boolean; deleted: boolean }[];
       allocations: { membershipId: string; role: 'attendee' | 'assignee' }[];
     }[];
+    invites: { id: string }[];
   }[];
 }
 
@@ -164,6 +176,11 @@ export interface Oracle {
   tripVisible(world: BuiltWorld, userId: string, tripId: string): boolean;
   /** A membership shows to the caller while it is active and its trip is the caller's. */
   memberVisible(world: BuiltWorld, userId: string, membershipId: string): boolean;
+  /**
+   * An invite link shows, revoked, expired or not, only to the owner of its trip while the
+   * trip is not deleted: nobody else lists a trip's invites.
+   */
+  inviteVisible(world: BuiltWorld, userId: string, inviteId: string): boolean;
   /**
    * Whether a caller who sees the item may read one of its maskable fields as far as its
    * restrictedFields go: an unrestricted field always, a restricted one only as the item's
@@ -259,6 +276,13 @@ export const oracle: Oracle = {
     if (!trip || !member || member.deleted) return false;
     return oracle.tripVisible(w, userId, trip.id);
   },
+
+  inviteVisible(w, userId, inviteId) {
+    const trip = w.trips.find((t) => t.invites.some((i) => i.id === inviteId));
+    const me = personOf(w, userId);
+    if (!trip || trip.deleted || !me) return false;
+    return trip.members.some((m) => m.personId === me.id && !m.deleted && m.role === 'owner');
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -348,7 +372,18 @@ export async function buildWorld(db: Kysely<DB>, spec: WorldSpec): Promise<Built
         allocations,
       });
     }
-    trips.push({ id: tripId, deleted: t.deleted, members, items });
+    const invites = [];
+    for (const inv of t.invites) {
+      invites.push({
+        id: await createInvite(db, {
+          tripId,
+          createdBy: owner.userId,
+          revoked: inv.revoked,
+          expired: inv.expired,
+        }),
+      });
+    }
+    trips.push({ id: tripId, deleted: t.deleted, members, items, invites });
   }
 
   // Deletes last, so every insert above saw live parents.

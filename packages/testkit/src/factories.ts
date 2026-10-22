@@ -164,6 +164,30 @@ export async function addMember(
   return id;
 }
 
+/**
+ * An invite link the owner made, open for a day unless `expired`; returns its id. The
+ * token is random and thrown away: tests that join with one go through invites.create.
+ */
+export async function createInvite(
+  db: Db,
+  init: { tripId: string; createdBy: string; revoked?: boolean; expired?: boolean },
+): Promise<string> {
+  const day = 86_400_000;
+  const { id } = await db
+    .insertInto('tribo.invites')
+    .values({
+      trip_id: init.tripId,
+      token_hash: createHash('sha256').update(randomBytes(32)).digest(),
+      role: 'member',
+      expires_at: new Date(Date.now() + (init.expired ? -day : day)),
+      revoked_at: init.revoked ? new Date() : null,
+      created_by: init.createdBy,
+    })
+    .returning('id')
+    .executeTakeFirstOrThrow();
+  return id;
+}
+
 /** An item owned by a membership; `sharedWith` fills item_shares for `selected` items. */
 export async function createItem(
   db: Db,

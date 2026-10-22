@@ -3,6 +3,7 @@ import * as z from 'zod';
 import { ID_PREFIX, typeId } from './ids.js';
 import { TripRole } from './member.js';
 import { Instant } from './time.js';
+import { page } from './page.js';
 
 /** The roles an invite gives: the trip has one owner, who hands over with members.setRole. */
 export const InviteRole = TripRole.exclude(['owner']).meta({ id: 'InviteRole' });
@@ -79,3 +80,8 @@ export const InviteInput = z
   .meta({ id: 'InviteInput' });
 
 export type InviteInput = z.infer<typeof InviteInput>;
+
+/** invites.list: one page of Invite. */
+export const InvitePage = page(Invite, 'InvitePage');
+
+export type InvitePage = z.infer<typeof InvitePage>;

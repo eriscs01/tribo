@@ -7714,12 +7714,12 @@
           }
         ],
         "responses": {
-          "501": {
-            "description": "Registered but not implemented yet (not_implemented)",
+          "200": {
+            "description": "OK",
             "content": {
-              "application/problem+json": {
+              "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Problem"
+                  "$ref": "#/components/schemas/InvitePage"
                 }
               }
             }
@@ -7736,7 +7736,7 @@
           }
         },
         "x-tribo": {
-          "status": "planned",
+          "status": "implemented",
           "slice": "1a",
           "drop": "A",
           "roles": "owner",
@@ -7754,6 +7754,27 @@
             "schema": {
               "type": "string",
               "pattern": "^trp_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
             }
           }
         ]
@@ -9140,6 +9161,82 @@
         "format": "date-time",
         "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
       },
+      "Invite": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^inv_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+          },
+          "tripId": {
+            "type": "string",
+            "pattern": "^trp_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+          },
+          "role": {
+            "$ref": "#/components/schemas/InviteRole"
+          },
+          "personId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^per_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expiresAt": {
+            "$ref": "#/components/schemas/Instant"
+          },
+          "maxUses": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "uses": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "status": {
+            "$ref": "#/components/schemas/InviteStatus"
+          },
+          "revokedAt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Instant"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "createdAt": {
+            "$ref": "#/components/schemas/Instant"
+          }
+        },
+        "required": [
+          "id",
+          "tripId",
+          "role",
+          "personId",
+          "expiresAt",
+          "maxUses",
+          "uses",
+          "status",
+          "revokedAt",
+          "createdAt"
+        ],
+        "additionalProperties": false
+      },
       "InviteCreated": {
         "type": "object",
         "properties": {
@@ -9271,6 +9368,28 @@
             "additionalProperties": false
           }
         ]
+      },
+      "InvitePage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Invite"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "additionalProperties": false
       },
       "InviteRole": {
         "type": "string",

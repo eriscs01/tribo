@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { VALUE_SETS } from '@tribo/db';
 import {
   canAddMember,
-  canCreateInvite,
+  canManageInvites,
   inviteStatus,
   canListMembers,
   canSetMemberRole,
@@ -121,11 +121,11 @@ describe('roleChangeRefusal', () => {
   });
 });
 
-describe('canCreateInvite', () => {
-  it('lets only the owner create invite links', () => {
-    expect(canCreateInvite('owner')).toBe(true);
+describe('canManageInvites', () => {
+  it('lets only the owner create, list and revoke invite links', () => {
+    expect(canManageInvites('owner')).toBe(true);
     for (const role of ['organizer', 'member', 'viewer'] as const) {
-      expect(canCreateInvite(role)).toBe(false);
+      expect(canManageInvites(role)).toBe(false);
     }
   });
 });

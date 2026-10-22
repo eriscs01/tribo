@@ -3,7 +3,7 @@
 import { defineOperation } from '../operation.js';
 import { Member, MemberAddInput, MemberPage, MemberPatch } from '../member.js';
 import { PageQuery } from '../page.js';
-import { InviteCreated, InviteInput } from '../invite.js';
+import { InviteCreated, InviteInput, InvitePage } from '../invite.js';
 
 export const membersOperations = [
   defineOperation({
@@ -98,7 +98,9 @@ export const membersOperations = [
     mcpApproval: false,
     mcpTool: null,
     notes: 'Invite links with role, expiry, uses; Token never returned after create',
-    status: 'planned',
+    status: 'implemented',
+    query: PageQuery,
+    output: InvitePage,
   }),
   defineOperation({
     id: 'invites.create',

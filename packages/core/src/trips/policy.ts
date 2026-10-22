@@ -100,11 +100,9 @@ export function roleChangeRefusal(change: {
   return null;
 }
 
-/** invites.create: owner (operations.csv). The story adds what a trip role can't say. */
-const INVITES_CREATE_ROLES: ReadonlySet<TripRole> = new Set(['owner']);
-
-export function canCreateInvite(role: TripRole): boolean {
-  return INVITES_CREATE_ROLES.has(role);
+/** invites.create, .list and .revoke: the owner alone manages the trip's invite links. */
+export function canManageInvites(role: TripRole): boolean {
+  return role === 'owner';
 }
 
 /** An invite's standing, derived on every read from its row and the clock (R40). */

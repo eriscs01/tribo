@@ -5,16 +5,13 @@ import {
   ID_PREFIX,
   MemberAddInput,
   MemberPatch,
-  Uuid,
   type PageQuery,
 } from '@tribo/contract';
 import type { Keyring } from '@tribo/crypto';
 import { forModule, type DB } from '@tribo/db';
 import {
   ApiError,
-  decodeCursor,
   encodeCursor,
-  invalidCursor,
   type RequestContext,
   type Tx,
   type WritePath,
@@ -30,6 +27,7 @@ import { writeOperation } from '../write-operation.js';
 import {
   actingUser,
   callerMembership,
+  idCursor,
   memberRecord,
   membershipChange,
   membershipWrite,
@@ -108,7 +106,7 @@ export function createMembersService(
   return {
     async list(userId, tripId, page) {
       await requireRole(db, userId, tripId, canListMembers);
-      const after = page.cursor === undefined ? null : memberCursor(page.cursor);
+      const after = page.cursor === undefined ? null : idCursor(page.cursor);
       // One extra row says whether another page follows.
       const rows = await listMemberships(forModule(db, 'trips'), tripId, {
         limit: page.limit + 1,
@@ -234,14 +232,6 @@ export function createMembersService(
         },
       }),
   };
-}
-
-/** A members.list cursor's sort key; anything else is refused before it reaches SQL. */
-function memberCursor(cursor: string): string {
-  const [id] = decodeCursor(cursor, 1);
-  const key = Uuid.safeParse(id);
-  if (!key.success) throw invalidCursor();
-  return key.data;
 }
 
 /** Whether the person is an account with MFA on; a placeholder has neither. */

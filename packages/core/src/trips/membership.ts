@@ -1,8 +1,15 @@
 // What the trips module's services share about memberships: who the caller is inside a trip,
 // the role check every trips-module operation makes, and how a membership is recorded and
 // shown. Private to the module; service.ts, members.ts and invites.ts build on it.
+import { Uuid } from '@tribo/contract';
 import { forModule, type DB } from '@tribo/db';
-import { ApiError, type Change, type RequestContext } from '@tribo/platform';
+import {
+  ApiError,
+  decodeCursor,
+  invalidCursor,
+  type Change,
+  type RequestContext,
+} from '@tribo/platform';
 import type { Kysely } from 'kysely';
 import { accountPersonId, memberPersons, type PersonRecord } from '../library/service.js';
 import {
@@ -76,6 +83,14 @@ export async function requireRole(
   const membership = await callerMembership(db, userId, tripId);
   if (membership === null) throw new ApiError('not_found');
   if (!allowed(membership.role)) throw new ApiError('forbidden');
+}
+
+/** A cursor over rows in id order (memberships, invites); anything else is refused before SQL. */
+export function idCursor(cursor: string): string {
+  const [id] = decodeCursor(cursor, 1);
+  const key = Uuid.safeParse(id);
+  if (!key.success) throw invalidCursor();
+  return key.data;
 }
 
 /** Writes need an account behind them; only system work runs without one. */

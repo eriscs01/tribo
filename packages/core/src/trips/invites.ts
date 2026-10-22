@@ -2,11 +2,12 @@
 // Invites are the trips module's table and credentials (0001_init.sql, rule 1): never
 // versioned or snapshotted, so their writes record a metadata-only event, never a value.
 // service.ts exposes this file.
-import { decodeTypeId, ID_PREFIX, InviteInput } from '@tribo/contract';
+import { decodeTypeId, ID_PREFIX, InviteInput, type PageQuery } from '@tribo/contract';
 import { newToken } from '@tribo/crypto';
 import { forModule, type DB } from '@tribo/db';
 import {
   ApiError,
+  encodeCursor,
   validate,
   type Loaded,
   type RequestContext,
@@ -17,9 +18,15 @@ import type { Kysely } from 'kysely';
 import { recordEvent } from '../audit/service.js';
 import { personAccountId } from '../library/service.js';
 import { writeOperation } from '../write-operation.js';
-import { actingUser, requireRole } from './membership.js';
-import { canCreateInvite, inviteStatus } from './policy.js';
-import { insertInvite, lockMembershipOf, type InviteRole, type InviteRow } from './repo.js';
+import { actingUser, idCursor, requireRole } from './membership.js';
+import { canManageInvites, inviteStatus } from './policy.js';
+import {
+  insertInvite,
+  listInvites,
+  lockMembershipOf,
+  type InviteRole,
+  type InviteRow,
+} from './repo.js';
 import { guardTrip } from './trip-guard.js';
 
 /** An invite link as the owner sees it; the token is never part of it. */
@@ -46,6 +53,12 @@ export interface InvitesService {
    * once, in a `/join#<token>` link; only its SHA-256 is stored.
    */
   create(ctx: RequestContext, tripId: string, body: unknown): Promise<CreatedInvite>;
+  /** invites.list: the trip's invites in any state, oldest first, to its owner alone. */
+  list(
+    userId: string,
+    tripId: string,
+    page: PageQuery,
+  ): Promise<{ items: InviteRecord[]; nextCursor: string | null }>;
 }
 
 const invitesCreate = writeOperation('invites.create', InviteInput);
@@ -53,6 +66,22 @@ const invitesCreate = writeOperation('invites.create', InviteInput);
 /** `publicUrl` is the configured origin invite links name, never the Host header. */
 export function createInvitesService(db: Kysely<DB>, publicUrl: URL): InvitesService {
   return {
+    async list(userId, tripId, page) {
+      await requireRole(db, userId, tripId, canManageInvites);
+      // One extra row says whether another page follows.
+      const rows = await listInvites(forModule(db, 'trips'), tripId, {
+        limit: page.limit + 1,
+        after: page.cursor === undefined ? null : idCursor(page.cursor),
+      });
+      const now = new Date();
+      const items = rows.slice(0, page.limit).map((row) => inviteRecord(row, now));
+      const last = items.at(-1);
+      return {
+        items,
+        nextCursor: rows.length > page.limit && last ? encodeCursor([last.id]) : null,
+      };
+    },
+
     create: (ctx, tripId, body) =>
       inviteWrite(db, ctx, invitesCreate, { tripId, body }, async (tx, userId, input) => {
         const expiresAt = futureExpiry(input.expiresAt);
@@ -96,7 +125,7 @@ function inviteWrite<I, R>(
 ): Promise<R> {
   return db.transaction().execute(async (tx) => {
     const userId = actingUser(ctx);
-    await requireRole(tx, userId, target.tripId, canCreateInvite);
+    await requireRole(tx, userId, target.tripId, canManageInvites);
     const input = validate(operation.input, target.body);
     await guardTrip(tx, target.tripId, operation.id);
     const { row, action, result } = await act(tx, userId, input);

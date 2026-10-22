@@ -1,7 +1,14 @@
-import { encodeTypeId, ID_PREFIX, type Invite, type InviteCreated } from '@tribo/contract';
+import {
+  encodeTypeId,
+  ID_PREFIX,
+  PageQuery,
+  type Invite,
+  type InviteCreated,
+  type InvitePage,
+} from '@tribo/contract';
 import type { InviteRecord, InvitesService } from '@tribo/core';
-import { pathId, requestContext } from '../context.js';
-import type { Handlers } from '../routes.js';
+import { pathId, requestContext, signedIn } from '../context.js';
+import { parsedQuery, type Handlers } from '../routes.js';
 
 function inviteView(invite: InviteRecord): Invite {
   return {
@@ -21,6 +28,14 @@ function inviteView(invite: InviteRecord): Invite {
 /** invites.*: the owner's invite links, and the public preview and join behind them. */
 export function invitesHandlers(invites: InvitesService): Handlers {
   return {
+    'invites.list': async (request): Promise<InvitePage> => {
+      const page = await invites.list(
+        signedIn(request).userId,
+        pathId(request, 'tripId'),
+        parsedQuery(request, PageQuery),
+      );
+      return { items: page.items.map(inviteView), nextCursor: page.nextCursor };
+    },
     // 1a takes no Idempotency-Key here: every create makes a new link, none is replayed.
     'invites.create': async (request, reply) => {
       const { token, link, redacted, ...invite } = await invites.create(

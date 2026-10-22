@@ -188,3 +188,16 @@ describe('invites.create over HTTP', () => {
     expect(refused).toMatchObject({ operationId: 'invites.create', problem: 'invite_invalid' });
   });
 });
+
+describe('invites.list over HTTP', () => {
+  it('answers the owner a page of invites without any token or link', async () => {
+    const w = await world();
+    const { body: created } = await createInvite(w, { role: 'viewer' });
+    const res = await app.inject({ method: 'GET', url: w.invitesUrl, ...w.owner.auth });
+    expect(res.statusCode).toBe(200);
+    const page = res.json<{ items: Record<string, unknown>[]; nextCursor: string | null }>();
+    expect(page.items).toEqual([expect.objectContaining({ id: created.id, status: 'active' })]);
+    expect(Object.keys(page.items[0] ?? {})).not.toContain('token');
+    expect(res.body).not.toContain(created.token);
+  });
+});
