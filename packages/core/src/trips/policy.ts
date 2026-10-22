@@ -115,3 +115,17 @@ export function inviteStatus(
   if (invite.maxUses !== null && invite.uses >= invite.maxUses) return 'used_up';
   return 'active';
 }
+
+/**
+ * members.remove: why the caller may not remove this membership, or null. The owner removes
+ * anyone but themself: they leave only by handing the trip over first (G14), as they step
+ * down. Any other member may remove only themself, which is leaving the trip.
+ */
+export function removalRefusal(removal: {
+  callerRole: TripRole;
+  /** The membership is the caller's own. */
+  own: boolean;
+}): ErrorCode | null {
+  if (removal.own) return removal.callerRole === 'owner' ? 'owner_transfer_required' : null;
+  return removal.callerRole === 'owner' ? null : 'forbidden';
+}

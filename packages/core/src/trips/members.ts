@@ -5,6 +5,7 @@ import {
   ID_PREFIX,
   MemberAddInput,
   MemberPatch,
+  NoBody,
   type PageQuery,
 } from '@tribo/contract';
 import type { Keyring } from '@tribo/crypto';
@@ -32,12 +33,14 @@ import {
   membershipChange,
   membershipWrite,
   requireRole,
+  type MemberItems,
   type MemberRecord,
 } from './membership.js';
 import {
   canAddMember,
   canListMembers,
   canSetMemberRole,
+  removalRefusal,
   roleChangeRefusal,
   takesCostGrant,
 } from './policy.js';
@@ -46,6 +49,7 @@ import {
   listMemberships,
   lockMembership,
   lockMembershipOf,
+  softDeleteMembership,
   undeleteMembership,
   updateMembershipRole,
   type MembershipRow,
@@ -76,10 +80,24 @@ export interface MembersService {
     body: unknown,
     ifMatch: number | undefined,
   ): Promise<MemberRecord>;
+  /**
+   * members.remove: the owner removes a member, or a member leaves (G14), under If-Match on
+   * the membership's version. The membership is soft-deleted and its ledger rows stay; in
+   * the same write the member leaves every board and their private items are soft-deleted
+   * (R32). The owner leaves only by handing the trip over first.
+   */
+  remove(
+    ctx: RequestContext,
+    tripId: string,
+    membershipId: string,
+    body: unknown,
+    ifMatch: number | undefined,
+  ): Promise<void>;
 }
 
 const membersAdd = writeOperation('members.add', MemberAddInput);
 const membersSetRole = writeOperation('members.setRole', MemberPatch);
+const membersRemove = writeOperation('members.remove', NoBody);
 
 /** What members.add locks: the library person's earlier row in the trip, if it has one. */
 interface MemberAddLoaded {
@@ -94,14 +112,16 @@ interface MemberAddLoaded {
 export type MfaCheck = (db: Kysely<DB>, userId: string) => Promise<boolean>;
 
 /**
- * `write` is core's write path and `hasMfa` identity's MFA check, both passed in to keep
- * imports acyclic (identity's service reaches the write path, which reaches this one).
+ * `write` is core's write path, `hasMfa` identity's MFA check and `memberItems` the items
+ * module's side of a removal and rejoin, all passed in to keep imports acyclic (identity's
+ * service reaches the write path, which reaches this one, and so does the items service).
  */
 export function createMembersService(
   db: Kysely<DB>,
   write: WritePath,
   keys: Keyring,
   hasMfa: MfaCheck,
+  memberItems: MemberItems,
 ): MembersService {
   return {
     async list(userId, tripId, page) {
@@ -173,7 +193,13 @@ export function createMembersService(
           if (existing.deleted_at === null) throw new ApiError('already_member');
           const role = input.role ?? 'member';
           const row = await undeleteMembership(trips, existing.id, { role, updatedBy: userId });
-          return membershipChange('restore', row, person);
+          // R32: a rejoin brings back the private items the removal took.
+          const restored = await memberItems.rejoin(tx, {
+            tripId: row.trip_id,
+            membershipId: row.id,
+            userId,
+          });
+          return { ...membershipChange('restore', row, person), related: restored };
         },
       }),
 
@@ -229,6 +255,38 @@ export function createMembersService(
           if (!demoted) return change;
           const stepDown = membershipWrite('role_change', demoted);
           return { ...change, related: [{ ...stepDown, versionBefore: demoted.version - 1 }] };
+        },
+      }),
+
+    remove: (ctx, tripId, membershipId, body, ifMatch) =>
+      write(ctx, {
+        operation: membersRemove,
+        target: { tripId, membershipId },
+        body,
+        ifMatch,
+        authorize: async (tx, c, target) => {
+          const caller = await callerMembership(tx, actingUser(c), target.tripId);
+          if (caller === null) throw new ApiError('not_found');
+          const refusal = removalRefusal({
+            callerRole: caller.role,
+            own: caller.id === target.membershipId,
+          });
+          if (refusal) throw new ApiError(refusal);
+        },
+        load: async (tx, target) => {
+          const row = await lockMembership(forModule(tx, 'trips'), target);
+          if (!row) throw new ApiError('not_found');
+          return { tripId: row.trip_id, counter: row.version, row };
+        },
+        mutate: async (tx, c, { row }) => {
+          const userId = actingUser(c);
+          const removed = await softDeleteMembership(forModule(tx, 'trips'), row.id, userId);
+          const related = await memberItems.leave(tx, {
+            tripId: row.trip_id,
+            membershipId: row.id,
+            userId,
+          });
+          return { ...membershipWrite('delete', removed), result: undefined, related };
         },
       }),
   };

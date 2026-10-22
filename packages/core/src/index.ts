@@ -18,6 +18,7 @@ export {
   type InvitePreviewRecord,
   type InviteRecord,
   type InvitesService,
+  type MemberItems,
   type MemberRecord,
   type MembersService,
   type MfaCheck,
@@ -29,6 +30,7 @@ export {
 export {
   createItemsService,
   createUnitsService,
+  memberItems,
   type AllocationRecord,
   type BoardRecord,
   type ItemRecord,

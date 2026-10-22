@@ -575,3 +575,79 @@ export async function occupiedElsewhere(
     .executeTakeFirst();
   return row !== undefined;
 }
+
+/**
+ * Every item of the trip, deleted ones included, on whose board this membership has a row,
+ * locked FOR UPDATE in id order until commit: a removal takes the member off all of them.
+ */
+export function lockBoardsWith(db: ItemsDb, tripId: string, membershipId: string) {
+  return db
+    .selectFrom('tribo.items')
+    .select(['id', 'board_version'])
+    .where('trip_id', '=', tripId)
+    .where((eb) =>
+      eb.exists(
+        eb
+          .selectFrom('tribo.allocations as a')
+          .select('a.id')
+          .whereRef('a.item_id', '=', 'tribo.items.id')
+          .where('a.membership_id', '=', membershipId),
+      ),
+    )
+    .orderBy('id')
+    .forUpdate()
+    .execute();
+}
+
+/** Deletes one membership's rows on one item's board, whatever their role. */
+export async function deleteMemberAllocations(
+  db: ItemsDb,
+  itemId: string,
+  membershipId: string,
+): Promise<void> {
+  await db
+    .deleteFrom('tribo.allocations')
+    .where('item_id', '=', itemId)
+    .where('membership_id', '=', membershipId)
+    .execute();
+}
+
+/** The live private items this membership owns, locked FOR UPDATE in id order until commit. */
+export function lockPrivateItemsOf(db: ItemsDb, tripId: string, membershipId: string) {
+  return selectItem(db)
+    .where('i.trip_id', '=', tripId)
+    .where('i.owner_membership_id', '=', membershipId)
+    .where('i.visibility', '=', 'private')
+    .orderBy('i.id')
+    .forUpdate()
+    .execute();
+}
+
+/**
+ * Brings back those of these deleted items that are still the membership's own private
+ * items, bumping each version; returns the ids it restored.
+ */
+export async function undeletePrivateItems(
+  db: ItemsDb,
+  itemIds: readonly string[],
+  owner: { tripId: string; membershipId: string; updatedBy: string },
+): Promise<string[]> {
+  if (itemIds.length === 0) return [];
+  const rows = await db
+    .updateTable('tribo.items')
+    .set((eb) => ({
+      deleted_at: null,
+      deleted_by: null,
+      updated_at: sql<Date>`now()`,
+      updated_by: owner.updatedBy,
+      version: eb('version', '+', 1),
+    }))
+    .where('id', 'in', itemIds)
+    .where('trip_id', '=', owner.tripId)
+    .where('owner_membership_id', '=', owner.membershipId)
+    .where('visibility', '=', 'private')
+    .where('deleted_at', 'is not', null)
+    .returning('id')
+    .execute();
+  return rows.map((r) => r.id).sort();
+}

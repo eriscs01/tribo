@@ -45,5 +45,15 @@ export function membersHandlers(members: MembersService): Handlers {
           ifMatch(request),
         ),
       ),
+    'members.remove': async (request, reply) => {
+      await members.remove(
+        requestContext(request),
+        pathId(request, 'tripId'),
+        pathId(request, 'membershipId'),
+        request.body,
+        ifMatch(request),
+      );
+      return reply.code(204).send();
+    },
   };
 }

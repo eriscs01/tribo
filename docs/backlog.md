@@ -78,7 +78,7 @@
 - [x] `members.setRole` · Drop A · `PATCH /v1/trips/{tripId}/members/{membershipId}`
   - Change role or canViewCosts; Owner transfer to an MFA member demotes the old owner to organizer in the same write (G14); MCP approval; trip_archived on archived trips (R29)
   - Roles: owner. If-Match: `version`. Idempotency: safe to repeat.
-- [ ] `members.remove` · Drop A · `DELETE /v1/trips/{tripId}/members/{membershipId}`
+- [x] `members.remove` · Drop A · `DELETE /v1/trips/{tripId}/members/{membershipId}`
   - Remove member (soft delete); ledger rows stay; MCP approval; Also deletes the member's allocations (bumps boardVersion of each item); trip_archived on archived trips (R29); Also soft-deletes the private items the member owns; rejoin undeletes them (R32)
   - Roles: owner; self (non-owner leaving, G14). If-Match: `version`. Idempotency: safe to repeat.
 - [x] `invites.list` · Drop A · `GET /v1/trips/{tripId}/invites`

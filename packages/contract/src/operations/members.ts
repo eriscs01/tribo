@@ -88,7 +88,7 @@ export const membersOperations = [
     mcpTool: 'manage_member',
     notes:
       "Remove member (soft delete); ledger rows stay; MCP approval; Also deletes the member's allocations (bumps boardVersion of each item); trip_archived on archived trips (R29); Also soft-deletes the private items the member owns; rejoin undeletes them (R32)",
-    status: 'planned',
+    status: 'implemented',
   }),
   defineOperation({
     id: 'invites.list',

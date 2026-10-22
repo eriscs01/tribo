@@ -4,6 +4,7 @@ import {
   canAddMember,
   canManageInvites,
   inviteStatus,
+  removalRefusal,
   canListMembers,
   canSetMemberRole,
   roleChangeRefusal,
@@ -150,5 +151,19 @@ describe('inviteStatus', () => {
     expect(
       inviteStatus({ ...live, revokedAt: now, expiresAt: now, uses: 1, maxUses: 1 }, now),
     ).toBe('revoked');
+  });
+});
+
+describe('removalRefusal', () => {
+  it('lets the owner remove anyone but themself (G14: hand over first)', () => {
+    expect(removalRefusal({ callerRole: 'owner', own: false })).toBeNull();
+    expect(removalRefusal({ callerRole: 'owner', own: true })).toBe('owner_transfer_required');
+  });
+
+  it('lets every other member leave, and remove nobody else', () => {
+    for (const callerRole of ['organizer', 'member', 'viewer'] as const) {
+      expect(removalRefusal({ callerRole, own: true })).toBeNull();
+      expect(removalRefusal({ callerRole, own: false })).toBe('forbidden');
+    }
   });
 });

@@ -249,6 +249,25 @@ export function undeleteMembership(
     .executeTakeFirstOrThrow();
 }
 
+/**
+ * Removes a membership (the soft delete is the removal) and bumps its version. Its ledger
+ * rows keep pointing at it, and a rejoin undeletes it (one row per person per trip, ever).
+ */
+export function softDeleteMembership(db: TripsDb, membershipId: string, deletedBy: string) {
+  return db
+    .updateTable('tribo.memberships')
+    .set((eb) => ({
+      deleted_at: sql<Date>`now()`,
+      deleted_by: deletedBy,
+      version: eb('version', '+', 1),
+      updated_at: sql<Date>`now()`,
+      updated_by: deletedBy,
+    }))
+    .where('id', '=', membershipId)
+    .returning(MEMBERSHIP_COLUMNS)
+    .executeTakeFirstOrThrow();
+}
+
 /** An active membership of this trip, locked FOR UPDATE until commit, or undefined. */
 export function lockMembership(db: TripsDb, target: { tripId: string; membershipId: string }) {
   return db

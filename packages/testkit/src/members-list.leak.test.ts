@@ -2,7 +2,7 @@
 // members.list against the oracle: every account lists exactly the memberships the oracle
 // allows, across trips it is in, was removed from, or that were deleted.
 import { PAGE_LIMIT_MAX } from '@tribo/contract';
-import { accountHasMfa, createMembersService, writePath } from '@tribo/core';
+import { accountHasMfa, memberItems, createMembersService, writePath } from '@tribo/core';
 import { ApiError } from '@tribo/platform';
 import fc from 'fast-check';
 import { afterAll, beforeAll, describe, it } from 'vitest';
@@ -17,7 +17,7 @@ const options = leakRunOptions();
  * any generated trip; a trip the caller is not in answers not_found and lists nothing.
  */
 const read: ListRead = async (db, userId) => {
-  const members = createMembersService(db, writePath(db), testKeys(), accountHasMfa);
+  const members = createMembersService(db, writePath(db), testKeys(), accountHasMfa, memberItems);
   const trips = await db.selectFrom('tribo.trips').select('id').execute();
   const listed: string[] = [];
   for (const trip of trips) {

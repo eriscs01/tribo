@@ -9,6 +9,8 @@ import {
   invalidCursor,
   type Change,
   type RequestContext,
+  type Tx,
+  type WriteRecord,
 } from '@tribo/platform';
 import type { Kysely } from 'kysely';
 import { accountPersonId, memberPersons, type PersonRecord } from '../library/service.js';
@@ -134,7 +136,7 @@ export function membershipSnapshot(row: MembershipRow) {
 }
 
 /** The write's change for a membership just written, with the person behind it. */
-type MembershipAction = 'create' | 'restore' | 'role_change';
+type MembershipAction = 'create' | 'restore' | 'role_change' | 'delete';
 
 export function membershipChange(
   action: MembershipAction,
@@ -157,4 +159,23 @@ export function membershipWrite(action: MembershipAction, row: MembershipRow) {
     version: row.version,
     snapshot: membershipSnapshot(row),
   };
+}
+
+/** A membership leaving or rejoining its trip, and the account acting on it. */
+interface MemberMove {
+  tripId: string;
+  membershipId: string;
+  userId: string;
+}
+
+/**
+ * The items module's side of a membership's removal and rejoin (R32), passed in by the
+ * composition because the items service already reaches this one. Each runs in the
+ * membership write's transaction and returns the records that write stores with its own.
+ */
+export interface MemberItems {
+  /** Takes the member off every board and soft-deletes the private items they own. */
+  leave(tx: Tx, move: MemberMove): Promise<WriteRecord[]>;
+  /** Brings back the private items the member's latest removal soft-deleted. */
+  rejoin(tx: Tx, move: MemberMove): Promise<WriteRecord[]>;
 }

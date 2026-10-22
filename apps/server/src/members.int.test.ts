@@ -309,3 +309,55 @@ describe('members.setRole over HTTP', () => {
     expect(res.statusCode).toBe(404);
   });
 });
+
+describe('members.remove over HTTP', () => {
+  it('answers 428 without If-Match, logged, then 204 when the owner names the version', async () => {
+    const w = await world();
+    const url = `${w.membersUrl}/${encodeTypeId(ID_PREFIX.membership, w.guestMembershipId)}`;
+    const missing = await app.inject({ method: 'DELETE', url, ...w.owner.auth });
+    expect(missing.statusCode).toBe(428);
+    expect(
+      linesOf(missing.headers['x-request-id']).find((l) => l.msg === 'request refused'),
+    ).toMatchObject({ operationId: 'members.remove', problem: 'if_match_required', status: 428 });
+    const res = await app.inject({
+      method: 'DELETE',
+      url,
+      ...w.owner.auth,
+      headers: { ...w.owner.auth.headers, 'if-match': '"1"' },
+    });
+    expect(res.statusCode).toBe(204);
+    const list = await app.inject({ method: 'GET', url: w.membersUrl, ...w.owner.auth });
+    expect(list.json<{ items: { id: string }[] }>().items.map((m) => m.id)).not.toContain(
+      encodeTypeId(ID_PREFIX.membership, w.guestMembershipId),
+    );
+  });
+
+  it('lets a viewer leave (G14), after which the trip is not_found to them', async () => {
+    const w = await world();
+    const url = `${w.membersUrl}/${encodeTypeId(ID_PREFIX.membership, w.viewerMembershipId)}`;
+    const res = await app.inject({
+      method: 'DELETE',
+      url,
+      ...w.viewer.auth,
+      headers: { ...w.viewer.auth.headers, 'if-match': '"1"' },
+    });
+    expect(res.statusCode).toBe(204);
+    const after = await app.inject({ method: 'GET', url: w.membersUrl, ...w.viewer.auth });
+    expect(after.statusCode).toBe(404);
+  });
+
+  it('answers the owner leaving 409 owner_transfer_required, and logs it', async () => {
+    const w = await world();
+    const url = `${w.membersUrl}/${encodeTypeId(ID_PREFIX.membership, w.trip.ownerMembershipId)}`;
+    const res = await app.inject({
+      method: 'DELETE',
+      url,
+      ...w.owner.auth,
+      headers: { ...w.owner.auth.headers, 'if-match': '"1"' },
+    });
+    expect(res.statusCode).toBe(409);
+    expect(
+      linesOf(res.headers['x-request-id']).find((l) => l.msg === 'request refused'),
+    ).toMatchObject({ operationId: 'members.remove', problem: 'owner_transfer_required' });
+  });
+});

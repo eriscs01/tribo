@@ -1,8 +1,19 @@
 // The trip the invite and member-removal stories test against: one member of each role,
 // an outsider, and a placeholder traveller. Each call builds a fresh trip, so tests never
 // share rows.
-import { createInvitesService, type InvitesService } from '@tribo/core';
+import {
+  accountHasMfa,
+  createInvitesService,
+  createMembersService,
+  memberItems,
+  writePath,
+  type InvitesService,
+  type MembersService,
+} from '@tribo/core';
+import type { DB } from '@tribo/db';
+import type { Kysely } from 'kysely';
 import type { TestDatabase } from './database.js';
+import { testKeys } from './keys.js';
 import {
   addMember,
   createPlaceholder,
@@ -19,6 +30,11 @@ const PUBLIC_URL = new URL('https://tribo.test');
 
 export function invitesService(tdb: TestDatabase): InvitesService {
   return createInvitesService(tdb.db, PUBLIC_URL);
+}
+
+/** The members service as runtime.ts composes it, items side and MFA check included. */
+export function membersService(db: Kysely<DB>): MembersService {
+  return createMembersService(db, writePath(db), testKeys(), accountHasMfa, memberItems);
 }
 
 /** In a day: an expiry every create accepts. */

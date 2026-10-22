@@ -57,6 +57,7 @@ export {
   callerMembership,
   licensedMemberships,
   type CallerMembership,
+  type MemberItems,
   type MemberRecord,
 } from './membership.js';
 
