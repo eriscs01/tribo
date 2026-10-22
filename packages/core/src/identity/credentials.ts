@@ -1,5 +1,5 @@
 /* eslint-disable no-bitwise -- RFC 4226 dynamic truncation and base32 are defined on bits */
-import { createHash, createHmac, randomBytes, randomInt, timingSafeEqual } from 'node:crypto';
+import { createHmac, randomBytes, randomInt, timingSafeEqual } from 'node:crypto';
 import { hash, verify } from '@node-rs/argon2';
 
 /**
@@ -30,18 +30,6 @@ let decoy: Promise<string> | undefined;
 export async function burnPasswordCheck(secret: string): Promise<void> {
   decoy ??= hashSecret(randomBytes(16).toString('hex'));
   await verifySecret(await decoy, secret);
-}
-
-// --- Opaque tokens (sessions; later reset links and PATs) -----------------------------
-
-/** A 256-bit random token for the client, and the SHA-256 the database keeps. */
-export function newToken(): { token: string; hash: Buffer } {
-  const token = randomBytes(32).toString('base64url');
-  return { token, hash: tokenHash(token) };
-}
-
-export function tokenHash(token: string): Buffer {
-  return createHash('sha256').update(token).digest();
 }
 
 // --- TOTP (RFC 6238: HMAC-SHA1, 30 s steps, 6 digits) ---------------------------------

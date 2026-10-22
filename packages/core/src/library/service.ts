@@ -17,6 +17,7 @@ import {
   type RequestContext,
   type Tx,
   type WritePath,
+  type WriteRecord,
 } from '@tribo/platform';
 import type { Kysely } from 'kysely';
 import { writeOperation } from '../write-operation.js';
@@ -33,6 +34,7 @@ import {
   insertPlaceholder,
   insertVendor,
   lockPerson,
+  mergePlaceholder,
   newRowId,
   resolvePlaceId,
   searchPlaces,
@@ -560,6 +562,27 @@ export async function visiblePerson(
 ): Promise<PersonRecord | null> {
   const row = await findVisiblePerson(forModule(db, 'library'), userId, personId);
   return row ? personRecord(row) : null;
+}
+
+/**
+ * R28: a placeholder whose last membership row was claimed is scrubbed, soft-deleted and
+ * merged into the claimer's person, in the claim's transaction; its old id resolves to the
+ * survivor from then on. Returns the merge for the caller's write to record.
+ */
+export async function mergeClaimedPlaceholder(
+  tx: Tx,
+  merge: { personId: string; into: string; by: string },
+): Promise<WriteRecord> {
+  const row = await mergePlaceholder(forModule(tx, 'library'), merge);
+  return {
+    action: 'merge',
+    aggregate: 'person',
+    entityId: row.id,
+    tripId: null,
+    versionBefore: row.version - 1,
+    version: row.version,
+    snapshot: { ...personSnapshot(row), mergedInto: row.merged_into },
+  };
 }
 
 /** The account a person is, inside every trip it is a member of; null for a placeholder. */

@@ -1,75 +1,66 @@
 import {
   decodeTypeId,
   ID_PREFIX,
-  MemberAddInput,
-  MemberPatch,
   NoBody,
   TripCursorKey,
   TripInput,
   TripPatch,
-  Uuid,
   type PageQuery,
 } from '@tribo/contract';
-import type { Keyring } from '@tribo/crypto';
 import { forModule, type DB, type ValueOf } from '@tribo/db';
 import {
   ApiError,
   decodeCursor,
   encodeCursor,
   invalidCursor,
-  type Change,
   type RequestContext,
   type Tx,
   type WritePath,
 } from '@tribo/platform';
 import type { Kysely } from 'kysely';
 import { moneyRecorded } from '../expenses/service.js';
-import {
-  accountPersonId,
-  createPlaceholder,
-  memberPersons,
-  personAccountId,
-  visiblePerson,
-  type PersonRecord,
-} from '../library/service.js';
+import { accountPersonId } from '../library/service.js';
 import { writeOperation } from '../write-operation.js';
+import { actingUser, membershipSnapshot, requireRole } from './membership.js';
 import {
-  canAddMember,
   canDeleteTrip,
   canGetTrip,
-  canListMembers,
-  canSetMemberRole,
-  roleChangeRefusal,
-  takesCostGrant,
   canUpdateTrip,
   statusMoveRefusal,
   tripCreateRefusal,
-  tripWriteRefusal,
 } from './policy.js';
 import {
-  countActiveMemberships,
-  findActiveMembership,
   findTrip,
   insertMembership,
   insertTrip,
-  findMembershipPersons,
-  listMemberships,
-  lockMembership,
-  lockMembershipOf,
   listDestinations,
   listMemberTrips,
   lockTrip,
-  lockTripForWrite,
   replaceDestinations,
   softDeleteTrip,
-  undeleteMembership,
-  updateMembershipRole,
   updateTrip,
-  type MembershipRow,
   type TripFields,
-  type TripRole,
   type TripRow,
 } from './repo.js';
+
+export { guardTrip } from './trip-guard.js';
+export {
+  createInvitesService,
+  type CreatedInvite,
+  type InvitePreviewRecord,
+  type InviteRecord,
+  type InvitesService,
+} from './invites.js';
+export type { AcceptedInvite, InviteAccounts, JoinClient } from './join.js';
+export { createMembersService, type MembersService, type MfaCheck } from './members.js';
+export {
+  allActiveMemberships,
+  callerMembership,
+  licensedMemberships,
+  type CallerMembership,
+  type MemberItems,
+  type MemberRecord,
+} from './membership.js';
 
 /** A trip's status as the API shows it: `archived` is derived from archived_at (R40). */
 export type TripStatus = ValueOf<'tribo.trips.status'> | 'archived';
@@ -275,83 +266,6 @@ export function createTripsService(db: Kysely<DB>, write: WritePath): TripsServi
   };
 }
 
-/** The write path's trip guard: the trip exists, is open to this operation and stays so until commit. */
-export async function guardTrip(tx: Tx, tripId: string, operationId: string): Promise<void> {
-  const trip = await lockTripForWrite(forModule(tx, 'trips'), tripId);
-  const refusal = trip
-    ? tripWriteRefusal(
-        { archived: trip.archived_at !== null, deleted: trip.deleted_at !== null },
-        operationId,
-      )
-    : 'not_found';
-  if (refusal) throw new ApiError(refusal);
-}
-
-/** The caller inside a trip: their membership, its role, and whether costs show to them. */
-export interface CallerMembership {
-  id: string;
-  role: TripRole;
-  /** Every role but a viewer reads costs; a viewer only with can_view_costs. */
-  canViewCosts: boolean;
-}
-
-/** Inside a trip a person is their membership: the caller's active one, or null. */
-export async function callerMembership(
-  db: Kysely<DB>,
-  userId: string,
-  tripId: string,
-): Promise<CallerMembership | null> {
-  const personId = await accountPersonId(db, userId);
-  if (personId === null) return null;
-  const row = await findActiveMembership(forModule(db, 'trips'), tripId, personId);
-  if (!row) return null;
-  const role = row.trip_role as TripRole;
-  return { id: row.id, role, canViewCosts: role !== 'viewer' || row.can_view_costs };
-}
-
-/** True when every one of these is an active membership of the trip. */
-export async function allActiveMemberships(
-  db: Kysely<DB>,
-  tripId: string,
-  membershipIds: readonly string[],
-): Promise<boolean> {
-  const unique = [...new Set(membershipIds)];
-  return (await countActiveMemberships(forModule(db, 'trips'), tripId, unique)) === unique.length;
-}
-
-/**
- * Which of these memberships of the trip are people holding a driving licence: the board's
- * no_licensed_driver check asks it of the drivers it seats.
- */
-export async function licensedMemberships(
-  db: Kysely<DB>,
-  tripId: string,
-  membershipIds: readonly string[],
-): Promise<Set<string>> {
-  if (membershipIds.length === 0) return new Set();
-  const rows = await findMembershipPersons(forModule(db, 'trips'), tripId, membershipIds);
-  const persons = await memberPersons(
-    db,
-    rows.map((r) => r.person_id),
-  );
-  return new Set(rows.filter((r) => persons.get(r.person_id)?.drivingLicence).map((r) => r.id));
-}
-
-/**
- * The caller's membership must allow the operation. A trip the caller is not in does not
- * exist for them.
- */
-async function requireRole(
-  db: Kysely<DB>,
-  userId: string,
-  tripId: string,
-  allowed: (role: TripRole) => boolean,
-): Promise<void> {
-  const membership = await callerMembership(db, userId, tripId);
-  if (membership === null) throw new ApiError('not_found');
-  if (!allowed(membership.role)) throw new ApiError('forbidden');
-}
-
 /**
  * The trip's fields with the patch merged in, refused when the merge breaks a rule that
  * needs more than the patch: a backward status move, dates out of order, or a currency
@@ -401,12 +315,6 @@ async function placesChecked(write: () => Promise<void>): Promise<void> {
   }
 }
 
-/** Writes need an account behind them; only system work runs without one. */
-function actingUser(ctx: RequestContext): string {
-  if (ctx.userId === null) throw new ApiError('unauthenticated');
-  return ctx.userId;
-}
-
 /** A trips.list cursor's sort key; anything else is refused before it reaches SQL. */
 function tripCursor(cursor: string): { startDate: string; id: string } {
   const key = TripCursorKey.safeParse(decodeCursor(cursor, 2));
@@ -442,260 +350,4 @@ function tripRecord(row: TripRow, destinations: string[]): TripRecord {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
-}
-
-/** A membership with the person behind it, as members.list shows it. */
-export interface MemberRecord {
-  id: string;
-  tripId: string;
-  role: TripRole;
-  /** Every role but a viewer reads costs; a viewer only with can_view_costs. */
-  canViewCosts: boolean;
-  person: PersonRecord;
-  version: number;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface MembersService {
-  /** members.list: the trip's active memberships, oldest first, to any member of it. */
-  list(
-    userId: string,
-    tripId: string,
-    page: PageQuery,
-  ): Promise<{ items: MemberRecord[]; nextCursor: string | null }>;
-  /**
-   * members.add: the owner adds a placeholder traveller, new or from their library. A person
-   * with an account joins by invite instead (R4); a removed placeholder is brought back.
-   */
-  add(ctx: RequestContext, tripId: string, body: unknown): Promise<MemberRecord>;
-  /**
-   * members.setRole: the owner changes a member's role or a viewer's cost grant, under
-   * If-Match on the membership's version. Making another member owner hands the trip over
-   * (G14).
-   */
-  setRole(
-    ctx: RequestContext,
-    tripId: string,
-    membershipId: string,
-    body: unknown,
-    ifMatch: number | undefined,
-  ): Promise<MemberRecord>;
-}
-
-const membersAdd = writeOperation('members.add', MemberAddInput);
-const membersSetRole = writeOperation('members.setRole', MemberPatch);
-
-/** What members.add locks: the library person's earlier row in the trip, if it has one. */
-interface MemberAddLoaded {
-  tripId: string;
-  /** The library person asked for; null for a new placeholder. */
-  personId: string | null;
-  existing?: MembershipRow & { deleted_at: Date | null };
-  counter?: number;
-}
-
-/** Identity's answer to whether an account has MFA on (accountHasMfa in identity/service.ts). */
-export type MfaCheck = (db: Kysely<DB>, userId: string) => Promise<boolean>;
-
-/**
- * `write` is core's write path and `hasMfa` identity's MFA check, both passed in to keep
- * imports acyclic (identity's service reaches the write path, which reaches this one).
- */
-export function createMembersService(
-  db: Kysely<DB>,
-  write: WritePath,
-  keys: Keyring,
-  hasMfa: MfaCheck,
-): MembersService {
-  return {
-    async list(userId, tripId, page) {
-      await requireRole(db, userId, tripId, canListMembers);
-      const after = page.cursor === undefined ? null : memberCursor(page.cursor);
-      // One extra row says whether another page follows.
-      const rows = await listMemberships(forModule(db, 'trips'), tripId, {
-        limit: page.limit + 1,
-        after,
-      });
-      const shown = rows.slice(0, page.limit);
-      const persons = await memberPersons(
-        db,
-        shown.map((r) => r.person_id),
-      );
-      const items = shown.map((r) => memberRecord(r, persons));
-      const last = items.at(-1);
-      return {
-        items,
-        nextCursor: rows.length > page.limit && last ? encodeCursor([last.id]) : null,
-      };
-    },
-
-    add: (ctx, tripId, body) =>
-      write(ctx, {
-        operation: membersAdd,
-        target: { tripId },
-        body,
-        ifMatch: undefined,
-        authorize: (tx, c, target) => requireRole(tx, actingUser(c), target.tripId, canAddMember),
-        load: async (tx, target, input): Promise<MemberAddLoaded> => {
-          if (!('personId' in input)) return { tripId: target.tripId, personId: null };
-          const personId = decodeTypeId(ID_PREFIX.person, input.personId);
-          const existing = await lockMembershipOf(forModule(tx, 'trips'), target.tripId, personId);
-          return existing
-            ? { tripId: target.tripId, personId, existing, counter: existing.version }
-            : { tripId: target.tripId, personId };
-        },
-        mutate: async (tx, c, loaded, input) => {
-          const userId = actingUser(c);
-          const trips = forModule(tx, 'trips');
-          const join = (personId: string) =>
-            insertMembership(trips, {
-              tripId: loaded.tripId,
-              personId,
-              role: input.role ?? 'member',
-              createdBy: userId,
-            });
-          if ('person' in input) {
-            const { result: person, ...created } = await createPlaceholder(tx, keys, {
-              createdBy: userId,
-              person: input.person,
-            });
-            return {
-              ...membershipChange('create', await join(person.id), person),
-              related: [{ ...created, versionBefore: null }],
-            };
-          }
-          const person =
-            loaded.personId === null ? null : await visiblePerson(tx, userId, loaded.personId);
-          if (person === null) {
-            throw new ApiError('validation_failed', {
-              errors: [{ path: '/personId', message: 'no such person' }],
-            });
-          }
-          if (person.hasAccount) throw new ApiError('person_has_account');
-          const { existing } = loaded;
-          if (!existing) return membershipChange('create', await join(person.id), person);
-          if (existing.deleted_at === null) throw new ApiError('already_member');
-          const role = input.role ?? 'member';
-          const row = await undeleteMembership(trips, existing.id, { role, updatedBy: userId });
-          return membershipChange('restore', row, person);
-        },
-      }),
-
-    setRole: (ctx, tripId, membershipId, body, ifMatch) =>
-      write(ctx, {
-        operation: membersSetRole,
-        target: { tripId, membershipId },
-        body,
-        ifMatch,
-        authorize: (tx, c, target) =>
-          requireRole(tx, actingUser(c), target.tripId, canSetMemberRole),
-        load: async (tx, target) => {
-          const row = await lockMembership(forModule(tx, 'trips'), target);
-          if (!row) throw new ApiError('not_found');
-          return { tripId: row.trip_id, counter: row.version, row };
-        },
-        mutate: async (tx, c, { row }, patch) => {
-          const userId = actingUser(c);
-          const trips = forModule(tx, 'trips');
-          const role = patch.role ?? (row.trip_role as TripRole);
-          const caller = await callerMembership(tx, userId, row.trip_id);
-          if (caller === null) throw new Error('members.setRole lost its authorized caller');
-          if (patch.canViewCosts !== undefined && !takesCostGrant(role)) {
-            throw new ApiError('validation_failed', {
-              errors: [{ path: '/canViewCosts', message: 'only a viewer takes a cost grant' }],
-            });
-          }
-          const ownMembership = row.id === caller.id;
-          const handover = role === 'owner' && !ownMembership;
-          const refusal = roleChangeRefusal({
-            to: role,
-            ownMembership,
-            newOwnerHasMfa: handover && (await accountWithMfa(tx, row.person_id, hasMfa)),
-          });
-          if (refusal) throw new ApiError(refusal);
-          // One owner per trip (memberships_one_owner): the old owner steps down first.
-          const demoted = handover
-            ? await updateMembershipRole(trips, caller.id, {
-                role: 'organizer',
-                canViewCosts: false,
-                updatedBy: userId,
-              })
-            : undefined;
-          const updated = await updateMembershipRole(trips, row.id, {
-            role,
-            canViewCosts: takesCostGrant(role) && (patch.canViewCosts ?? row.can_view_costs),
-            updatedBy: userId,
-          });
-          const persons = await memberPersons(tx, [updated.person_id]);
-          const person = persons.get(updated.person_id);
-          if (!person) throw new Error(`membership ${updated.id} has no person`);
-          const change = membershipChange('role_change', updated, person);
-          if (!demoted) return change;
-          const stepDown = membershipWrite('role_change', demoted);
-          return { ...change, related: [{ ...stepDown, versionBefore: demoted.version - 1 }] };
-        },
-      }),
-  };
-}
-
-/** A members.list cursor's sort key; anything else is refused before it reaches SQL. */
-function memberCursor(cursor: string): string {
-  const [id] = decodeCursor(cursor, 1);
-  const key = Uuid.safeParse(id);
-  if (!key.success) throw invalidCursor();
-  return key.data;
-}
-
-function memberRecord(row: MembershipRow, persons: Map<string, PersonRecord>): MemberRecord {
-  const person = persons.get(row.person_id);
-  if (!person) throw new Error(`membership ${row.id} has no person ${row.person_id}`);
-  const role = row.trip_role as TripRole;
-  return {
-    id: row.id,
-    tripId: row.trip_id,
-    role,
-    canViewCosts: role !== 'viewer' || row.can_view_costs,
-    person,
-    version: row.version,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  };
-}
-
-/** The membership's stored fields, as entity_versions keeps them. */
-function membershipSnapshot(row: MembershipRow) {
-  return { personId: row.person_id, role: row.trip_role, canViewCosts: row.can_view_costs };
-}
-
-/** The write's change for a membership just written, with the person behind it. */
-type MembershipAction = 'create' | 'restore' | 'role_change';
-
-function membershipChange(
-  action: MembershipAction,
-  row: MembershipRow,
-  person: PersonRecord,
-): Change<MemberRecord> {
-  return {
-    ...membershipWrite(action, row),
-    result: memberRecord(row, new Map([[person.id, person]])),
-  };
-}
-
-/** A membership write as its snapshot and event record it. */
-function membershipWrite(action: MembershipAction, row: MembershipRow) {
-  return {
-    action,
-    aggregate: 'membership',
-    entityId: row.id,
-    tripId: row.trip_id,
-    version: row.version,
-    snapshot: membershipSnapshot(row),
-  };
-}
-
-/** Whether the person is an account with MFA on; a placeholder has neither. */
-async function accountWithMfa(tx: Tx, personId: string, hasMfa: MfaCheck): Promise<boolean> {
-  const userId = await personAccountId(tx, personId);
-  return userId !== null && (await hasMfa(tx, userId));
 }

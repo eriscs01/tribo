@@ -249,6 +249,25 @@ export function undeleteMembership(
     .executeTakeFirstOrThrow();
 }
 
+/**
+ * Removes a membership (the soft delete is the removal) and bumps its version. Its ledger
+ * rows keep pointing at it, and a rejoin undeletes it (one row per person per trip, ever).
+ */
+export function softDeleteMembership(db: TripsDb, membershipId: string, deletedBy: string) {
+  return db
+    .updateTable('tribo.memberships')
+    .set((eb) => ({
+      deleted_at: sql<Date>`now()`,
+      deleted_by: deletedBy,
+      version: eb('version', '+', 1),
+      updated_at: sql<Date>`now()`,
+      updated_by: deletedBy,
+    }))
+    .where('id', '=', membershipId)
+    .returning(MEMBERSHIP_COLUMNS)
+    .executeTakeFirstOrThrow();
+}
+
 /** An active membership of this trip, locked FOR UPDATE until commit, or undefined. */
 export function lockMembership(db: TripsDb, target: { tripId: string; membershipId: string }) {
   return db
@@ -341,3 +360,184 @@ export function listMemberships(
 }
 
 export type MembershipRow = Awaited<ReturnType<typeof insertMembership>>;
+
+const INVITE_COLUMNS = [
+  'id',
+  'trip_id',
+  'role',
+  'person_id',
+  'expires_at',
+  'max_uses',
+  'uses',
+  'revoked_at',
+  'created_at',
+] as const;
+
+export type InviteRole = ValueOf<'tribo.invites.role'>;
+
+/** Stores a new invite by its token's hash; the token itself is never written. */
+export function insertInvite(
+  db: TripsDb,
+  invite: {
+    tripId: string;
+    tokenHash: Buffer;
+    role: InviteRole;
+    personId: string | null;
+    expiresAt: Date;
+    maxUses: number | null;
+    createdBy: string;
+  },
+) {
+  return db
+    .insertInto('tribo.invites')
+    .values({
+      trip_id: invite.tripId,
+      token_hash: invite.tokenHash,
+      role: invite.role,
+      person_id: invite.personId,
+      expires_at: invite.expiresAt,
+      max_uses: invite.maxUses,
+      created_by: invite.createdBy,
+    })
+    .returning(INVITE_COLUMNS)
+    .executeTakeFirstOrThrow();
+}
+
+export type InviteRow = Awaited<ReturnType<typeof insertInvite>>;
+
+/** One page of the trip's invites in any state, by id (creation order); `after` is the last id. */
+export function listInvites(
+  db: TripsDb,
+  tripId: string,
+  page: { limit: number; after: string | null },
+) {
+  let query = db.selectFrom('tribo.invites').select(INVITE_COLUMNS).where('trip_id', '=', tripId);
+  if (page.after !== null) query = query.where('id', '>', page.after);
+  return query.orderBy('id').limit(page.limit).execute();
+}
+
+/** The trip's invite, in any state, locked FOR UPDATE until commit; undefined when there is none. */
+export function lockInvite(db: TripsDb, target: { tripId: string; inviteId: string }) {
+  return db
+    .selectFrom('tribo.invites')
+    .select(INVITE_COLUMNS)
+    .where('id', '=', target.inviteId)
+    .where('trip_id', '=', target.tripId)
+    .forUpdate()
+    .executeTakeFirst();
+}
+
+/** Stamps revoked_at: the link opens nothing from now on. */
+export function revokeInvite(db: TripsDb, inviteId: string) {
+  return db
+    .updateTable('tribo.invites')
+    .set({ revoked_at: sql<Date>`now()` })
+    .where('id', '=', inviteId)
+    .returning(INVITE_COLUMNS)
+    .executeTakeFirstOrThrow();
+}
+
+/**
+ * The invite this token hash opens, or undefined, in one statement whatever the reason: a
+ * token that matches nothing and one whose invite is revoked, expired, used up, on an
+ * archived or deleted trip, or pre-linked to a placeholder no longer active in the trip,
+ * all cost the same single index lookup. With `lock`, the invite row is locked FOR UPDATE
+ * until commit, so two joins never both take its last use.
+ */
+export function findLiveInvite(db: TripsDb, tokenHash: Buffer, options: { lock: boolean }) {
+  const query = db
+    .selectFrom('tribo.invites as i')
+    .innerJoin('tribo.trips as t', 't.id', 'i.trip_id')
+    .leftJoin('tribo.memberships as m', (join) =>
+      join.onRef('m.trip_id', '=', 'i.trip_id').onRef('m.person_id', '=', 'i.person_id'),
+    )
+    .select([
+      'i.id',
+      'i.trip_id',
+      'i.role',
+      'i.person_id',
+      'i.max_uses',
+      'i.uses',
+      't.name as trip_name',
+      'm.id as placeholder_membership_id',
+    ])
+    .where('i.token_hash', '=', tokenHash)
+    .where('i.revoked_at', 'is', null)
+    .where('i.expires_at', '>', sql<Date>`now()`)
+    .where((eb) => eb.or([eb('i.max_uses', 'is', null), eb('i.uses', '<', eb.ref('i.max_uses'))]))
+    .where('t.deleted_at', 'is', null)
+    .where('t.archived_at', 'is', null)
+    .where((eb) =>
+      eb.or([
+        eb('i.person_id', 'is', null),
+        eb.and([eb('m.id', 'is not', null), eb('m.deleted_at', 'is', null)]),
+      ]),
+    );
+  return (options.lock ? query.forUpdate('i') : query).executeTakeFirst();
+}
+
+/**
+ * R28: moves a placeholder's membership to the claimer's person, with the role the invite
+ * gives (and the cost grant only if it stays a viewer's), bumping its version. The id stays,
+ * so everything that references it (tickets, allocations, shares) follows; the invite's
+ * pre-link follows through its ON UPDATE CASCADE.
+ */
+export function claimMembership(
+  db: TripsDb,
+  membershipId: string,
+  claim: { personId: string; role: TripRole; canViewCosts: boolean; updatedBy: string },
+) {
+  return db
+    .updateTable('tribo.memberships')
+    .set((eb) => ({
+      person_id: claim.personId,
+      trip_role: claim.role,
+      can_view_costs: claim.canViewCosts,
+      version: eb('version', '+', 1),
+      updated_at: sql<Date>`now()`,
+      updated_by: claim.updatedBy,
+    }))
+    .where('id', '=', membershipId)
+    .returning(MEMBERSHIP_COLUMNS)
+    .executeTakeFirstOrThrow();
+}
+
+/** How many membership rows the person has in any trip, removed ones included. */
+export async function countMembershipRows(db: TripsDb, personId: string): Promise<number> {
+  const row = await db
+    .selectFrom('tribo.memberships')
+    .select((eb) => eb.fn.countAll<string>().as('n'))
+    .where('person_id', '=', personId)
+    .executeTakeFirstOrThrow();
+  return Number(row.n);
+}
+
+/** Counts one join against the invite's uses (invites_uses_cap keeps it within max_uses). */
+export async function useInvite(db: TripsDb, inviteId: string): Promise<void> {
+  await db
+    .updateTable('tribo.invites')
+    .set((eb) => ({ uses: eb('uses', '+', 1) }))
+    .where('id', '=', inviteId)
+    .execute();
+}
+
+/**
+ * Revokes the trip's other open invites pre-linked to this placeholder: once it is claimed
+ * none of them can be (their pre-link follows the membership to the claimer). Returns the
+ * ids it revoked.
+ */
+export async function revokePlaceholderInvites(
+  db: TripsDb,
+  claim: { tripId: string; personId: string; exceptInviteId: string },
+): Promise<string[]> {
+  const rows = await db
+    .updateTable('tribo.invites')
+    .set({ revoked_at: sql<Date>`now()` })
+    .where('trip_id', '=', claim.tripId)
+    .where('person_id', '=', claim.personId)
+    .where('id', '<>', claim.exceptInviteId)
+    .where('revoked_at', 'is', null)
+    .returning('id')
+    .execute();
+  return rows.map((r) => r.id).sort();
+}

@@ -3,6 +3,16 @@
 import { defineOperation } from '../operation.js';
 import { Member, MemberAddInput, MemberPage, MemberPatch } from '../member.js';
 import { PageQuery } from '../page.js';
+import {
+  Invite,
+  InviteCreated,
+  InviteInput,
+  InvitePage,
+  InvitePreviewInput,
+  InvitePreview,
+  InviteAcceptInput,
+  InviteAccept,
+} from '../invite.js';
 
 export const membersOperations = [
   defineOperation({
@@ -80,7 +90,7 @@ export const membersOperations = [
     mcpTool: 'manage_member',
     notes:
       "Remove member (soft delete); ledger rows stay; MCP approval; Also deletes the member's allocations (bumps boardVersion of each item); trip_archived on archived trips (R29); Also soft-deletes the private items the member owns; rejoin undeletes them (R32)",
-    status: 'planned',
+    status: 'implemented',
   }),
   defineOperation({
     id: 'invites.list',
@@ -97,7 +107,9 @@ export const membersOperations = [
     mcpApproval: false,
     mcpTool: null,
     notes: 'Invite links with role, expiry, uses; Token never returned after create',
-    status: 'planned',
+    status: 'implemented',
+    query: PageQuery,
+    output: InvitePage,
   }),
   defineOperation({
     id: 'invites.create',
@@ -115,7 +127,9 @@ export const membersOperations = [
     mcpTool: null,
     notes:
       'Create link: role, expiry, maxUses, optional placeholder; Token shown once; placeholder invite single use; Secret omitted on idempotent replay (redacted = true): revoke and recreate (R2); Link format /join#<token> (fragment, never in proxy logs); Pre-linked person must be an active placeholder member of this trip (FK + check), else invite_invalid (R28); trip_archived on archived trips (R29)',
-    status: 'planned',
+    status: 'implemented',
+    input: InviteInput,
+    output: InviteCreated,
   }),
   defineOperation({
     id: 'invites.revoke',
@@ -132,7 +146,8 @@ export const membersOperations = [
     mcpApproval: false,
     mcpTool: null,
     notes: 'Revoke an invite link; Invites carry no version; trip_archived on archived trips (R29)',
-    status: 'planned',
+    status: 'implemented',
+    output: Invite,
   }),
   defineOperation({
     id: 'invites.preview',
@@ -150,7 +165,9 @@ export const membersOperations = [
     mcpTool: null,
     notes:
       'Trip name, role, placeholder name for a token; Token in body; invite_invalid; Read only; no key (R2)',
-    status: 'planned',
+    status: 'implemented',
+    input: InvitePreviewInput,
+    output: InvitePreview,
   }),
   defineOperation({
     id: 'invites.accept',
@@ -168,6 +185,8 @@ export const membersOperations = [
     mcpTool: null,
     notes:
       "Join: new account (username+password) or signed-in; claims placeholder; username_taken, already_member, invite_invalid; Claim is per trip (R28): new account → its own person is created first; then only this trip's placeholder membership moves to the caller's person (tickets, allocations, shares follow the membership id); the placeholder never gains an account and stays in its other trips; when it has no membership rows left it is scrubbed, soft-deleted and mergedInto the caller; claim_conflict if the caller's person already has a row in this trip. Rejoin undeletes the caller's earlier membership in the trip. Anonymous Idempotency-Key caller = invite:<inviteId>; Set-Cookie never replayed",
-    status: 'planned',
+    status: 'implemented',
+    input: InviteAcceptInput,
+    output: InviteAccept,
   }),
 ] as const;

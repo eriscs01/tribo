@@ -2,6 +2,7 @@ import { forModule, type DB } from '@tribo/db';
 import { ApiError, type RequestContext, type Tx, type WriteRecord } from '@tribo/platform';
 import type { Kysely } from 'kysely';
 import {
+  deletedWithLatestDelete,
   eventsOfRequest,
   insertEvent,
   insertSnapshot,
@@ -47,6 +48,19 @@ export async function recordEvent(tx: Tx, ctx: RequestContext, event: EventRecor
     if (isConstraint(error, 'trip_retired')) throw new ApiError('trip_retired');
     throw error;
   }
+}
+
+/**
+ * R32: the `entityType` rows deleted in the same request as the entity's latest delete,
+ * found through the request id the log keeps (e.g. the private items a member's removal
+ * soft-deleted, which their rejoin brings back). Ids only.
+ */
+export function deletedWithEntity(
+  db: Kysely<DB>,
+  of: { entityType: string; entityId: string },
+  entityType: string,
+): Promise<string[]> {
+  return deletedWithLatestDelete(forModule(db, 'audit'), of, entityType);
 }
 
 /** One audit event as `tribo audit request` lists it: ids and metadata, never values. */

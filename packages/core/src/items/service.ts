@@ -22,9 +22,10 @@ import {
   type Tx,
   validate,
   type WritePath,
+  type WriteRecord,
 } from '@tribo/platform';
 import type { Kysely } from 'kysely';
-import { recordEvent } from '../audit/service.js';
+import { deletedWithEntity, recordEvent } from '../audit/service.js';
 import { allActiveMemberships, callerMembership, type CallerMembership } from '../trips/service.js';
 import { writeOperation } from '../write-operation.js';
 import {
@@ -50,14 +51,18 @@ import {
 } from './policy.js';
 import {
   bumpBoardVersion,
+  deleteMemberAllocations,
   findItem,
   insertItem,
   insertShares,
   listBoard,
   listShares,
   listVisibleItems,
+  lockBoardsWith,
+  lockPrivateItemsOf,
   replaceShares,
   softDeleteItem,
+  undeletePrivateItems,
   updateItem,
   upsertRsvp,
   type ItemRow,
@@ -445,6 +450,97 @@ export function createItemsService(db: Kysely<DB>, write: WritePath, keys: Keyri
       });
     },
   };
+}
+
+/** The items side of members.remove and of a rejoin (R32), as the members service takes it. */
+export const memberItems = { leave: removeMemberFromItems, rejoin: restoreMemberItems };
+
+/** Who leaves or rejoins a trip, and who is acting: the items side of members' writes. */
+interface MemberMove {
+  tripId: string;
+  membershipId: string;
+  userId: string;
+}
+
+/**
+ * R32, the items side of a member's removal, in the removal's transaction: the member's
+ * rows leave every board of the trip (items the caller cannot see and deleted ones
+ * included), each changed board bumps its boardVersion with its own snapshot, and the
+ * private items the member owns, which nobody else could see, are soft-deleted. Returns
+ * the records for the caller's write to store.
+ */
+async function removeMemberFromItems(tx: Tx, move: MemberMove): Promise<WriteRecord[]> {
+  const items = forModule(tx, 'items');
+  const records: WriteRecord[] = [];
+  for (const board of await lockBoardsWith(items, move.tripId, move.membershipId)) {
+    // eslint-disable-next-line no-await-in-loop -- each board's snapshot follows its own change
+    await deleteMemberAllocations(items, board.id, move.membershipId);
+    // eslint-disable-next-line no-await-in-loop -- as above
+    const boardVersion = await bumpBoardVersion(items, board.id);
+    records.push({
+      action: 'update',
+      aggregate: 'item_board',
+      entityId: board.id,
+      tripId: move.tripId,
+      versionBefore: board.board_version,
+      version: boardVersion,
+      // eslint-disable-next-line no-await-in-loop -- as above
+      snapshot: boardSnapshot(await listBoard(items, board.id)),
+    });
+  }
+  for (const row of await lockPrivateItemsOf(items, move.tripId, move.membershipId)) {
+    // eslint-disable-next-line no-await-in-loop -- each item's snapshot follows its own change
+    const version = await softDeleteItem(items, row.id, move.userId);
+    records.push({
+      action: 'delete',
+      aggregate: 'item',
+      entityId: row.id,
+      tripId: move.tripId,
+      versionBefore: row.version,
+      version,
+      // The item as it was, as items.delete keeps it.
+      // eslint-disable-next-line no-await-in-loop -- as above
+      snapshot: itemSnapshot(row, await listShares(items, row.id)),
+    });
+  }
+  return records;
+}
+
+/**
+ * R32, the items side of a rejoin: the private items the member's latest removal
+ * soft-deleted (found by that removal's request id in the audit log) come back, as long
+ * as they are still the member's own private items. Items deleted any other way stay
+ * deleted. Returns the records for the caller's write to store.
+ */
+async function restoreMemberItems(tx: Tx, move: MemberMove): Promise<WriteRecord[]> {
+  const items = forModule(tx, 'items');
+  const removed = await deletedWithEntity(
+    tx,
+    { entityType: 'membership', entityId: move.membershipId },
+    'item',
+  );
+  const restored = await undeletePrivateItems(items, removed, {
+    tripId: move.tripId,
+    membershipId: move.membershipId,
+    updatedBy: move.userId,
+  });
+  const records: WriteRecord[] = [];
+  for (const id of restored) {
+    // eslint-disable-next-line no-await-in-loop -- one item at a time, in id order
+    const row = await findItem(items, id);
+    if (!row) throw new Error(`item ${id} vanished inside its own restore`);
+    records.push({
+      action: 'restore',
+      aggregate: 'item',
+      entityId: id,
+      tripId: move.tripId,
+      versionBefore: row.version - 1,
+      version: row.version,
+      // eslint-disable-next-line no-await-in-loop -- as above
+      snapshot: itemSnapshot(row, await listShares(items, id)),
+    });
+  }
+  return records;
 }
 
 /** sharedWith as membership uuids, unique and sorted; each must be active in the trip. */

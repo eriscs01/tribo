@@ -78,23 +78,23 @@
 - [x] `members.setRole` · Drop A · `PATCH /v1/trips/{tripId}/members/{membershipId}`
   - Change role or canViewCosts; Owner transfer to an MFA member demotes the old owner to organizer in the same write (G14); MCP approval; trip_archived on archived trips (R29)
   - Roles: owner. If-Match: `version`. Idempotency: safe to repeat.
-- [ ] `members.remove` · Drop A · `DELETE /v1/trips/{tripId}/members/{membershipId}`
+- [x] `members.remove` · Drop A · `DELETE /v1/trips/{tripId}/members/{membershipId}`
   - Remove member (soft delete); ledger rows stay; MCP approval; Also deletes the member's allocations (bumps boardVersion of each item); trip_archived on archived trips (R29); Also soft-deletes the private items the member owns; rejoin undeletes them (R32)
   - Roles: owner; self (non-owner leaving, G14). If-Match: `version`. Idempotency: safe to repeat.
-- [ ] `invites.list` · Drop A · `GET /v1/trips/{tripId}/invites`
+- [x] `invites.list` · Drop A · `GET /v1/trips/{tripId}/invites`
   - Invite links with role, expiry, uses; Token never returned after create
   - Roles: owner. If-Match: `no`. Idempotency: safe to repeat.
-- [ ] `invites.create` · Drop A · `POST /v1/trips/{tripId}/invites`
+- [x] `invites.create` · Drop A · `POST /v1/trips/{tripId}/invites`
   - Create link: role, expiry, maxUses, optional placeholder; Token shown once; placeholder invite single use; Secret omitted on idempotent replay (redacted = true): revoke and recreate (R2); Link format /join#<token> (fragment, never in proxy logs); Pre-linked person must be an active placeholder member of this trip (FK + check), else invite_invalid (R28); trip_archived on archived trips (R29)
   - Roles: owner. If-Match: `no`. Idempotency: creates (key).
   - Limit: Takes no Idempotency-Key in 1a: only expenses.create and files.upload honour it; this create follows in 1b.
-- [ ] `invites.revoke` · Drop A · `POST /v1/trips/{tripId}/invites/{inviteId}/revoke`
+- [x] `invites.revoke` · Drop A · `POST /v1/trips/{tripId}/invites/{inviteId}/revoke`
   - Revoke an invite link; Invites carry no version; trip_archived on archived trips (R29)
   - Roles: owner. If-Match: `no`. Idempotency: safe to repeat.
-- [ ] `invites.preview` · Drop A · `POST /v1/invites/preview`
+- [x] `invites.preview` · Drop A · `POST /v1/invites/preview`
   - Trip name, role, placeholder name for a token; Token in body; invite_invalid; Read only; no key (R2)
   - Roles: anyone with link. If-Match: `no`. Idempotency: safe to repeat.
-- [ ] `invites.accept` · Drop A · `POST /v1/invites/accept`
+- [x] `invites.accept` · Drop A · `POST /v1/invites/accept`
   - Join: new account (username+password) or signed-in; claims placeholder; username_taken, already_member, invite_invalid; Claim is per trip (R28): new account → its own person is created first; then only this trip's placeholder membership moves to the caller's person (tickets, allocations, shares follow the membership id); the placeholder never gains an account and stays in its other trips; when it has no membership rows left it is scrubbed, soft-deleted and mergedInto the caller; claim_conflict if the caller's person already has a row in this trip. Rejoin undeletes the caller's earlier membership in the trip. Anonymous Idempotency-Key caller = invite:<inviteId>; Set-Cookie never replayed
   - Roles: anyone with link. If-Match: `no`. Idempotency: creates (key).
   - Limit: Takes no Idempotency-Key in 1a: only expenses.create and files.upload honour it; this create follows in 1b.

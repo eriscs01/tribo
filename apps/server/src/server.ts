@@ -75,13 +75,15 @@ export async function buildServer(deps: ServerDeps): Promise<FastifyInstance> {
   });
 
   // Authentication runs only for implemented operations: a planned one answers 501 to anyone.
+  // A public operation that also takes a session (invites.accept) acts as the signed-in
+  // caller when its cookie is live, and as nobody otherwise: it never refuses here.
   app.addHook('onRequest', async (request) => {
     const op = request.routeOptions.config.operation;
-    if (op?.status !== 'implemented' || op.auth.includes('public')) return;
+    if (op?.status !== 'implemented') return;
     const token = op.auth.includes('session') ? sessionTokenOf(request) : undefined;
     const session = token === undefined ? null : await deps.authenticate(token);
-    if (!session) throw new ApiError('unauthenticated');
-    request.signedIn = session;
+    if (session) request.signedIn = session;
+    else if (!op.auth.includes('public')) throw new ApiError('unauthenticated');
   });
 
   // After authentication, so a signed-in write counts against its account. Without one it

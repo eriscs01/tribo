@@ -50,3 +50,5 @@ fixed.
 | [0007](0007-membership-roles-and-placeholders.md)   | 22 Oct 2026 | Membership roles, cost grants and placeholders                         | accepted |
 | [0008](0008-rate-limits-and-client-address.md)      | 22 Oct 2026 | Rate limits: what counts, against whom, which client address           | accepted |
 | [0009](0009-units-and-the-assignment-board.md)      | 22 Oct 2026 | Units and the assignment board                                         | accepted |
+| [0010](0010-dependency-graph-submitted-from-ci.md)  | 22 Oct 2026 | The dependency graph is submitted from CI                              | accepted |
+| [0011](0011-invites-joins-and-removals.md)          | 22 Oct 2026 | Invite links, joins, claims and removals                               | accepted |

@@ -1,5 +1,6 @@
 import { createHmac, hkdfSync, timingSafeEqual } from 'node:crypto';
-import { SESSION_COOKIE } from '@tribo/contract';
+import { encodeTypeId, ID_PREFIX, SESSION_COOKIE, type Session } from '@tribo/contract';
+import type { ClientInfo, SignedIn } from '@tribo/core';
 import type { AppKey } from '@tribo/crypto';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
@@ -7,6 +8,35 @@ const COOKIE_OPTIONS = { path: '/', secure: true, httpOnly: true, sameSite: 'lax
 
 export function setSessionCookie(reply: FastifyReply, token: string, maxAgeSeconds: number) {
   return reply.setCookie(SESSION_COOKIE, token, { ...COOKIE_OPTIONS, maxAge: maxAgeSeconds });
+}
+
+/** A session cookie lives as long as the session itself. */
+export function cookieMaxAge(session: SignedIn): number {
+  return Math.floor((session.expiresAt.getTime() - Date.now()) / 1000);
+}
+
+/** The signed-in session as auth.login, auth.session and invites.accept answer it. */
+export function sessionView(secret: Buffer, session: SignedIn, token: string): Session {
+  return {
+    user: {
+      id: encodeTypeId(ID_PREFIX.user, session.userId),
+      username: session.username,
+      platformRole: session.platformRole,
+    },
+    mfaVerified: session.mfaVerified,
+    csrfToken: csrfTokenFor(secret, token),
+    expiresAt: session.expiresAt.toISOString(),
+  };
+}
+
+const USER_AGENT_MAX = 512;
+
+/** Where a sign-in or join came from, as the session row keeps it (never audit). */
+export function clientOf(request: FastifyRequest): ClientInfo {
+  return {
+    ip: request.ip,
+    userAgent: request.headers['user-agent']?.slice(0, USER_AGENT_MAX) ?? null,
+  };
 }
 
 export function clearSessionCookie(reply: FastifyReply) {

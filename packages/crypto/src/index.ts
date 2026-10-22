@@ -17,3 +17,4 @@ export {
   type FieldRef,
   type Keyring,
 } from './envelope.js';
+export { newToken, tokenHash } from './token.js';

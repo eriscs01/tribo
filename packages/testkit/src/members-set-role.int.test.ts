@@ -2,6 +2,7 @@
 // members.setRole (Drop A): Change role or canViewCosts; Owner transfer to an MFA member demotes the old owner to organizer in the same write (G14); MCP approval; trip_archived on archived trips (R29)
 import {
   accountHasMfa,
+  memberItems,
   createMembersService,
   createTripsService,
   writePath,
@@ -31,7 +32,7 @@ const as = (user: UserFixture): RequestContext => {
 
 beforeAll(async () => {
   tdb = await createTestDatabase();
-  members = createMembersService(tdb.db, writePath(tdb.db), testKeys(), accountHasMfa);
+  members = createMembersService(tdb.db, writePath(tdb.db), testKeys(), accountHasMfa, memberItems);
 });
 afterAll(() => tdb.destroy());
 

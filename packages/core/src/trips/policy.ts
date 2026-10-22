@@ -99,3 +99,33 @@ export function roleChangeRefusal(change: {
   if (change.to === 'owner' && !change.newOwnerHasMfa) return 'mfa_required';
   return null;
 }
+
+/** invites.create, .list and .revoke: the owner alone manages the trip's invite links. */
+export function canManageInvites(role: TripRole): boolean {
+  return role === 'owner';
+}
+
+/** An invite's standing, derived on every read from its row and the clock (R40). */
+export function inviteStatus(
+  invite: { revokedAt: Date | null; expiresAt: Date; uses: number; maxUses: number | null },
+  now: Date,
+): 'active' | 'revoked' | 'expired' | 'used_up' {
+  if (invite.revokedAt !== null) return 'revoked';
+  if (invite.expiresAt <= now) return 'expired';
+  if (invite.maxUses !== null && invite.uses >= invite.maxUses) return 'used_up';
+  return 'active';
+}
+
+/**
+ * members.remove: why the caller may not remove this membership, or null. The owner removes
+ * anyone but themself: they leave only by handing the trip over first (G14), as they step
+ * down. Any other member may remove only themself, which is leaving the trip.
+ */
+export function removalRefusal(removal: {
+  callerRole: TripRole;
+  /** The membership is the caller's own. */
+  own: boolean;
+}): ErrorCode | null {
+  if (removal.own) return removal.callerRole === 'owner' ? 'owner_transfer_required' : null;
+  return removal.callerRole === 'owner' ? null : 'forbidden';
+}

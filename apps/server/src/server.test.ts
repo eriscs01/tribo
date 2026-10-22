@@ -17,6 +17,7 @@ import type { FastifyInstance } from 'fastify';
 import * as z from 'zod';
 import type {
   IdentityService,
+  InvitesService,
   ItemsService,
   LibraryService,
   MembersService,
@@ -115,7 +116,14 @@ const trips: TripsService = {
   update: unused,
   delete: unused,
 };
-const members: MembersService = { list: unused, add: unused, setRole: unused };
+const members: MembersService = { list: unused, add: unused, setRole: unused, remove: unused };
+const invites: InvitesService<{ token: string; session: SignedIn }> = {
+  create: unused,
+  list: unused,
+  revoke: unused,
+  preview: unused,
+  accept: unused,
+};
 const items: ItemsService = {
   create: unused,
   get: unused,
@@ -163,7 +171,16 @@ async function server(overrides: Partial<ServerDeps> = {}) {
     logStream: stream,
     registry: testRegistry,
     handlers: {
-      ...operationHandlers({ identity, csrfSecret: secret, trips, members, items, units, library }),
+      ...operationHandlers({
+        identity,
+        csrfSecret: secret,
+        trips,
+        members,
+        invites,
+        items,
+        units,
+        library,
+      }),
       'test.ip': (request) => {
         request.log.info('handler ran');
         return Promise.resolve({ ip: request.ip });

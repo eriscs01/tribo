@@ -106,3 +106,32 @@ export async function verifyChain(db: AuditDb, chainKey: string): Promise<number
   const broken = rows[0]?.broken ?? null;
   return broken === null ? null : Number(broken);
 }
+
+/**
+ * The ids of `entityType` rows the same request deleted as the latest delete of this
+ * entity: what a removal took with it, as members' rejoins ask (R32).
+ */
+export async function deletedWithLatestDelete(
+  db: AuditDb,
+  of: { entityType: string; entityId: string },
+  entityType: string,
+): Promise<string[]> {
+  const latest = await db
+    .selectFrom('audit.audit_events')
+    .select('request_id')
+    .where('entity_id', '=', of.entityId)
+    .where('entity_type', '=', of.entityType)
+    .where('action', '=', 'delete')
+    .orderBy('seq', 'desc')
+    .limit(1)
+    .executeTakeFirst();
+  if (!latest?.request_id) return [];
+  const rows = await db
+    .selectFrom('audit.audit_events')
+    .select('entity_id')
+    .where('request_id', '=', latest.request_id)
+    .where('entity_type', '=', entityType)
+    .where('action', '=', 'delete')
+    .execute();
+  return rows.flatMap((r) => (r.entity_id === null ? [] : [r.entity_id]));
+}

@@ -3,6 +3,7 @@
 import {
   createLibraryService,
   accountHasMfa,
+  memberItems,
   createMembersService,
   writePath,
   type MembersService,
@@ -25,7 +26,7 @@ let members: MembersService;
 
 beforeAll(async () => {
   tdb = await createTestDatabase();
-  members = createMembersService(tdb.db, writePath(tdb.db), testKeys(), accountHasMfa);
+  members = createMembersService(tdb.db, writePath(tdb.db), testKeys(), accountHasMfa, memberItems);
 });
 afterAll(() => tdb.destroy());
 

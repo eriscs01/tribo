@@ -3,6 +3,7 @@ export { writePath } from './write-path.js';
 export {
   accountHasMfa,
   createIdentityService,
+  invitedAccounts,
   startTotpEnrolment,
   totpMatches,
   type ClientInfo,
@@ -11,8 +12,17 @@ export {
   type SignedIn,
 } from './identity/service.js';
 export {
+  type AcceptedInvite,
+  type InviteAccounts,
+  type JoinClient,
+  createInvitesService,
   createMembersService,
   createTripsService,
+  type CreatedInvite,
+  type InvitePreviewRecord,
+  type InviteRecord,
+  type InvitesService,
+  type MemberItems,
   type MemberRecord,
   type MembersService,
   type MfaCheck,
@@ -24,6 +34,7 @@ export {
 export {
   createItemsService,
   createUnitsService,
+  memberItems,
   type AllocationRecord,
   type BoardRecord,
   type ItemRecord,

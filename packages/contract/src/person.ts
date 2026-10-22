@@ -5,7 +5,8 @@ import { ID_PREFIX, typeId } from './ids.js';
 import { MaskedValue } from './masked.js';
 import { Instant } from './time.js';
 
-const DisplayName = z.string().trim().min(1).max(120);
+/** How a person is named in trips and the library. */
+export const DisplayName = z.string().trim().min(1).max(120);
 const Dietary = z.string().trim().min(1).max(500);
 
 /** Who to call if something happens; stored encrypted (emergency_contact_enc, R5). */
