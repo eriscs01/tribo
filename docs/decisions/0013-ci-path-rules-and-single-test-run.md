@@ -46,11 +46,13 @@ ESLint is not cached: its type-aware rules (`strictTypeChecked`) read other file
 a file that now fails. A cache that is correct only when keyed on every source file would never
 hit.
 
-**Leak suite.** Measured at about 75 s of tests in CI and not on the critical path (Build and
-scan, then End to end, take longer), so it is not sharded: a shard pays the checkout, install
-and PostgreSQL start again for no wall-time gain on the critical path, and "Leak properties"
-would become a matrix whose check names differ from the ruleset's. The world count is
-unchanged on every event; the nightly run still uses a random seed.
+**Leak suite.** Measured in CI at 74 s of tests before this change and 84 s with coverage
+(job total 106 s and 109 s). It is not on the critical path (Build and scan, then End to end,
+take longer), so it is not sharded: a shard pays the checkout, install and PostgreSQL start
+again, which adds runner minutes without shortening the run, and "Leak properties" would become
+a matrix whose check names differ from the ruleset's. The world count is unchanged on every
+event; the nightly run still uses a random seed. Revisit when the leak job outlasts Build and
+scan plus End to end.
 
 **Images.** Build and scan builds each image as End to end runs it (same tag, release build
 arguments), scans it, and passes it on as an artifact; End to end loads it instead of
