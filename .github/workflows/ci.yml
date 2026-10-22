@@ -2,7 +2,7 @@ name: CI
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, 'ci-proof/base']
     # labeled and unlabeled rerun the pipeline so "API breaking changes" sees the api-breaking label.
     types: [opened, synchronize, reopened, labeled, unlabeled]
   push:
