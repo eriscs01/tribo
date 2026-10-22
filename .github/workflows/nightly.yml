@@ -1,3 +1,4 @@
+# throwaway proof comment
 name: Nightly
 
 # CI job 7 with random seeds: pushes and pull requests keep the fixed seed (ci.yml), so the
