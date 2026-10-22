@@ -4,9 +4,9 @@ import { defineConfig } from 'vitest/config';
 const src = '{apps,packages}/*/src/**';
 const globalSetup = ['packages/testkit/src/global-setup.ts'];
 
-// Tests normally import workspace packages through their built dist. Under `--coverage` they
-// import the TypeScript source instead, so V8 attributes every line a test runs to its src file.
-const coverage = process.argv.some((arg) => arg.startsWith('--coverage'));
+// Tests always import workspace packages from their TypeScript source, never from a built
+// `dist` that a source edit leaves stale (a red test would pass until `tsc -b` ran). It also
+// lets V8 coverage attribute every line a test runs to its src file.
 // CI runs each project with `--reporter=blob`: its coverage is one share of the whole, and the
 // floors are enforced once, on the merge of the three (`pnpm test:ci:merge`).
 const partialRun = process.argv.includes('--reporter=blob');
@@ -21,7 +21,7 @@ const sourceAliases = [
 
 // unit: no I/O (web tests opt into jsdom per file). integration and leak: one PostgreSQL 18 container per run (Docker needed).
 export default defineConfig({
-  resolve: { alias: coverage ? sourceAliases : [] },
+  resolve: { alias: sourceAliases },
   test: {
     // Story tests carry their drop (`// @module-tag drop-a`): `vitest run --tags-filter drop-b`.
     tags: [{ name: 'drop-a' }, { name: 'drop-b' }],
