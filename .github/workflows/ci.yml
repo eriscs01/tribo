@@ -355,7 +355,9 @@ jobs:
           build-args: ${{ matrix.build-args }}
           load: true
           cache-from: type=gha,scope=tribo-${{ matrix.image }}
-          cache-to: type=gha,scope=tribo-${{ matrix.image }},mode=max
+          # Only main fills the layer cache: a pull request's export (a minute of uploads at worst)
+          # would serve nobody but itself.
+          cache-to: ${{ github.event_name == 'push' && format('type=gha,scope=tribo-{0},mode=max', matrix.image) || '' }}
       # Trivy's vulnerability database from the latest run; Trivy downloads a new one only when
       # this copy is past its next-update time.
       - name: Restore the Trivy database
