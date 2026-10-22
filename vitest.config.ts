@@ -7,6 +7,9 @@ const globalSetup = ['packages/testkit/src/global-setup.ts'];
 // Tests normally import workspace packages through their built dist. Under `--coverage` they
 // import the TypeScript source instead, so V8 attributes every line a test runs to its src file.
 const coverage = process.argv.some((arg) => arg.startsWith('--coverage'));
+// CI runs each project with `--reporter=blob`: its coverage is one share of the whole, and the
+// floors are enforced once, on the merge of the three (`pnpm test:ci:merge`).
+const partialRun = process.argv.includes('--reporter=blob');
 const sourceAliases = [
   { find: '@tribo/testkit/totp', replacement: resolve('packages/testkit/src/totp.ts') },
   {
@@ -43,13 +46,15 @@ export default defineConfig({
       reportsDirectory: 'coverage',
       // Floors, not targets: raise them when coverage rises, never lower them to merge. A line
       // counts as covered only when a test that asserts its rule runs it (CLAUDE.md, tests).
-      thresholds: {
-        statements: 94,
-        branches: 88,
-        functions: 97,
-        lines: 96,
-        'packages/core/src/**': { statements: 94, branches: 89, functions: 99, lines: 97 },
-      },
+      thresholds: partialRun
+        ? undefined
+        : {
+            statements: 94,
+            branches: 88,
+            functions: 97,
+            lines: 96,
+            'packages/core/src/**': { statements: 94, branches: 89, functions: 99, lines: 97 },
+          },
     },
     projects: [
       {
