@@ -2,6 +2,8 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "rootDir": "src",
+    // scripts/ci-changes.ts runs from source in CI (node strips the types), so it imports ".ts".
+    "rewriteRelativeImportExtensions": true,
     "outDir": "dist"
   },
   "include": ["src"],

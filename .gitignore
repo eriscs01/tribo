@@ -14,6 +14,7 @@ node_modules/
 dist/
 build/
 coverage/
+vitest-reports/
 *.tsbuildinfo
 .turbo/
 .vite/

@@ -1,0 +1,14 @@
+name: Upload blob
+description: Keeps a test project's blob report (results and raw V8 coverage) for the Coverage job.
+inputs:
+  name:
+    description: The project, e.g. unit
+    required: true
+runs:
+  using: composite
+  steps:
+    - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      with:
+        name: vitest-blob-${{ inputs.name }}
+        path: vitest-reports/${{ inputs.name }}.json
+        retention-days: 1

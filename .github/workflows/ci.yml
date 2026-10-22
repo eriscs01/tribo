@@ -17,7 +17,32 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# Pull requests that change documentation only (decision 0013) skip the steps of the jobs below
+# that spend runner time. The job itself still runs and reports success, because a required check
+# that never reports blocks the merge; a skipped step is what a docs-only run looks like (runbook,
+# "Maintaining the repository"). Steps are gated on `needs.changes.outputs.code != 'false'`, so an
+# empty output (the Changes job failed) runs everything. Jobs that need a result from the Changes
+# job carry `if: ${{ !cancelled() }}` for the same reason: a failed need must not skip them.
 jobs:
+  # Decides whether a pull request touches code; every other event runs everything.
+  changes:
+    name: Changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.decide.outputs.code }}
+    steps:
+      # The pull request's merge commit with its two parents: HEAD^1 is the base it merges into.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      - id: decide
+        run: node packages/story-kit/src/scripts/ci-changes.ts "$GITHUB_EVENT_NAME"
+
   lint:
     name: Lint and format
     runs-on: ubuntu-latest
@@ -32,18 +57,27 @@ jobs:
 
   typecheck:
     name: Typecheck
+    needs: [changes]
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: needs.changes.outputs.code != 'false'
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup
+        if: needs.changes.outputs.code != 'false'
+      - uses: ./.github/actions/build-cache
+        if: needs.changes.outputs.code != 'false'
       - run: pnpm typecheck
+        if: needs.changes.outputs.code != 'false'
       # The SPA and its app-shell service worker (Vite + Workbox), from the types tsc just built.
       - run: pnpm build:web
+        if: needs.changes.outputs.code != 'false'
       # Initial JS ≤ 200 KB gzip (technical design, Operations › Performance); prints the size.
       - run: pnpm check:bundle
+        if: needs.changes.outputs.code != 'false'
 
   # Pull requests only: packages/contract/openapi.json against the base branch's copy with
   # oasdiff (pinned release, checksum verified, no service). A breaking change fails the job
@@ -114,63 +148,105 @@ jobs:
             gitleaks git --redact --no-banner .
           fi
 
+  # Unit, Integration and Leak properties each run once, with V8 coverage, and keep a blob report
+  # of the run (test results and raw coverage); Coverage merges the three and enforces the
+  # floors. Under --coverage the tests import the TypeScript source, so these jobs need no build.
   unit:
     name: Unit
+    needs: [changes]
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: needs.changes.outputs.code != 'false'
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup
-      # Workspace packages resolve through their built dist.
-      - run: pnpm build
-      - run: pnpm test:unit
+        if: needs.changes.outputs.code != 'false'
+      - run: pnpm test:ci --project unit --outputFile.blob=vitest-reports/unit.json
+        if: needs.changes.outputs.code != 'false'
+      - uses: ./.github/actions/upload-blob
+        if: needs.changes.outputs.code != 'false'
+        with:
+          name: unit
 
   # Integration and leak tests start PostgreSQL 18 through Testcontainers on the runner's Docker.
   integration:
     name: Integration
+    needs: [changes]
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: needs.changes.outputs.code != 'false'
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup
-      # Workspace packages resolve through their built dist.
-      - run: pnpm build
-      - run: pnpm test:integration
+        if: needs.changes.outputs.code != 'false'
+      - run: pnpm test:ci --project integration --outputFile.blob=vitest-reports/integration.json
+        if: needs.changes.outputs.code != 'false'
+      - uses: ./.github/actions/upload-blob
+        if: needs.changes.outputs.code != 'false'
+        with:
+          name: integration
 
   leak:
     name: Leak properties
+    needs: [changes]
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: needs.changes.outputs.code != 'false'
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup
-      # Workspace packages resolve through their built dist.
-      - run: pnpm build
+        if: needs.changes.outputs.code != 'false'
       # Fixed seed (the testkit default) so pushes are reproducible; random seeds run in nightly.yml.
-      - run: pnpm test:leak
+      - run: pnpm test:ci --project leak --outputFile.blob=vitest-reports/leak.json
+        if: needs.changes.outputs.code != 'false'
+      - uses: ./.github/actions/upload-blob
+        if: needs.changes.outputs.code != 'false'
+        with:
+          name: leak
 
-  # All three test projects against the TypeScript source, with V8 coverage computed on the
-  # runner: the floors in vitest.config.ts fail the job, the summary goes to the run page and
-  # the HTML report is kept as an artifact. No coverage service and no token: nothing leaves
-  # GitHub.
+  # Merges the three blob reports into one coverage run (no PostgreSQL, no test is run again):
+  # the floors in vitest.config.ts fail the job, the summary goes to the run page and the HTML
+  # report is kept as an artifact. No coverage service and no token: nothing leaves GitHub.
   coverage:
     name: Coverage
+    needs: [changes, unit, integration, leak]
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
+      # A test job that failed has no blob report: the merge below must not pass without it.
+      - name: Require the three test jobs
+        if: needs.changes.outputs.code != 'false'
+        env:
+          RESULTS: ${{ needs.unit.result }} ${{ needs.integration.result }} ${{ needs.leak.result }}
+        run: |
+          echo "unit, integration, leak: $RESULTS"
+          [ "$RESULTS" = "success success success" ]
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: needs.changes.outputs.code != 'false'
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup
-      - run: pnpm test:coverage
+        if: needs.changes.outputs.code != 'false'
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: needs.changes.outputs.code != 'false'
+        with:
+          pattern: vitest-blob-*
+          path: vitest-reports
+          merge-multiple: true
+      - run: pnpm test:ci:merge
+        if: needs.changes.outputs.code != 'false'
       - name: Summarise the coverage
-        if: always()
+        if: always() && needs.changes.outputs.code != 'false'
         run: |
           [ -f coverage/coverage-summary.json ] || exit 0
           {
@@ -181,7 +257,7 @@ jobs:
               coverage/coverage-summary.json
           } >>"$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: always()
+        if: always() && needs.changes.outputs.code != 'false'
         with:
           name: coverage-report
           path: coverage/
@@ -211,14 +287,18 @@ jobs:
 
   lockfile:
     name: Scan the lockfile
+    needs: [changes]
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: needs.changes.outputs.code != 'false'
         with:
           persist-credentials: false
       # osv-scanner fails on any finding; only those of CVSS 7 or more (or unscored) fail the job.
       - name: Scan the lockfile (osv-scanner)
+        if: needs.changes.outputs.code != 'false'
         run: |
           set +e
           docker run --rm -v "$PWD:/src:ro" "$OSV_SCANNER" scan source \
@@ -238,8 +318,12 @@ jobs:
     env:
       OSV_SCANNER: ghcr.io/google/osv-scanner:v2.6.0@sha256:afd838850ac1a0fcc15ff4a041dc9ba11123c3f0d2666217a5f0fcf9222b55fa
 
+  # The images are built as End to end runs them (the same tags and release build arguments),
+  # scanned, and passed on as artifacts: what Trivy scanned is what the walking skeleton tests.
   image:
     name: Build and scan (${{ matrix.image }})
+    needs: [changes]
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -248,25 +332,36 @@ jobs:
         include:
           - image: app
             dockerfile: deploy/app/Dockerfile
+            build-args: |
+              TRIBO_RELEASE_VERSION=ci
+              TRIBO_RELEASE_COMMIT=${{ github.sha }}
           - image: proxy
             dockerfile: deploy/caddy/Dockerfile
+            build-args: ''
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: needs.changes.outputs.code != 'false'
         with:
           persist-credentials: false
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+        if: needs.changes.outputs.code != 'false'
       - name: Build the image
+        if: needs.changes.outputs.code != 'false'
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           file: ${{ matrix.dockerfile }}
-          tags: tribo-${{ matrix.image }}:ci
+          tags: ghcr.io/eriscs01/tribo-${{ matrix.image }}:ci
+          build-args: ${{ matrix.build-args }}
           load: true
           cache-from: type=gha,scope=tribo-${{ matrix.image }}
-          cache-to: type=gha,scope=tribo-${{ matrix.image }},mode=max
+          # Only main fills the layer cache: a pull request's export (a minute of uploads at worst)
+          # would serve nobody but itself.
+          cache-to: ${{ github.event_name == 'push' && format('type=gha,scope=tribo-{0},mode=max', matrix.image) || '' }}
       # Trivy's vulnerability database from the latest run; Trivy downloads a new one only when
       # this copy is past its next-update time.
       - name: Restore the Trivy database
+        if: needs.changes.outputs.code != 'false'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .trivy-db
@@ -274,11 +369,24 @@ jobs:
           restore-keys: trivy-db-
       # Findings with no fixed version are left out: no image change could clear them.
       - name: Scan the image (Trivy)
+        if: needs.changes.outputs.code != 'false'
         run: |
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD:/src:ro" \
             -v "$PWD/.trivy-db:/root/.cache/trivy/db" "$TRIVY" \
             image --quiet --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 \
-            --ignorefile /src/.trivyignore.yaml "tribo-${{ matrix.image }}:ci"
+            --ignorefile /src/.trivyignore.yaml "ghcr.io/eriscs01/tribo-${{ matrix.image }}:ci"
+      # Only an image that passed the scan is passed on. gzip -1: fast, and the layers are
+      # compressed already.
+      - name: Save the scanned image
+        if: needs.changes.outputs.code != 'false'
+        run: docker save "ghcr.io/eriscs01/tribo-${{ matrix.image }}:ci" | gzip -1 >image.tar.gz
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: needs.changes.outputs.code != 'false'
+        with:
+          name: image-${{ matrix.image }}
+          path: image.tar.gz
+          compression-level: 0
+          retention-days: 1
     env:
       TRIVY: aquasec/trivy:0.75.0@sha256:af6acf9a6b85dfe389a1941505c0ce9efef52a4719635e1a962f022a3d855daa
 
@@ -297,11 +405,12 @@ jobs:
           [ "$RESULTS" = "success success" ]
 
   # Job 7: exit criteria 1–2 (apps/e2e) in a browser against deploy/compose.yml, run from the
-  # images job 6 scanned (rebuilt here from its layer cache) in the internal TLS mode. It runs
-  # on pull requests too, because a required check must report on the PR it guards.
+  # images job 6 built and scanned (loaded from its artifacts, not rebuilt) in the internal TLS
+  # mode. It runs on pull requests too, because a required check must report on the PR it guards.
   e2e:
     name: End to end
-    needs: [images]
+    needs: [changes, images]
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -311,45 +420,53 @@ jobs:
       TRIBO_PUBLIC_URL: https://tribo.localhost
       TRIBO_TLS_MODE: internal
     steps:
+      # The images job must have passed; a skipped needs-gate would otherwise let this run alone.
+      - name: Require the build and scan
+        if: needs.changes.outputs.code != 'false'
+        env:
+          RESULT: ${{ needs.images.result }}
+        run: |
+          echo "build and scan: $RESULT"
+          [ "$RESULT" = "success" ]
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: needs.changes.outputs.code != 'false'
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup
+        if: needs.changes.outputs.code != 'false'
+      - uses: ./.github/actions/build-cache
+        if: needs.changes.outputs.code != 'false'
       # The test imports @tribo/contract and @tribo/testkit through their built dist.
       - run: pnpm build
+        if: needs.changes.outputs.code != 'false'
       # The stack runs on the oldest Docker Engine and Compose the release supports, so the
       # floor in deploy/docker-minimum.env is tested, not assumed; docker-check.sh must pass.
       - name: Read the Docker floor
+        if: needs.changes.outputs.code != 'false'
         run: grep -E '^DOCKER_[A-Z_]+=' deploy/docker-minimum.env >>"$GITHUB_ENV"
       - uses: ./.github/actions/docker
+        if: needs.changes.outputs.code != 'false'
         with:
           engine: ${{ env.DOCKER_ENGINE_MIN }}
           compose: ${{ env.DOCKER_COMPOSE_MIN }}
       - run: sh deploy/docker-check.sh
-      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
-      - name: Build the app image
-        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        if: needs.changes.outputs.code != 'false'
+      # The two images the scan jobs built and Trivy passed; loaded after the engine is in place.
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: needs.changes.outputs.code != 'false'
         with:
-          context: .
-          file: deploy/app/Dockerfile
-          tags: ghcr.io/eriscs01/tribo-app:ci
-          load: true
-          cache-from: type=gha,scope=tribo-app
-          build-args: |
-            TRIBO_RELEASE_VERSION=ci
-            TRIBO_RELEASE_COMMIT=${{ github.sha }}
-      - name: Build the proxy image
-        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
-        with:
-          context: .
-          file: deploy/caddy/Dockerfile
-          tags: ghcr.io/eriscs01/tribo-proxy:ci
-          load: true
-          cache-from: type=gha,scope=tribo-proxy
+          pattern: image-*
+          path: images
+      - name: Load the scanned images
+        if: needs.changes.outputs.code != 'false'
+        run: |
+          for archive in images/*/image.tar.gz; do gunzip --stdout "$archive" | docker load; done
+          docker image ls
       # Throwaway secrets for this run only. Compose ignores the secrets' uid, gid and mode
       # outside Swarm and bind-mounts the files as they are, so the db and app users must be
       # able to read them.
       - name: Create the secrets
+        if: needs.changes.outputs.code != 'false'
         working-directory: deploy
         run: |
           mkdir secrets
@@ -358,16 +475,20 @@ jobs:
             openssl rand -hex 32 >"secrets/$name"
           done
           chmod 644 secrets/*
-      # The two images just built are used as they are; only PostgreSQL is pulled.
+      # The two images just loaded are used as they are; only PostgreSQL is pulled.
       - name: Start the stack
+        if: needs.changes.outputs.code != 'false'
         run: |
           docker compose up -d --wait
           curl --fail --silent --insecure --retry 30 --retry-delay 2 --retry-all-errors \
             "$TRIBO_PUBLIC_URL/healthz"
       - run: pnpm --filter @tribo/e2e exec playwright install --with-deps chromium
+        if: needs.changes.outputs.code != 'false'
       - run: pnpm test:e2e
+        if: needs.changes.outputs.code != 'false'
       # The release reaches the running app from the build: the start-up line and the CLI.
       - name: The app names its release
+        if: needs.changes.outputs.code != 'false'
         run: |
           docker compose logs --no-color app | grep '"msg":"starting"' | grep -F "\"commit\":\"$GITHUB_SHA\""
           docker compose exec -T app tribo release show | grep -Fx "Tribo ci ($GITHUB_SHA)"

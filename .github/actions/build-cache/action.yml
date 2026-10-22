@@ -1,0 +1,16 @@
+name: Build cache
+description: The TypeScript build state (tsbuildinfo and dist) of the last run, so tsc -b rebuilds only what changed. A miss gives a full, correct build.
+runs:
+  using: composite
+  steps:
+    # tsc -b compares each file's version with the one in its .tsbuildinfo, so a restored cache
+    # of another commit only saves work; it never changes what the build reports.
+    - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: |
+          packages/*/tsconfig.tsbuildinfo
+          apps/*/tsconfig.tsbuildinfo
+          packages/*/dist
+          apps/*/dist
+        key: tsc-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', 'tsconfig*.json', 'packages/*/tsconfig.json', 'apps/*/tsconfig.json', '.nvmrc') }}-${{ github.run_id }}
+        restore-keys: tsc-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', 'tsconfig*.json', 'packages/*/tsconfig.json', 'apps/*/tsconfig.json', '.nvmrc') }}-

@@ -53,3 +53,4 @@ fixed.
 | [0010](0010-dependency-graph-submitted-from-ci.md)  | 22 Oct 2026 | The dependency graph is submitted from CI                              | accepted |
 | [0011](0011-invites-joins-and-removals.md)          | 22 Oct 2026 | Invite links, joins, claims and removals                               | accepted |
 | [0012](0012-itinerary-and-dashboard.md)             | 22 Oct 2026 | The itinerary and the dashboard in Drop A                              | accepted |
+| [0013](0013-ci-path-rules-and-single-test-run.md)   | 22 Oct 2026 | CI path rules, step-level skips and one run of the tests               | accepted |
