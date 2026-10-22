@@ -358,14 +358,21 @@ jobs:
           # Only main fills the layer cache: a pull request's export (a minute of uploads at worst)
           # would serve nobody but itself.
           cache-to: ${{ github.event_name == 'push' && format('type=gha,scope=tribo-{0},mode=max', matrix.image) || '' }}
-      # Trivy's vulnerability database from the latest run; Trivy downloads a new one only when
-      # this copy is past its next-update time.
+      # Trivy's vulnerability database, one cache entry a day shared by both scans (the key is
+      # the UTC date, not the run), so the repository's cache holds one copy rather than two
+      # per run. A day's first scan restores the latest earlier copy, and Trivy downloads a
+      # new database only when that copy is past its next-update time; the entry is saved
+      # under the new day's key.
+      - name: Name the Trivy database's day
+        id: trivy-day
+        if: needs.changes.outputs.code != 'false'
+        run: echo "day=$(date -u +%F)" >>"$GITHUB_OUTPUT"
       - name: Restore the Trivy database
         if: needs.changes.outputs.code != 'false'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .trivy-db
-          key: trivy-db-${{ matrix.image }}-${{ github.run_id }}
+          key: trivy-db-${{ steps.trivy-day.outputs.day }}
           restore-keys: trivy-db-
       # Findings with no fixed version are left out: no image change could clear them.
       - name: Scan the image (Trivy)
@@ -375,6 +382,10 @@ jobs:
             -v "$PWD/.trivy-db:/root/.cache/trivy/db" "$TRIVY" \
             image --quiet --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 \
             --ignorefile /src/.trivyignore.yaml "ghcr.io/eriscs01/tribo-${{ matrix.image }}:ci"
+      # The database the scan used, in the log: when it was built and when it goes stale.
+      - name: Show the Trivy database's age
+        if: needs.changes.outputs.code != 'false'
+        run: cat .trivy-db/metadata.json
       # Only an image that passed the scan is passed on. gzip -1: fast, and the layers are
       # compressed already.
       - name: Save the scanned image

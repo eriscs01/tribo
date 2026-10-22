@@ -572,3 +572,7 @@ The job caches `~/.cache/ms-playwright` by Playwright version and installs only 
 2. If the step timed out, re-run the job once. A second stall is the CDN or the runner network: wait, do not raise the timeout.
 3. If a browser error names a missing shared library (`error while loading shared libraries`), the runner image changed: add `--with-deps` back to that step and keep its timeout.
 4. Raising Playwright in `apps/e2e/package.json` changes the cache key, so the next run downloads once.
+
+### The Trivy database cache
+
+One cache entry per UTC day, `trivy-db-<date>`, shared by both image scans. After each scan the log prints the database's `UpdatedAt` and `NextUpdate`; a scan with `NextUpdate` in the past would have downloaded a newer one first. To clear it, delete the entry (`gh cache delete trivy-db-<date>`) and re-run: Trivy downloads a fresh database.
