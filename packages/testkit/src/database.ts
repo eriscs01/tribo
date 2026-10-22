@@ -58,6 +58,18 @@ export async function createTestDatabase(): Promise<TestDatabase> {
     password: i.appPassword,
     max: 4,
   });
+  // pg-pool re-emits an idle connection's error on the pool; with no listener it would
+  // surface as an unhandled error in whichever test file runs next. Keep it, report it in destroy().
+  const poolErrors: Error[] = [];
+  pool.on('error', (error) => poolErrors.push(error));
+  // pool.end() resolves once its clients are told to end, not once their sockets have closed.
+  const open = new Set<pg.Client>();
+  const drained: { resolve?: () => void } = {};
+  pool.on('connect', (client) => open.add(client));
+  pool.on('remove', (client) => {
+    open.delete(client);
+    if (open.size === 0) drained.resolve?.();
+  });
   const db = new Kysely<DB>({ dialect: new PostgresDialect({ pool }) });
   return {
     name,
@@ -67,7 +79,15 @@ export async function createTestDatabase(): Promise<TestDatabase> {
       // Kysely ends only a pool it has queried through; a test may have used `pool` alone.
       await db.destroy();
       if (!pool.ending) await pool.end();
-      await asSuperuser((client) => client.query(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`));
+      // Dropping while a backend is still closing makes the server terminate it (57P01), and
+      // the client reports that as an error after its pool is gone.
+      if (open.size > 0)
+        await new Promise<void>((resolve) => {
+          drained.resolve = resolve;
+        });
+      await asSuperuser((client) => client.query(`DROP DATABASE IF EXISTS ${name}`));
+      const [first] = poolErrors;
+      if (first) throw first;
     },
   };
 }

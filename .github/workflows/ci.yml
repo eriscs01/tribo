@@ -189,6 +189,26 @@ jobs:
 
   # Job 6, in three parts that run at once: the lockfile scan, and one build and Trivy scan
   # per image. "Build and scan" (the required check) passes only when all of them do.
+  # GitHub's dependency graph does not read pnpm 12's lockfile, so it kept vite 8.3.2 after #54 and
+  # Dependabot alerts stayed open. This submits the resolved graph on every push to main (decision
+  # 0010). It is not a required check and needs no other job: a red test run must not freeze the graph.
+  dependency-graph:
+    name: Dependency graph
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      # The dependency submission API needs write access to contents, nothing else.
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - run: pnpm submit:deps
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   lockfile:
     name: Scan the lockfile
     runs-on: ubuntu-latest
