@@ -32,3 +32,5 @@ chore that does it; a dropped one stays here so it is not raised again without a
 | ETags on `items.get` and `items.list`.       | [#46](https://github.com/eriscs01/tribo/pull/46) | They are not polled reads. Representation ETags are for the polled ones (dashboard, offline bundle), declared in the registry when they land.        |
 | The CLI printing its request id on success.  | [#48](https://github.com/eriscs01/tribo/pull/48) | A successful command's events are found by the entity it changed; a failing command already prints its request id with the error.                    |
 | A generic request-id helper for jobs.        | [#48](https://github.com/eriscs01/tribo/pull/48) | There are no daily jobs yet; per the debuggability skill the first job mints its prefixed id and brings the helper with it.                          |
+
+Throwaway proof line (docs only).
