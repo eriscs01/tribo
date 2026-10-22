@@ -482,8 +482,23 @@ jobs:
           docker compose up -d --wait
           curl --fail --silent --insecure --retry 30 --retry-delay 2 --retry-all-errors \
             "$TRIBO_PUBLIC_URL/healthz"
-      - run: pnpm --filter @tribo/e2e exec playwright install --with-deps chromium
+      # The browser is cached by Playwright version, and only the headless shell the test uses is
+      # installed, without --with-deps: the runner image already has Chrome's libraries, and
+      # apt-get on its mirror is where this step used to stall for ten minutes.
+      - name: Read the Playwright version
+        id: playwright
         if: needs.changes.outputs.code != 'false'
+        run: echo "version=$(pnpm --filter @tribo/e2e exec playwright --version | awk '{print $2}')" >>"$GITHUB_OUTPUT"
+      - name: Restore the Playwright browser
+        if: needs.changes.outputs.code != 'false'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+      - name: Install the Playwright browser
+        if: needs.changes.outputs.code != 'false'
+        timeout-minutes: 5
+        run: pnpm --filter @tribo/e2e exec playwright install --only-shell chromium
       - run: pnpm test:e2e
         if: needs.changes.outputs.code != 'false'
       # The release reaches the running app from the build: the start-up line and the CLI.
