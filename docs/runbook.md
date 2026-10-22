@@ -553,3 +553,13 @@ GitHub's dependency graph cannot read pnpm 12's lockfile, so CI job "Dependency 
 1. Open the job's log on the merge commit. It prints `submitted N packages from M projects` on success, or `dependency submission refused: <status> <body>` with GitHub's answer (a 403 means the job lost `contents: write`).
 2. Reproduce without sending anything: `pnpm submit:deps --dry-run` prints the snapshot.
 3. Re-run the job from the Actions tab. The job is not a required check, so a failure never blocks a merge.
+
+### A CI run was quick: skipped, or really run?
+
+A pull request that changes documentation only takes the quick path ([decision 0013](decisions/0013-ci-path-rules-and-single-test-run.md)): every required check still reports success, but the heavy jobs skip their steps. To tell a skipped run from a real one:
+
+1. Open the run's **Changes** job and read its log. `ci-changes: … code=false` and `documentation only` mean the quick path; `code=true` lists the first paths that count as code (`ci-changes: code: <path>`).
+2. In a skipped job (Unit, Integration, Leak properties, Coverage, Typecheck, Build and scan, End to end) every step shows as skipped (grey) and the job lasts a few seconds. A job that ran shows its steps green with real durations.
+3. Pushes to `main`, tags, the nightly run and Publish never take the quick path.
+4. If the **Changes** job itself failed, nothing is skipped: the other jobs see an empty `code` output and run everything. Fix the cause (usually `git diff` could not read the merge commit) and re-run.
+5. A pull request that was wrongly quick (a path that should count as code is not in the rules) is fixed by adding the path to `packages/story-kit/src/ci-changes.ts` with a test, in the same pull request as the change that exposed it.
