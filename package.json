@@ -24,6 +24,7 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e": "pnpm --filter @tribo/e2e test",
     "new:op": "tsc -b packages/story-kit && node packages/story-kit/dist/scripts/new-op.js",
+    "submit:deps": "tsc -b packages/story-kit && node packages/story-kit/dist/scripts/submit-dependency-snapshot.js",
     "backlog": "tsc -b packages/story-kit && node packages/story-kit/dist/scripts/write-backlog.js",
     "dev:up": "sh deploy/dev/secrets.sh && docker compose -f deploy/compose.dev.yml up -d --build --wait db app && docker compose -f deploy/compose.dev.yml up -d --wait proxy && docker compose -f deploy/compose.dev.yml ps",
     "dev:down": "docker compose -f deploy/compose.dev.yml down",
