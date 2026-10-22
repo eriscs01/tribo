@@ -7372,15 +7372,26 @@
           }
         ],
         "responses": {
-          "501": {
-            "description": "Registered but not implemented yet (not_implemented)",
-            "content": {
-              "application/problem+json": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "ETag": {
+                "description": "SHA-256 (base64url) of this representation, as sent to this caller",
                 "schema": {
-                  "$ref": "#/components/schemas/Problem"
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TripDashboard"
                 }
               }
             }
+          },
+          "304": {
+            "description": "Not modified: If-None-Match names the ETag"
           },
           "default": {
             "description": "Error",
@@ -7394,7 +7405,7 @@
           }
         },
         "x-tribo": {
-          "status": "planned",
+          "status": "implemented",
           "slice": "1a",
           "drop": "A",
           "roles": "owner, organizer, member, viewer",
@@ -7412,6 +7423,15 @@
             "schema": {
               "type": "string",
               "pattern": "^trp_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+            }
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "required": false,
+            "description": "An ETag already held; 304 when it is still current",
+            "schema": {
+              "type": "string"
             }
           }
         ]
@@ -9209,9 +9229,65 @@
         },
         "additionalProperties": false
       },
+      "Countdown": {
+        "type": "object",
+        "properties": {
+          "startDate": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "timezone": {
+            "$ref": "#/components/schemas/TimeZone"
+          },
+          "daysToStart": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "phase": {
+            "$ref": "#/components/schemas/TripPhase"
+          }
+        },
+        "required": [
+          "startDate",
+          "endDate",
+          "timezone",
+          "daysToStart",
+          "phase"
+        ],
+        "additionalProperties": false
+      },
       "CurrencyCode": {
         "type": "string",
         "pattern": "^[A-Z]{3}$"
+      },
+      "DueSoon": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/DueSoonKind"
+          },
+          "item": {
+            "$ref": "#/components/schemas/Item"
+          }
+        },
+        "required": [
+          "kind",
+          "item"
+        ],
+        "additionalProperties": false
+      },
+      "DueSoonKind": {
+        "type": "string",
+        "enum": [
+          "task_due"
+        ]
       },
       "EmergencyContact": {
         "type": "object",
@@ -11240,6 +11316,70 @@
         ],
         "additionalProperties": false
       },
+      "TripDashboard": {
+        "type": "object",
+        "properties": {
+          "tripId": {
+            "type": "string",
+            "pattern": "^trp_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "countdown": {
+            "$ref": "#/components/schemas/Countdown"
+          },
+          "nextItem": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Item"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "openTasks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Item"
+            }
+          },
+          "dueSoon": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DueSoon"
+            }
+          },
+          "myShare": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Money"
+              },
+              {
+                "$ref": "#/components/schemas/MaskedValue"
+              }
+            ]
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Warning"
+            }
+          }
+        },
+        "required": [
+          "tripId",
+          "name",
+          "countdown",
+          "nextItem",
+          "openTasks",
+          "dueSoon",
+          "myShare",
+          "warnings"
+        ],
+        "additionalProperties": false
+      },
       "TripInput": {
         "type": "object",
         "properties": {
@@ -11341,6 +11481,14 @@
           }
         },
         "additionalProperties": false
+      },
+      "TripPhase": {
+        "type": "string",
+        "enum": [
+          "upcoming",
+          "underway",
+          "over"
+        ]
       },
       "TripRole": {
         "type": "string",

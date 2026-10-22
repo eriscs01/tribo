@@ -12,6 +12,7 @@ import {
 } from '@tribo/contract';
 import { AppKey } from '@tribo/crypto';
 import {
+  addAllocation,
   addMember,
   createItem,
   createTestDatabase,
@@ -163,6 +164,45 @@ describe('itinerary.get over HTTP', () => {
       status: 404,
     });
     expect(JSON.stringify(linesOf(hidden.headers['x-request-id']))).not.toContain('Lagwerta');
+  });
+
+  it('names both items of an overlap by type id', async () => {
+    const w = await world();
+    const slot = (from: string, to: string) => ({
+      start: new Date(`2026-11-12T${from}:00+08:00`),
+      end: new Date(`2026-11-12T${to}:00+08:00`),
+      tz: 'Asia/Manila',
+    });
+    const [dive, lunch] = await Promise.all([
+      createItem(tdb.db, {
+        tripId: w.trip.tripId,
+        ownerMembershipId: w.trip.ownerMembershipId,
+        timed: slot('10:00', '12:00'),
+      }),
+      createItem(tdb.db, {
+        tripId: w.trip.tripId,
+        ownerMembershipId: w.trip.ownerMembershipId,
+        type: 'meal',
+        timed: slot('11:30', '13:00'),
+      }),
+    ]);
+    for (const itemId of [dive, lunch]) {
+      // eslint-disable-next-line no-await-in-loop -- one row at a time
+      await addAllocation(tdb.db, {
+        tripId: w.trip.tripId,
+        itemId,
+        membershipId: w.memberMembershipId,
+        role: 'attendee',
+      });
+    }
+    const [first = '', second = ''] = [dive, lunch].sort();
+    expect((await read(w, w.member)).json<Itinerary>().warnings).toEqual([
+      {
+        code: 'overlap',
+        itemId: encodeTypeId(ID_PREFIX.item, first),
+        withItemId: encodeTypeId(ID_PREFIX.item, second),
+      },
+    ]);
   });
 
   it('follows a licence change made through me.update: the driver warning goes away', async () => {

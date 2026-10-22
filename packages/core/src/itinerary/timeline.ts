@@ -1,8 +1,10 @@
 // The itinerary engine as pure functions of the items a caller can see: their days on the
-// timeline, each in the item's own zone, and the overlap check between them. No database,
-// no caller: whatever the items service hides never reaches here.
+// timeline, each in the item's own zone, which of them are the caller's, and the rule checks
+// between them. No database: whatever the items service hides never reaches here, which is
+// what keeps every summary read (itinerary, dashboard) from speaking of a hidden item.
 import type { ItineraryPart } from '@tribo/contract';
-import type { ItemRecord } from '../items/service.js';
+import type { ItemRecord, TripItem } from '../items/service.js';
+import type { CallerMembership } from '../trips/service.js';
 
 export type TimelineItem = Pick<ItemRecord, 'id' | 'type' | 'status' | 'start' | 'end'>;
 
@@ -39,10 +41,10 @@ const lineAt = (itemId: string, part: ItineraryPart, t: Time): EntryRecord =>
     ? { itemId, part, time: null, tz: null }
     : { itemId, part, time: t.local.slice(11, 16), tz: t.tz };
 
-/** The calendar day after `date` (YYYY-MM-DD), in no zone: dates are already local. */
-function nextDay(date: string): string {
+/** The calendar day `days` after `date` (YYYY-MM-DD), in no zone: dates are already local. */
+export function addDays(date: string, days: number): string {
   const d = new Date(`${date}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + 1);
+  d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
 }
 
@@ -54,7 +56,7 @@ function itemLines(item: TimelineItem): [string, EntryRecord][] {
   const last = end === null ? first : dayOf(end);
   if (item.type === 'lodging') {
     const lines: [string, EntryRecord][] = [[first, lineAt(item.id, 'check_in', start)]];
-    for (let d = nextDay(first); d < last; d = nextDay(d)) {
+    for (let d = addDays(first, 1); d < last; d = addDays(d, 1)) {
       lines.push([d, { itemId: item.id, part: 'staying', time: null, tz: null }]);
     }
     if (end !== null) lines.push([last, lineAt(item.id, 'check_out', end)]);
@@ -141,4 +143,60 @@ export function overlapWarnings(
       ? x.withItemId.localeCompare(y.withItemId)
       : x.itemId.localeCompare(y.itemId),
   );
+}
+
+/** A rule check on the itinerary's items, naming the item (and unit, or other item) it is about. */
+export interface WarningRecord {
+  code: 'overlap' | 'no_licensed_driver';
+  itemId: string;
+  withItemId?: string;
+  unitId?: string;
+}
+
+/** Whether a board row puts its member on the item: an attendee who said no is not. */
+const onBoard = (r: TripItem['board'][number]) => !(r.role === 'attendee' && r.rsvp === 'no');
+
+/**
+ * view=me (Technical Design, "Itinerary"): the items the caller owns, attends, occupies,
+ * drives, rides in or is assigned to, which is every row of theirs on the item's board but
+ * an attendee's "no".
+ */
+export function isMine({ item, board }: TripItem, viewer: CallerMembership): boolean {
+  if (item.ownerMembershipId === viewer.id) return true;
+  return board.some((r) => r.membershipId === viewer.id && onBoard(r));
+}
+
+/**
+ * The timeline of these items within the range: its days, the items those days name, and
+ * the rule checks on those items alone, so no check can reach past what the caller sees.
+ */
+export function laidOut(
+  shown: readonly TripItem[],
+  vehicleWarnings: readonly WarningRecord[],
+  range: DayRange,
+): { days: DayRecord[]; items: ItemRecord[]; warnings: WarningRecord[] } {
+  const days = timelineDays(
+    shown.map((i) => i.item),
+    range,
+  );
+  const named = new Set(days.flatMap((d) => d.entries.map((e) => e.itemId)));
+  const items = shown.filter((i) => named.has(i.item.id));
+  const boards = new Map(
+    items.map((i) => [i.item.id, i.board.filter(onBoard).map((r) => r.membershipId)]),
+  );
+  const warnings: WarningRecord[] = [
+    ...overlapWarnings(
+      items.map((i) => i.item),
+      boards,
+    ),
+    ...vehicleWarnings.filter((w) => named.has(w.itemId)),
+  ];
+  return { days, items: items.map((i) => i.item), warnings: warnings.sort(byItem) };
+}
+
+/** Warnings in a stable order: by item, then code, then what else they name. */
+function byItem(a: WarningRecord, b: WarningRecord): number {
+  const key = (w: WarningRecord) =>
+    [w.itemId, w.code, w.withItemId ?? '', w.unitId ?? ''].join('\u0000');
+  return key(a).localeCompare(key(b));
 }

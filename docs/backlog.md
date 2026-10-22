@@ -59,7 +59,7 @@
 - [x] `trips.delete` · Drop A · `DELETE /v1/trips/{tripId}`
   - Soft-delete trip and children; Undo via trips.restore (1b); MCP approval; Allowed on archived trips; refused with trip_retired once the audit chain is retired (R29)
   - Roles: owner. If-Match: `version`. Idempotency: safe to repeat.
-- [ ] `trips.dashboard` · Drop A · `GET /v1/trips/{tripId}/dashboard`
+- [x] `trips.dashboard` · Drop A · `GET /v1/trips/{tripId}/dashboard`
   - Countdown, next item, open tasks, due soon, my share (sum of my expense shares; no balance or who-owes-whom, R36), warnings; Costs masked for viewers w/o canViewCosts; Poll with If-None-Match on the representation ETag (rule 4)
   - Roles: owner, organizer, member, viewer. If-Match: `no`. Idempotency: safe to repeat.
 - [ ] `trips.offlineBundle` · Drop B · `GET /v1/trips/{tripId}/offline-bundle`

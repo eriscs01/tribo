@@ -44,7 +44,10 @@ export {
   type UnitsService,
 } from './items/service.js';
 export {
+  createDashboardService,
   createItineraryService,
+  type DashboardRecord,
+  type DashboardService,
   type ItineraryRecord,
   type ItineraryService,
   type WarningRecord,

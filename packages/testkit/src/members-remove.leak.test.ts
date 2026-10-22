@@ -2,11 +2,14 @@
 // members.remove against the oracle: in generated worlds, the owner removes one member
 // through the service, and then every account reads exactly what the oracle allows of the
 // world after the removal. The removed member sees nothing of the trip (its items, boards,
-// members and itinerary), and the private items they owned are hidden from everyone (R32).
+// members, itinerary and dashboard), and the private items they owned are hidden from
+// everyone (R32).
 import { PAGE_LIMIT_MAX } from '@tribo/contract';
 import {
+  createDashboardService,
   createItemsService,
   createItineraryService,
+  createTripsService,
   createUnitsService,
   writePath,
 } from '@tribo/core';
@@ -34,12 +37,13 @@ async function orNothing<T>(read: () => Promise<T[]>): Promise<T[]> {
   }
 }
 
-/** Everything each account reads of the world's trips: items, board rows, members and itinerary. */
+/** Everything each account reads of the world's trips: items, boards, members, itinerary, dashboard. */
 async function readsOf(db: Kysely<DB>, world: BuiltWorld, userId: string): Promise<string[]> {
   const items = createItemsService(db, writePath(db), testKeys());
   const units = createUnitsService(db, writePath(db));
   const members = membersService(db);
   const itinerary = createItineraryService(db);
+  const dashboard = createDashboardService(db, { trips: createTripsService(db, writePath(db)) });
   const seen: string[] = [];
   for (const trip of world.trips) {
     /* eslint-disable no-await-in-loop -- one read at a time keeps failures readable */
@@ -56,6 +60,9 @@ async function readsOf(db: Kysely<DB>, world: BuiltWorld, userId: string): Promi
           (i) => `itinerary:${i.id}`,
         ),
       )),
+      ...(await orNothing(async () => [
+        `dashboard:${(await dashboard.get(userId, trip.id)).tripId}`,
+      ])),
     );
     for (const item of trip.items) {
       seen.push(
@@ -85,6 +92,7 @@ function allowed(world: BuiltWorld, userId: string): string[] {
       ...t.items
         .filter((i) => i.dated && oracle.itemVisible(world, userId, i.id))
         .map((i) => `itinerary:${i.id}`),
+      ...(oracle.tripVisible(world, userId, t.id) ? [`dashboard:${t.id}`] : []),
     ])
     .sort();
 }

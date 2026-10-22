@@ -325,6 +325,7 @@ describe('itinerary.get on a representative trip', () => {
       }
       runs.sort((x, y) => x - y);
       const [median = Infinity, slowest = Infinity] = [runs[10], runs.at(-1)];
+      // eslint-disable-next-line no-console -- the measured run's whole point is to print its numbers
       console.info(
         `itinerary.get, 300 items: median ${median.toFixed(1)} ms, slowest ${slowest.toFixed(1)} ms`,
       );

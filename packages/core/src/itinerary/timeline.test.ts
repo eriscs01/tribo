@@ -61,6 +61,18 @@ describe('timelineDays', () => {
     ]);
   });
 
+  it('shows a stay that checks in and out on one day as its check-in, then its check-out', () => {
+    const dayUse = item('s', {
+      type: 'lodging',
+      start: { date: '2026-11-12' },
+      end: { date: '2026-11-12' },
+    });
+    expect(timelineDays([dayUse], {})[0]?.entries.map((e) => e.part)).toEqual([
+      'check_in',
+      'check_out',
+    ]);
+  });
+
   it('keeps only the days of the range, so a stay shows its nights inside it', () => {
     const stay = item('s', {
       type: 'lodging',
@@ -125,6 +137,8 @@ describe('overlapWarnings', () => {
     });
     expect(overlapWarnings([dive, lunch], both)).toEqual([]);
     expect(overlapWarnings([ferry, { ...dive, status: 'cancelled' }], both)).toEqual([]);
+    const instant = { ...dive, end: dive.start };
+    expect(overlapWarnings([ferry, instant], both)).toEqual([]);
   });
 
   it('leaves stays, rentals, tasks and all-day items to their own checks', () => {

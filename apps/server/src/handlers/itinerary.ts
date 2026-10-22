@@ -13,7 +13,7 @@ import { itemView } from './items.js';
 const item = (id: string) => encodeTypeId(ID_PREFIX.item, id);
 
 /** A rule check as reads that cover many items show it, with type ids. */
-function warningView(w: WarningRecord): Warning {
+export function warningView(w: WarningRecord): Warning {
   return {
     code: w.code,
     itemId: item(w.itemId),

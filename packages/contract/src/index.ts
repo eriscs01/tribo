@@ -2,6 +2,7 @@ export * from './account.js';
 export * from './assignment.js';
 export * from './auth.js';
 export * from './contacts.js';
+export * from './dashboard.js';
 export * from './drop-limits.js';
 export { MODULE_FILE } from './csv-row.js';
 export * from './errors.js';
