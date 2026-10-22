@@ -173,7 +173,7 @@
 
 ## Itinerary
 
-- [ ] `itinerary.get` · Drop A · `GET /v1/trips/{tripId}/itinerary`
+- [x] `itinerary.get` · Drop A · `GET /v1/trips/{tripId}/itinerary`
   - Day timeline ?view=me|group&from&to, with warnings; item_visible; local times per item tz
   - Roles: owner, organizer, member, viewer. If-Match: `no`. Idempotency: safe to repeat.
 

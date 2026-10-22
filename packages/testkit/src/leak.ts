@@ -1,7 +1,9 @@
 // Leak-test harness: fast-check generates small worlds of users, placeholders, trips,
 // memberships (some soft-deleted, some viewers granted costs), items (shared, private or
 // selected, some deleted, some priced, some with restricted fields), their units (rooms,
-// some priced, some deleted) and board rows, and invite links (some revoked or expired);
+// some priced, some deleted; vehicles on rentals, some with a driver) and board rows,
+// dated or undated (timed slots on one day, so some overlap), expenses with their shares
+// (some voided), and invite links (some revoked or expired);
 // a TypeScript oracle states who may see what;
 // the property checks that the database's tribo.item_visible and tribo.person_visible agree
 // with it for every pair in the world, that each list operation registered here returns each
@@ -13,6 +15,7 @@ import { sql, type Kysely } from 'kysely';
 import {
   addAllocation,
   addMember,
+  createExpense,
   createInvite,
   createItem,
   createPlaceholder,
@@ -30,6 +33,13 @@ import {
 
 type MaskedField = ValueOf<'tribo.items.restricted_fields'>;
 
+/** The item types the world draws from: one someone attends, a rental with vehicles, a task. */
+const WORLD_TYPES = ['activity', 'transport', 'ground', 'task'] as const;
+type WorldItemType = (typeof WORLD_TYPES)[number];
+
+/** The day every dated item of a world falls on; slot n starts at 09:00 + n hours and lasts 90 minutes. */
+const WORLD_DAY = '2026-11-12';
+
 export interface WorldSpec {
   /** One entry per account; person index i belongs to user i. */
   users: { personDeleted: boolean }[];
@@ -42,15 +52,23 @@ export interface WorldSpec {
     members: { person: number; role: TripRole; deleted: boolean; canViewCosts: boolean }[];
     items: {
       owner: number;
+      type: WorldItemType;
+      /** A timed slot on WORLD_DAY, or null for an undated item. */
+      slot: number | null;
+      /** Status done instead of planned. */
+      done: boolean;
       visibility: Visibility;
       shares: number[];
       deleted: boolean;
       priced: boolean;
       restricted: MaskedField[];
-      units: { priced: boolean; deleted: boolean }[];
-      /** Board rows by member index; units are left out, since visibility never asks. */
+      /** Rooms, or vehicles on a rental, which may seat a driver (member index). */
+      units: { priced: boolean; deleted: boolean; driver: number | null }[];
+      /** Board rows by member index, besides drivers. */
       allocations: { member: number; role: 'attendee' | 'assignee' }[];
     }[];
+    /** Expenses by member index: who paid, and each share of it. */
+    expenses: { payer: number; shares: { member: number; amount: number }[]; voided: boolean }[];
     /** Invite links the owner made: open ones, revoked ones and expired ones. */
     invites: { revoked: boolean; expired: boolean }[];
   }[];
@@ -89,15 +107,22 @@ function tripArb(nUsers: number, nPersons: number) {
           .filter((m) => m.person !== t.owner)
           .map((m) => ({ ...m, canViewCosts: m.role === 'viewer' && m.canViewCosts })),
       ];
+      const member = fc.nat({ max: members.length - 1 });
       const item = fc.record({
-        owner: fc.nat({ max: members.length - 1 }),
+        owner: member,
+        type: fc.constantFrom(...WORLD_TYPES),
+        slot: fc.option(fc.nat({ max: 3 })),
+        done: sometimes,
         visibility: fc.constantFrom(...VALUE_SETS['tribo.items.visibility']),
         // Shares on shared or private items too: the predicate must ignore them there.
         shares: fc.uniqueArray(fc.nat({ max: members.length - 1 }), { maxLength: members.length }),
         deleted: sometimes,
         priced: fc.boolean(),
         restricted: fc.subarray([...VALUE_SETS['tribo.items.restricted_fields']]),
-        units: fc.array(fc.record({ priced: fc.boolean(), deleted: sometimes }), { maxLength: 2 }),
+        units: fc.array(
+          fc.record({ priced: fc.boolean(), deleted: sometimes, driver: fc.option(member) }),
+          { maxLength: 2 },
+        ),
         allocations: fc.uniqueArray(
           fc.record({
             member: fc.nat({ max: members.length - 1 }),
@@ -106,14 +131,28 @@ function tripArb(nUsers: number, nPersons: number) {
           { selector: (a) => `${String(a.member)}:${a.role}`, maxLength: 3 },
         ),
       });
+      const expense = fc.record({
+        payer: member,
+        shares: fc.uniqueArray(fc.record({ member, amount: fc.integer({ min: 1, max: 50_000 }) }), {
+          selector: (x) => x.member,
+          minLength: 1,
+          maxLength: 3,
+        }),
+        voided: sometimes,
+      });
       const invite = fc.record({ revoked: sometimes, expired: sometimes });
       return fc
-        .tuple(fc.array(item, { maxLength: 6 }), fc.array(invite, { maxLength: 2 }))
-        .map(([items, invites]) => ({
+        .tuple(
+          fc.array(item, { maxLength: 6 }),
+          fc.array(expense, { maxLength: 3 }),
+          fc.array(invite, { maxLength: 2 }),
+        )
+        .map(([items, expenses, invites]) => ({
           owner: t.owner,
           deleted: t.deleted,
           members,
           items,
+          expenses,
           invites,
         }));
     });
@@ -158,13 +197,19 @@ export interface BuiltWorld {
     items: {
       id: string;
       ownerMembershipId: string;
+      type: WorldItemType;
+      /** Timed on WORLD_DAY; an undated item is on no day of an itinerary. */
+      dated: boolean;
+      done: boolean;
       visibility: Visibility;
       shares: string[];
       deleted: boolean;
+      priced: boolean;
       restrictedFields: MaskedField[];
       units: { id: string; priced: boolean; deleted: boolean }[];
-      allocations: { membershipId: string; role: 'attendee' | 'assignee' }[];
+      allocations: { membershipId: string; role: 'attendee' | 'assignee' | 'driver' }[];
     }[];
+    expenses: { id: string; voided: boolean; shares: { membershipId: string; amount: number }[] }[];
     invites: { id: string }[];
   }[];
 }
@@ -194,6 +239,13 @@ export interface Oracle {
    * role but a viewer, a viewer only with a cost grant, and never past a restricted cost.
    */
   moneyReadable(world: BuiltWorld, userId: string, itemId: string): boolean;
+  /**
+   * The caller's share of the trip's expenses (R36: the sum of their shares on expenses not
+   * voided), or null when the trip is not theirs. Whether they may read it is costsReadable.
+   */
+  myShare(world: BuiltWorld, userId: string, tripId: string): number | null;
+  /** Whether the caller reads amounts in the trip: every role but a viewer without a cost grant. */
+  costsReadable(world: BuiltWorld, userId: string, tripId: string): boolean;
 }
 
 const personOf = (w: BuiltWorld, userId: string) => w.persons.find((p) => p.userId === userId);
@@ -263,6 +315,26 @@ export const oracle: Oracle = {
     return oracle.fieldReadable(w, userId, itemId, 'cost');
   },
 
+  myShare(w, userId, tripId) {
+    if (!oracle.tripVisible(w, userId, tripId)) return null;
+    const me = personOf(w, userId);
+    const trip = w.trips.find((t) => t.id === tripId);
+    const mine = trip?.members.find((m) => m.personId === me?.id && !m.deleted);
+    if (!trip || !mine) return null;
+    return trip.expenses
+      .filter((e) => !e.voided)
+      .flatMap((e) => e.shares.filter((s) => s.membershipId === mine.id))
+      .reduce((sum, s) => sum + s.amount, 0);
+  },
+
+  costsReadable(w, userId, tripId) {
+    if (!oracle.tripVisible(w, userId, tripId)) return false;
+    const me = personOf(w, userId);
+    const trip = w.trips.find((t) => t.id === tripId);
+    const mine = trip?.members.find((m) => m.personId === me?.id && !m.deleted);
+    return mine !== undefined && (mine.role !== 'viewer' || mine.canViewCosts);
+  },
+
   tripVisible(w, userId, tripId) {
     const trip = w.trips.find((t) => t.id === tripId);
     const me = personOf(w, userId);
@@ -288,6 +360,12 @@ export const oracle: Oracle = {
 // ---------------------------------------------------------------------------
 // Building a world in the database and checking it
 // ---------------------------------------------------------------------------
+
+/** Slot n of WORLD_DAY in Manila: 09:00 + n hours, 90 minutes long, so neighbours overlap. */
+function worldSlot(slot: number) {
+  const start = new Date(`${WORLD_DAY}T${String(9 + slot).padStart(2, '0')}:00:00+08:00`);
+  return { start, end: new Date(start.getTime() + 90 * 60_000), tz: 'Asia/Manila' };
+}
 
 /* eslint-disable no-await-in-loop -- rows go in one by one, each after the parents it references */
 export async function buildWorld(db: Kysely<DB>, spec: WorldSpec): Promise<BuiltWorld> {
@@ -342,20 +420,38 @@ export async function buildWorld(db: Kysely<DB>, spec: WorldSpec): Promise<Built
       const id = await createItem(db, {
         tripId,
         ownerMembershipId: itemOwnerId,
+        type: it.type,
+        status: it.done ? 'done' : 'planned',
+        ...(it.slot === null ? {} : { timed: worldSlot(it.slot) }),
         visibility: it.visibility,
         sharedWith: shares,
         ...(it.priced ? { cost: { amountMinor: 4_200, currency: 'EUR' } } : {}),
         restrictedFields: it.restricted,
       });
       const units = [];
+      const allocations: BuiltWorld['trips'][number]['items'][number]['allocations'] = [];
       for (const u of it.units) {
+        const vehicle = it.type === 'ground';
         const unitId = await createUnit(db, {
           itemId: id,
+          kind: vehicle ? 'vehicle' : 'room',
           ...(u.priced ? { rate: { amountMinor: 150_000, currency: 'PHP' } } : {}),
         });
         units.push({ id: unitId, priced: u.priced, deleted: u.deleted });
+        // A driver takes the wheel of a live vehicle, one seat per member on the item.
+        const driver = u.driver === null ? undefined : members[u.driver]?.id;
+        const seated = allocations.some((a) => a.membershipId === driver && a.role === 'driver');
+        if (vehicle && !u.deleted && driver !== undefined && !seated) {
+          await addAllocation(db, {
+            tripId,
+            itemId: id,
+            membershipId: driver,
+            role: 'driver',
+            unitId,
+          });
+          allocations.push({ membershipId: driver, role: 'driver' });
+        }
       }
-      const allocations = [];
       for (const a of it.allocations) {
         const membershipId = members[a.member]?.id ?? '';
         await addAllocation(db, { tripId, itemId: id, membershipId, role: a.role });
@@ -364,13 +460,31 @@ export async function buildWorld(db: Kysely<DB>, spec: WorldSpec): Promise<Built
       items.push({
         id,
         ownerMembershipId: itemOwnerId,
+        type: it.type,
+        dated: it.slot !== null,
+        done: it.done,
         visibility: it.visibility,
         shares,
         deleted: it.deleted,
+        priced: it.priced,
         restrictedFields: it.restricted,
         units,
         allocations,
       });
+    }
+    const expenses: BuiltWorld['trips'][number]['expenses'] = [];
+    for (const e of t.expenses) {
+      const shares = e.shares.map((x) => ({
+        membershipId: members[x.member]?.id ?? '',
+        amount: x.amount,
+      }));
+      const id = await createExpense(db, {
+        tripId,
+        payerMembershipId: members[e.payer]?.id ?? '',
+        shares,
+        voided: e.voided,
+      });
+      expenses.push({ id, voided: e.voided, shares });
     }
     const invites = [];
     for (const inv of t.invites) {
@@ -383,7 +497,7 @@ export async function buildWorld(db: Kysely<DB>, spec: WorldSpec): Promise<Built
         }),
       });
     }
-    trips.push({ id: tripId, deleted: t.deleted, members, items, invites });
+    trips.push({ id: tripId, deleted: t.deleted, members, items, expenses, invites });
   }
 
   // Deletes last, so every insert above saw live parents.
@@ -483,6 +597,51 @@ export function visibilityProperty(db: Kysely<DB>, rules: Oracle = oracle) {
       throw new Error(`visibility leak or over-hiding: ${JSON.stringify(mismatches.slice(0, 5))}`);
     }
   });
+}
+
+/**
+ * The property for a rule no list states: `check` looks at the world as built and returns
+ * what it found wrong, nothing when the rule holds.
+ */
+export function worldProperty(
+  db: Kysely<DB>,
+  check: (trx: Kysely<DB>, world: BuiltWorld) => Promise<string[]>,
+) {
+  return fc.asyncProperty(worldArb, async (spec) => {
+    const problems = await inWorld(db, spec, check);
+    if (problems.length > 0) throw new Error(problems.slice(0, 5).join('\n'));
+  });
+}
+
+/**
+ * Runs `read` as it stands, then again with every item the oracle hides from `userId`
+ * deleted, and rolls the deletes back. A read that never lets a hidden item through, not
+ * as a row, a count, a pick or a warning, answers both the same.
+ */
+export async function withoutHiddenItems<T>(
+  trx: Kysely<DB>,
+  world: BuiltWorld,
+  userId: string,
+  read: () => Promise<T>,
+): Promise<{ before: T; after: T }> {
+  const before = await read();
+  const hidden = world.trips
+    .flatMap((t) => t.items)
+    .filter((i) => !oracle.itemVisible(world, userId, i.id))
+    .map((i) => i.id);
+  await sql`SAVEPOINT without_hidden`.execute(trx);
+  try {
+    if (hidden.length > 0) {
+      await trx
+        .updateTable('tribo.items')
+        .set({ deleted_at: new Date() })
+        .where('id', 'in', hidden)
+        .execute();
+    }
+    return { before, after: await read() };
+  } finally {
+    await sql`ROLLBACK TO SAVEPOINT without_hidden`.execute(trx);
+  }
 }
 
 /** A list read as the leak harness drives it: every id it returns to this account. */

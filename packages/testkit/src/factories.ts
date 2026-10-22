@@ -198,6 +198,7 @@ export async function createItem(
     sharedWith?: readonly string[];
     title?: string;
     type?: ValueOf<'tribo.items.type'>;
+    status?: ValueOf<'tribo.items.status'>;
     /** All-day dates, or a timed start (and end) as instants in a zone. */
     days?: { start: string; end?: string };
     timed?: { start: Date; end?: Date; tz: string };
@@ -213,6 +214,7 @@ export async function createItem(
       visibility: init.visibility ?? 'shared',
       title: init.title ?? `Item ${next()}`,
       type: init.type ?? 'activity',
+      status: init.status ?? 'planned',
       start_date: init.days?.start ?? null,
       end_date: init.days?.end ?? null,
       start_at: init.timed?.start ?? null,
@@ -291,6 +293,51 @@ export async function createUnit(
     })
     .returning('id')
     .executeTakeFirstOrThrow();
+  return id;
+}
+
+/**
+ * An expense in the trip currency split among memberships, as expenses.create would write
+ * it: its amount is the sum of the shares (R11). `voided` soft-deletes it.
+ */
+export async function createExpense(
+  db: Db,
+  init: {
+    tripId: string;
+    payerMembershipId: string;
+    shares: readonly { membershipId: string; amount: number }[];
+    voided?: boolean;
+    spentOn?: string;
+  },
+): Promise<string> {
+  const total = init.shares.reduce((sum, x) => sum + x.amount, 0);
+  const { id } = await db
+    .insertInto('tribo.expenses')
+    .values({
+      trip_id: init.tripId,
+      category: 'food',
+      description: `Expense ${next()}`,
+      spent_on: init.spentOn ?? '2026-11-12',
+      payer_membership_id: init.payerMembershipId,
+      amount_minor: total,
+      currency: 'PHP',
+      trip_amount_minor: total,
+      split_method: 'itemised',
+      deleted_at: init.voided ? new Date() : null,
+    })
+    .returning('id')
+    .executeTakeFirstOrThrow();
+  await db
+    .insertInto('tribo.expense_shares')
+    .values(
+      init.shares.map((x) => ({
+        expense_id: id,
+        trip_id: init.tripId,
+        membership_id: x.membershipId,
+        share_minor: x.amount,
+      })),
+    )
+    .execute();
   return id;
 }
 

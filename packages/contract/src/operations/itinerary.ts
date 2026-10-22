@@ -1,6 +1,7 @@
 // Generated from operations.csv by src/scripts/import-operations.ts. A story replaces an
 // entry's status with 'implemented' and adds its input and output schemas.
 import { defineOperation } from '../operation.js';
+import { Itinerary, ItineraryQuery } from '../itinerary.js';
 
 export const itineraryOperations = [
   defineOperation({
@@ -19,6 +20,8 @@ export const itineraryOperations = [
     mcpTool: 'get_itinerary',
     notes:
       'Day timeline ?view=me|group&from&to, with warnings; item_visible; local times per item tz',
-    status: 'planned',
+    status: 'implemented',
+    query: ItineraryQuery,
+    output: Itinerary,
   }),
 ] as const;

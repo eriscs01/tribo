@@ -21,6 +21,10 @@ export type WarningCode = z.infer<typeof WarningCode>;
 export const Warning = z
   .strictObject({
     code: WarningCode,
+    /** The item it concerns, on reads that cover more than one item (itinerary, dashboard). */
+    itemId: typeId(ID_PREFIX.item).optional(),
+    /** For an overlap: the other item, which the caller can see too. */
+    withItemId: typeId(ID_PREFIX.item).optional(),
     /** The room or vehicle it concerns. */
     unitId: typeId(ID_PREFIX.unit).optional(),
   })

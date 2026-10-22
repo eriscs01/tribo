@@ -2,6 +2,7 @@ export { connectAs, createTestDatabase, postgresInfo, type TestDatabase } from '
 export {
   addAllocation,
   addMember,
+  createExpense,
   createItem,
   createPlace,
   createPlaceholder,

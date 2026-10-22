@@ -251,17 +251,8 @@ export interface ItemFilter {
 const firstDay = sql<string>`coalesce((i.start_at AT TIME ZONE i.start_tz)::date, i.start_date)`;
 const lastDay = sql<string>`coalesce((i.end_at AT TIME ZONE i.end_tz)::date, i.end_date, ${firstDay})`;
 
-/**
- * One page of a trip's items that tribo.item_visible lets this account see, in id order
- * (UUIDv7, so the order they were added). `after` is the last id of the previous page.
- */
-export function listVisibleItems(
-  db: ItemsDb,
-  userId: string,
-  tripId: string,
-  page: { filter: ItemFilter; limit: number; after: string | null },
-) {
-  const { filter } = page;
+/** A trip's items that tribo.item_visible lets this account see, narrowed by the filter. */
+function visibleItems(db: ItemsDb, userId: string, tripId: string, filter: ItemFilter) {
   let query = selectItem(db)
     .where('i.trip_id', '=', tripId)
     .where(sql<boolean>`tribo.item_visible(${userId}, i.id)`);
@@ -282,8 +273,35 @@ export function listVisibleItems(
       ),
     );
   }
+  return query;
+}
+
+/**
+ * One page of a trip's items that tribo.item_visible lets this account see, in id order
+ * (UUIDv7, so the order they were added). `after` is the last id of the previous page.
+ */
+export function listVisibleItems(
+  db: ItemsDb,
+  userId: string,
+  tripId: string,
+  page: { filter: ItemFilter; limit: number; after: string | null },
+) {
+  let query = visibleItems(db, userId, tripId, page.filter);
   if (page.after !== null) query = query.where('i.id', '>', page.after);
   return query.orderBy('i.id').limit(page.limit).execute();
+}
+
+/**
+ * Every item of the trip this account can see, in id order, for the reads that sum a trip
+ * up in one answer (itinerary, dashboard). A trip holds a few hundred items at most.
+ */
+export function listAllVisibleItems(
+  db: ItemsDb,
+  userId: string,
+  tripId: string,
+  filter: ItemFilter,
+) {
+  return visibleItems(db, userId, tripId, filter).orderBy('i.id').execute();
 }
 
 /**
@@ -336,6 +354,20 @@ export function listBoard(db: ItemsDb, itemId: string) {
     .selectFrom('tribo.allocations')
     .select(['membership_id', 'unit_id', 'role', 'rsvp'])
     .where('item_id', '=', itemId)
+    .orderBy('membership_id')
+    .orderBy('role')
+    .orderBy('unit_id')
+    .execute();
+}
+
+/** The board rows of these items in one query, in a stable order within each item. */
+export function listBoards(db: ItemsDb, itemIds: readonly string[]) {
+  if (itemIds.length === 0) return Promise.resolve([]);
+  return db
+    .selectFrom('tribo.allocations')
+    .select(['item_id', 'membership_id', 'unit_id', 'role', 'rsvp'])
+    .where('item_id', 'in', itemIds)
+    .orderBy('item_id')
     .orderBy('membership_id')
     .orderBy('role')
     .orderBy('unit_id')
@@ -489,6 +521,16 @@ export async function countSeated(db: ItemsDb, unitId: string): Promise<number> 
 export function itemUnits(db: ItemsDb, itemId: string, options: { lock: boolean }) {
   const query = selectUnit(db).where('u.item_id', '=', itemId).orderBy('u.id');
   return (options.lock ? query.forUpdate() : query).execute();
+}
+
+/** The live vehicles of these items in one query, in id order. */
+export function listVehicles(db: ItemsDb, itemIds: readonly string[]) {
+  if (itemIds.length === 0) return Promise.resolve([]);
+  return selectUnit(db)
+    .where('u.item_id', 'in', itemIds)
+    .where('u.kind', '=', 'vehicle')
+    .orderBy('u.id')
+    .execute();
 }
 
 /**

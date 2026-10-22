@@ -2135,6 +2135,29 @@ export interface components {
         ItemType: "transport" | "lodging" | "ground" | "activity" | "meal" | "task" | "note" | "document";
         /** @enum {string} */
         ItemVisibility: "shared" | "private" | "selected";
+        Itinerary: {
+            view: components["schemas"]["ItineraryView"];
+            from: string | null;
+            to: string | null;
+            days: components["schemas"]["ItineraryDay"][];
+            items: components["schemas"]["Item"][];
+            warnings: components["schemas"]["Warning"][];
+        };
+        ItineraryDay: {
+            /** Format: date */
+            date: string;
+            entries: components["schemas"]["ItineraryEntry"][];
+        };
+        ItineraryEntry: {
+            itemId: string;
+            part: components["schemas"]["ItineraryPart"];
+            time: string | null;
+            tz: components["schemas"]["TimeZone"] | null;
+        };
+        /** @enum {string} */
+        ItineraryPart: "whole" | "start" | "end" | "check_in" | "staying" | "check_out";
+        /** @enum {string} */
+        ItineraryView: "me" | "group";
         LatLng: {
             lat: number;
             lng: number;
@@ -2441,6 +2464,8 @@ export interface components {
         };
         Warning: {
             code: components["schemas"]["WarningCode"];
+            itemId?: string;
+            withItemId?: string;
             unitId?: string;
         };
         /** @enum {string} */
@@ -6639,7 +6664,11 @@ export interface operations {
     };
     "itinerary.get": {
         parameters: {
-            query?: never;
+            query?: {
+                view?: components["schemas"]["ItineraryView"];
+                from?: string;
+                to?: string;
+            };
             header?: never;
             path: {
                 tripId: string;
@@ -6648,13 +6677,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["Itinerary"];
                 };
             };
             /** @description Error */

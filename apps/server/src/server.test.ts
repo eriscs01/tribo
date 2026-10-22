@@ -19,6 +19,7 @@ import type {
   IdentityService,
   InvitesService,
   ItemsService,
+  ItineraryService,
   LibraryService,
   MembersService,
   SignedIn,
@@ -141,6 +142,7 @@ const units: UnitsService = {
   board: unused,
   replaceBoard: unused,
 };
+const itinerary: ItineraryService = { get: unused };
 const library: LibraryService = {
   search: unused,
   createPerson: unused,
@@ -178,6 +180,7 @@ async function server(overrides: Partial<ServerDeps> = {}) {
         members,
         invites,
         items,
+        itinerary,
         units,
         library,
       }),

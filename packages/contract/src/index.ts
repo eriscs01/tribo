@@ -8,6 +8,7 @@ export * from './errors.js';
 export * from './ids.js';
 export * from './invite.js';
 export * from './item.js';
+export * from './itinerary.js';
 export * from './library.js';
 export * from './masked.js';
 export * from './me.js';
