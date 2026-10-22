@@ -563,3 +563,16 @@ A pull request that changes documentation only takes the quick path ([decision 0
 3. Pushes to `main`, tags, the nightly run and Publish never take the quick path.
 4. If the **Changes** job itself failed, nothing is skipped: the other jobs see an empty `code` output and run everything. Fix the cause (usually `git diff` could not read the merge commit) and re-run.
 5. A pull request that was wrongly quick (a path that should count as code is not in the rules) is fixed by adding the path to `packages/story-kit/src/ci-changes.ts` with a test, in the same pull request as the change that exposed it.
+
+### End to end stalls installing the browser
+
+The job caches `~/.cache/ms-playwright` by Playwright version and installs only the headless shell, with no `apt-get` (`--only-shell`, no `--with-deps`). The install step stops itself after 5 minutes, so a stall fails fast instead of using the job's 30.
+
+1. A cache hit prints nothing to download; a miss downloads about 100 MB from Playwright's CDN. Read the step "Restore the Playwright browser" for `Cache restored` or `Cache not found`.
+2. If the step timed out, re-run the job once. A second stall is the CDN or the runner network: wait, do not raise the timeout.
+3. If a browser error names a missing shared library (`error while loading shared libraries`), the runner image changed: add `--with-deps` back to that step and keep its timeout.
+4. Raising Playwright in `apps/e2e/package.json` changes the cache key, so the next run downloads once.
+
+### The Trivy database cache
+
+One cache entry per UTC day, `trivy-db-<date>`, shared by both image scans. After each scan the log prints the database's `UpdatedAt` and `NextUpdate`; a scan with `NextUpdate` in the past would have downloaded a newer one first. To clear it, delete the entry (`gh cache delete trivy-db-<date>`) and re-run: Trivy downloads a fresh database.

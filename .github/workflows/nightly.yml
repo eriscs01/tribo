@@ -25,8 +25,6 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup
-      # Workspace packages resolve through their built dist.
-      - run: pnpm build
       # A positive 31-bit seed, printed before the run so a failure can be reproduced locally
       # with TRIBO_LEAK_SEED=<seed> pnpm test:leak.
       - name: Pick the seed

@@ -781,7 +781,7 @@ export interface paths {
         };
         /**
          * items.assignments.get
-         * @description Whole board: RSVPs, occupants, drivers, passengers, assignees; Follows item_visible; ETag = boardVersion
+         * @description Whole board: RSVPs, occupants, drivers, passengers, assignees; Follows item_visible; ETag = SHA-256 of the representation (warnings come from the library); read boardVersion from the body for If-Match
          */
         get: operations["items.assignments.get"];
         /**
@@ -4146,7 +4146,7 @@ export interface operations {
             /** @description OK */
             200: {
                 headers: {
-                    /** @description The item's boardVersion, quoted; send it back as If-Match to save the board */
+                    /** @description SHA-256 (base64url) of this representation, as sent to this caller */
                     ETag?: string;
                     [name: string]: unknown;
                 };

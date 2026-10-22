@@ -35,8 +35,9 @@ scanning are never skipped.
 **One run of the tests.** Unit, Integration and Leak properties run once, with V8 coverage and
 the blob reporter, and upload their blob reports. Coverage downloads the three, merges them
 (`vitest --merge-reports --coverage`, no PostgreSQL) and enforces the floors in
-`vitest.config.ts` unchanged. It fails unless all three jobs succeeded. Under `--coverage` the
-tests import the TypeScript source, so these jobs no longer run `pnpm build`; the built `dist`
+`vitest.config.ts` unchanged. It fails unless all three jobs succeeded. The tests always import the
+TypeScript source (Q1: not only under `--coverage`, so a local run never reads a stale `dist`),
+so these jobs, and the nightly leak run, do not run `pnpm build`; the built `dist`
 is still exercised by Typecheck, the web build and End to end.
 
 **Caches.** The TypeScript build state (`tsconfig.tsbuildinfo` and `dist`) is cached for

@@ -13,6 +13,7 @@ import {
   type WriteRecord,
 } from '@tribo/platform';
 import type { Kysely } from 'kysely';
+import { recordEvent } from '../audit/service.js';
 import {
   accountPersonId,
   memberPersons,
@@ -201,4 +202,14 @@ export interface MemberItems {
   leave(tx: Tx, move: MemberMove): Promise<WriteRecord[]>;
   /** Brings back the private items the member's latest removal soft-deleted. */
   rejoin(tx: Tx, move: MemberMove): Promise<WriteRecord[]>;
+}
+
+/** The revoke event of an invite a claim or a removal closed. */
+export function recordInviteRevoked(tx: Tx, ctx: RequestContext, inviteId: string, tripId: string) {
+  return recordEvent(tx, ctx, {
+    action: 'revoke',
+    entityType: 'invite',
+    entityId: inviteId,
+    tripId,
+  });
 }

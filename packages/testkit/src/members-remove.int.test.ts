@@ -1,7 +1,7 @@
 // @module-tag drop-a
 // members.remove (Drop A): Remove member (soft delete); ledger rows stay; MCP approval; Also deletes the member's allocations (bumps boardVersion of each item); trip_archived on archived trips (R29); Also soft-deletes the private items the member owns; rejoin undeletes them (R32)
 import { encodeTypeId, ID_PREFIX } from '@tribo/contract';
-import type { MembersService } from '@tribo/core';
+import type { InvitesService, MembersService } from '@tribo/core';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { archive, contexts, history, refusal } from './board-world.js';
 import { createTestDatabase, type TestDatabase } from './database.js';
@@ -12,15 +12,17 @@ import {
   createPlaceholder,
   softDelete,
 } from './factories.js';
-import { inviteWorld, membersService } from './invite-world.js';
+import { invitesService, inviteWorld, membersService, tomorrow } from './invite-world.js';
 
 let tdb: TestDatabase;
 let members: MembersService;
+let invites: InvitesService;
 const as = contexts('req-member-remove');
 
 beforeAll(async () => {
   tdb = await createTestDatabase();
   members = membersService(tdb.db);
+  invites = invitesService(tdb);
 });
 afterAll(() => tdb.destroy());
 
@@ -302,5 +304,54 @@ describe('members.remove', () => {
       request_id: ctx.requestId,
     });
     expect(snapshots.at(-1)).toMatchObject({ entity_type: 'item', version: 3 });
+  });
+
+  it("revokes the removed placeholder's open invites, and a re-add does not revive them", async () => {
+    const w = await inviteWorld(tdb);
+    const person = encodeTypeId(ID_PREFIX.person, w.guest.personId);
+    const link = () =>
+      invites.create(as(w.owner), w.tripId, { personId: person, expiresAt: tomorrow() });
+    const [first, second] = [await link(), await link()];
+    const open = await invites.create(as(w.owner), w.tripId, {
+      role: 'member',
+      expiresAt: tomorrow(),
+    });
+    const status = async () =>
+      (await invites.list(w.owner.userId, w.tripId, { limit: 50 })).items.map((i) => [
+        i.id,
+        i.status,
+      ]);
+
+    const ctx = as(w.owner);
+    await members.remove(ctx, w.tripId, w.guest.membershipId, undefined, 1);
+    expect(await status()).toEqual([
+      [first.id, 'revoked'],
+      [second.id, 'revoked'],
+      [open.id, 'active'],
+    ]);
+    for (const id of [first.id, second.id]) {
+      // eslint-disable-next-line no-await-in-loop -- one link at a time
+      const { events } = await history(tdb, id);
+      expect(events.at(-1)).toMatchObject({
+        action: 'revoke',
+        entity_type: 'invite',
+        request_id: ctx.requestId,
+      });
+    }
+
+    await members.add(as(w.owner), w.tripId, { personId: person });
+    expect(await status()).toEqual([
+      [first.id, 'revoked'],
+      [second.id, 'revoked'],
+      [open.id, 'active'],
+    ]);
+    for (const token of [first.token, second.token]) {
+      // eslint-disable-next-line no-await-in-loop -- one link at a time
+      expect(await refusal(invites.preview({ token }))).toBe('invite_invalid');
+      expect(
+        // eslint-disable-next-line no-await-in-loop -- as above
+        await refusal(invites.accept(as(w.outsider), { token }, { ip: null, userAgent: null })),
+      ).toBe('invite_invalid');
+    }
   });
 });

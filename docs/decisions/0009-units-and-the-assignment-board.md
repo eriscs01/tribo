@@ -29,10 +29,13 @@ refused.
   undated stay shares no night. Stays hidden from the caller are left out so the refusal
   never reveals a private booking. Only the saved item's lock is held, so two concurrent
   saves of _different_ stays can both pass; the next save of either sees the clash.
-- **The board's ETag is its `boardVersion`**, quoted (`"3"`), the same counter
-  `items.assignments.replace` takes as If-Match, so a client sends back the tag it read. The
-  registry's `etag` gains a `board_version` kind beside `representation`; If-None-Match
-  answers 304 for both.
+- **The board's ETag is the SHA-256 of its representation**, like every other read
+  (`etag: 'representation'`). _Amended in Q1:_ it was first the quoted `boardVersion`, but
+  the body also carries `warnings`, derived from the library (`persons.driving_licence`),
+  which `me.update` and `library.people.update` change without bumping the counter, so a
+  poll got 304 with a stale warning. The `board_version` ETag kind is gone. A client reads
+  `boardVersion` from the body and sends it as If-Match to `items.assignments.replace`,
+  which still refuses a stale board.
 - **Row rules are `validation_failed` with the row's path** (`/allocations/<i>/…`): a
   membership of another trip or a removed one, a unit not live on this item or of the wrong
   kind, a role held twice, a second seat for one member. Hard invariants keep their own
