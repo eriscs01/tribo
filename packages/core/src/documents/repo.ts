@@ -173,3 +173,24 @@ export async function updateFile(
     .executeTakeFirstOrThrow();
   return version;
 }
+
+/** Soft-deletes a file (its blob stays for the purge) and bumps its version; returns it. */
+export async function softDeleteFile(
+  db: DocumentsDb,
+  fileId: string,
+  deletedBy: string,
+): Promise<number> {
+  const { version } = await db
+    .updateTable('tribo.files')
+    .set((eb) => ({
+      deleted_at: sql`now()`,
+      deleted_by: deletedBy,
+      version: eb('version', '+', 1),
+      updated_at: sql`now()`,
+      updated_by: deletedBy,
+    }))
+    .where('id', '=', fileId)
+    .returning('version')
+    .executeTakeFirstOrThrow();
+  return version;
+}

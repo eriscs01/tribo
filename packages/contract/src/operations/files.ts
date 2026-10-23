@@ -98,7 +98,7 @@ export const filesOperations = [
     mcpTool: null,
     notes:
       'Soft-delete file; Blob kept until purge; Blob purged document_retention_days after deletion; trip_archived on archived trips (R29)',
-    status: 'planned',
+    status: 'implemented',
   }),
   defineOperation({
     id: 'files.download',

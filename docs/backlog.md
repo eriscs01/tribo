@@ -215,7 +215,7 @@
 - [x] `files.update` · Drop B · `PATCH /v1/files/{fileId}`
   - Rename, relink item, change visibility; trip_archived on archived trips (R29)
   - Roles: file owner, organizer, owner. If-Match: `version`. Idempotency: safe to repeat.
-- [ ] `files.delete` · Drop B · `DELETE /v1/files/{fileId}`
+- [x] `files.delete` · Drop B · `DELETE /v1/files/{fileId}`
   - Soft-delete file; Blob kept until purge; Blob purged document_retention_days after deletion; trip_archived on archived trips (R29)
   - Roles: file owner, organizer, owner. If-Match: `version`. Idempotency: safe to repeat.
 - [ ] `files.download` · Drop B · `GET /v1/files/{fileId}/content`

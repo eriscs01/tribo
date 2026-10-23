@@ -51,6 +51,15 @@ export function filesHandlers(files: FilesService): Handlers {
           ifMatch(request),
         ),
       ),
+    'files.delete': async (request, reply) => {
+      await files.delete(
+        requestContext(request),
+        pathId(request, 'fileId'),
+        request.body,
+        ifMatch(request),
+      );
+      return reply.code(204).send();
+    },
     'files.upload': async (request, reply) => {
       const tripId = pathId(request, 'tripId');
       const file = await withUpload(request, (form, part) =>

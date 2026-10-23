@@ -7,6 +7,7 @@ import {
   FileUploadForm,
   FileUploadInput,
   ID_PREFIX,
+  NoBody,
   type PageQuery,
 } from '@tribo/contract';
 import { forModule, type DB, type TripRole, type ValueOf } from '@tribo/db';
@@ -25,7 +26,7 @@ import { visibleItemTrip } from '../items/service.js';
 import { callerMembership, memberTrip, type CallerMembership } from '../trips/service.js';
 import { writeOperation } from '../write-operation.js';
 import type { BlobStore, StoredBlob } from './blobs.js';
-import { canGetFile, canListFiles, canUpdateFile, canUploadFile } from './policy.js';
+import { canDeleteFile, canGetFile, canListFiles, canUpdateFile, canUploadFile } from './policy.js';
 import {
   fileTrip,
   findFile,
@@ -34,6 +35,7 @@ import {
   listVisibleFiles,
   lockFile,
   newFileId,
+  softDeleteFile,
   updateFile,
   type FileRow,
 } from './repo.js';
@@ -95,10 +97,18 @@ export interface FilesService {
     body: unknown,
     ifMatch: number | undefined,
   ): Promise<FileRecord>;
+  /** files.delete: a soft delete under If-Match; the blob stays until the retention purge. */
+  delete(
+    ctx: RequestContext,
+    fileId: string,
+    body: unknown,
+    ifMatch: number | undefined,
+  ): Promise<void>;
 }
 
 const filesUpload = writeOperation('files.upload', FileUploadInput);
 const filesUpdate = writeOperation('files.update', FilePatch);
+const filesDelete = writeOperation('files.delete', NoBody);
 
 function fileRecord(row: FileRow): FileRecord {
   return {
@@ -308,6 +318,31 @@ export function createFilesService(
             version,
             snapshot: fileSnapshot(changed),
             result: fileRecord(changed),
+          };
+        },
+      });
+    },
+
+    delete(ctx, fileId, body, ifMatch) {
+      return write(ctx, {
+        operation: filesDelete,
+        target: { fileId },
+        body,
+        ifMatch,
+        authorize: (tx, c, target) => actingOnFile(tx, c, target.fileId, canDeleteFile),
+        load: lockedFile,
+        mutate: async (tx, _c, { row }, _input, { userId }) => {
+          const documents = forModule(tx, 'documents');
+          const version = await softDeleteFile(documents, row.id, userId);
+          return {
+            action: 'delete',
+            aggregate: 'file',
+            entityId: row.id,
+            tripId: row.trip_id,
+            version,
+            // The file as it was: restore (1b) copies this snapshot forward.
+            snapshot: fileSnapshot(row),
+            result: undefined,
           };
         },
       });

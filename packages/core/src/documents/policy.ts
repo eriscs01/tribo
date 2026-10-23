@@ -14,3 +14,6 @@ export const canUploadFile = contributors;
  * owner: the rule an item's owner has, which a file's owner shares.
  */
 export const canUpdateFile = itemOwnerOrOrganizer;
+
+/** files.delete: as files.update; the blob stays until the retention purge. */
+export const canDeleteFile = itemOwnerOrOrganizer;

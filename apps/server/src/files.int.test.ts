@@ -535,3 +535,26 @@ describe('files.update over HTTP', () => {
     logsNothingOf(ok.headers['x-request-id'], 'Beach day', png());
   });
 });
+
+describe('files.delete over HTTP', () => {
+  it('answers 204, keeps the blob, and the file is gone from reads', async () => {
+    const w = await world();
+    const made = await upload(
+      w,
+      w.member,
+      form([['kind', 'photo']], { filename: 'beach.png', type: 'image/png', data: png() }),
+    );
+    const { id } = made.json<{ id: string }>();
+    const stored = await blobs();
+    const res = await app.inject({
+      method: 'DELETE',
+      url: `/v1/files/${id}`,
+      cookies: w.member.auth.cookies,
+      headers: { ...w.member.auth.headers, 'if-match': '"1"' },
+    });
+    expect(res.statusCode).toBe(204);
+    expect(await blobs()).toEqual(stored);
+    const gone = await app.inject({ method: 'GET', url: `/v1/files/${id}`, ...w.member.auth });
+    expect(gone.statusCode).toBe(404);
+  });
+});
