@@ -58,3 +58,4 @@ fixed.
 | [0015](0015-reference-host-uses-acme-http.md)         | 23 Oct 2026 | The reference host uses acme-http                                        | accepted |
 | [0016](0016-drop-b-is-api-only.md)                    | 23 Oct 2026 | Drop B is API only                                                       | accepted |
 | [0017](0017-idempotency-key.md)                       | 23 Oct 2026 | Idempotency-Key: where it is claimed, what is kept, how a replay says so | accepted |
+| [0018](0018-file-envelope.md)                         | 23 Oct 2026 | The file envelope: chunks of 64 KiB, AAD bound to file, index and end    | accepted |

@@ -17,4 +17,5 @@ export {
   type FieldRef,
   type Keyring,
 } from './envelope.js';
+export { FILE_CHUNK_BYTES, openFile, sealFile } from './file-envelope.js';
 export { newToken, tokenHash } from './token.js';
