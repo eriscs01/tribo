@@ -38,6 +38,33 @@ afterAll(async () => {
   await tdb.destroy();
 });
 
+/** Uploads as the owner while the trip is archived under it; expects the named failure. */
+async function archiveWhileUploading(w: Awaited<ReturnType<typeof filesWorld>>, via: FilesService) {
+  const data = sample('pdf', 20_000);
+  let sent = false;
+  const content = new Readable({
+    read() {
+      if (sent) return;
+      sent = true;
+      archive(tdb, w.tripId).then(
+        () => {
+          this.push(data);
+          this.push(null);
+        },
+        (error: unknown) => this.destroy(error as Error),
+      );
+    },
+  });
+  const error: unknown = await via
+    .upload(as(w.owner), w.tripId, { kind: 'other' }, part(data, { content }))
+    .catch((e: unknown) => e);
+  expect(error).toBeInstanceOf(Error);
+  expect((error as Error).message).toMatch(
+    /^file [0-9a-f-]{36} did not commit \(trip_archived\) and its blob [0-9a-f]{2}\/[0-9a-f]{32} is left$/,
+  );
+  expect((error as Error).cause).toEqual(new Error('EROFS: read-only volume'));
+}
+
 /** The upload left nothing: no row in the trip, no blob on the volume beyond `before`. */
 async function nothingStored(tripId: string, before: string[]) {
   expect(await fileCount(tdb, tripId)).toBe(0);
@@ -279,6 +306,50 @@ describe('files.upload', () => {
       ),
     ).toBe('trip_archived');
     await nothingStored(w.tripId, before);
+  });
+
+  it('answers not_found and removes the blob when the caller leaves the trip while uploading', async () => {
+    const w = await filesWorld(tdb);
+    const before = await dir.stored();
+    const data = sample('pdf', 20_000);
+    let sent = false;
+    const content = new Readable({
+      read() {
+        if (sent) return;
+        sent = true;
+        softDelete(tdb.db, 'tribo.memberships', w.member.membershipId).then(
+          () => {
+            this.push(data);
+            this.push(null);
+          },
+          (error: unknown) => this.destroy(error as Error),
+        );
+      },
+    });
+    expect(
+      await refusal(
+        files.upload(as(w.member), w.tripId, { kind: 'other' }, part(data, { content })),
+      ),
+    ).toBe('not_found');
+    await nothingStored(w.tripId, before);
+  });
+
+  it('fails naming the file and blob left behind when its blob cannot be removed either', async () => {
+    const w = await filesWorld(tdb);
+    const before = await dir.stored();
+    const stuck = filesService(tdb.db, {
+      ...dir.blobs,
+      delete: () => Promise.reject(new Error('EROFS: read-only volume')),
+    });
+    const error: unknown = await stuck
+      .upload(as(w.viewer), w.tripId, { kind: 'other' }, part(sample('pdf')))
+      .catch((e: unknown) => e);
+    // A viewer is refused before a byte is stored, so nothing needed removing.
+    expect(error).toMatchObject({ code: 'forbidden' });
+    await archiveWhileUploading(w, stuck);
+    const left = (await dir.stored()).filter((key) => !before.includes(key));
+    expect(left).toHaveLength(1);
+    await dir.blobs.delete(left[0] ?? '');
   });
 
   it('leaves nothing when the client’s stream fails part way', async () => {

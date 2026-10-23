@@ -22,15 +22,9 @@ import {
   type WritePath,
 } from '@tribo/platform';
 import type { Kysely } from 'kysely';
-import { dropSnapshots, recordEvent, recordWrite } from '../audit/service.js';
-import { documentRetentionDays } from '../identity/service.js';
+import { recordEvent } from '../audit/service.js';
 import { visibleItemTrip } from '../items/service.js';
-import {
-  callerMembership,
-  memberTrip,
-  tripsPastRetention,
-  type CallerMembership,
-} from '../trips/service.js';
+import { callerMembership, memberTrip, type CallerMembership } from '../trips/service.js';
 import { writeOperation } from '../write-operation.js';
 import type { BlobStore, StoredBlob } from './blobs.js';
 import {
@@ -41,15 +35,13 @@ import {
   canUpdateFile,
   canUploadFile,
 } from './policy.js';
+import { purgeDueFiles } from './purge.js';
 import {
   fileTrip,
   findFile,
   findVisibleFile,
   insertFile,
-  listDueFiles,
   listVisibleFiles,
-  lockDueFile,
-  markPurged,
   lockFile,
   newFileId,
   softDeleteFile,
@@ -196,18 +188,6 @@ async function attachableItem(
     });
   }
   return id;
-}
-
-/** A purged file's snapshot: what it was attached to and who owned it, never its name or content. */
-function tombstone(row: FileRow) {
-  return {
-    tripId: row.trip_id,
-    itemId: row.item_id,
-    ownerMembershipId: row.owner_membership_id,
-    kind: row.kind,
-    visibility: row.visibility,
-    filename: 'purged',
-  };
 }
 
 /** Runs `work` in the caller's transaction when it is one, or in a new one. */
@@ -419,43 +399,7 @@ export function createFilesService(
       return { file: fileRecord(row), content: blobs.read(row.id, row.blob_key) };
     },
 
-    async purgeDue(ctx, onFailure) {
-      const days = await documentRetentionDays(db);
-      const trips = await tripsPastRetention(db, days);
-      const due = await listDueFiles(forModule(db, 'documents'), days, trips);
-      let purged = 0;
-      let failed = 0;
-      for (const fileId of due) {
-        try {
-          // eslint-disable-next-line no-await-in-loop -- one file per transaction, one at a time
-          const done = await db.transaction().execute(async (tx) => {
-            const documents = forModule(tx, 'documents');
-            // Locked and checked again: purged or no longer due since the list was read.
-            const row = await lockDueFile(documents, fileId, days, trips);
-            if (!row) return false;
-            const version = await markPurged(documents, row.id);
-            await dropSnapshots(tx, 'file', row.id);
-            await recordWrite(tx, ctx, {
-              action: 'purge',
-              aggregate: 'file',
-              entityId: row.id,
-              tripId: row.trip_id,
-              version,
-              versionBefore: row.version,
-              snapshot: tombstone(row),
-            });
-            // Last, so a failure rolls the row back and the next run tries again.
-            await blobs.delete(row.blob_key);
-            return true;
-          });
-          if (done) purged += 1;
-        } catch (error) {
-          failed += 1;
-          onFailure(fileId, error);
-        }
-      }
-      return { due: due.length, purged, failed };
-    },
+    purgeDue: (ctx, onFailure) => purgeDueFiles(db, blobs, ctx, onFailure),
 
     async upload(ctx, tripId, form, file) {
       const userId = actingUser(ctx);

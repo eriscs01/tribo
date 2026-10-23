@@ -49,11 +49,11 @@ export default defineConfig({
       thresholds: partialRun
         ? undefined
         : {
-            statements: 94,
-            branches: 88,
-            functions: 97,
-            lines: 96,
-            'packages/core/src/**': { statements: 94, branches: 89, functions: 99, lines: 97 },
+            statements: 96,
+            branches: 90,
+            functions: 98,
+            lines: 97,
+            'packages/core/src/**': { statements: 97, branches: 93, functions: 99, lines: 99 },
           },
     },
     projects: [
