@@ -2,7 +2,7 @@ import {
   anyMember,
   contributors,
   itemManager,
-  itemOwnerOrOrganizer,
+  ownerOrOrganizer,
   organizers,
   type ItemEditor,
 } from '../roles.js';
@@ -24,13 +24,13 @@ export function canUpdateItem(editor: ItemEditor): boolean {
  * Taking an item away from the group (private, or selected members only) is for its owner
  * or an organizer; anyone who may edit it may share it with everyone again.
  */
-export const canNarrowVisibility = itemOwnerOrOrganizer;
+export const canNarrowVisibility = ownerOrOrganizer;
 
 /**
  * An item's restricted fields: its owner and the trip's owners and organizers read and
  * write them, and only they change which fields are restricted. Being assigned is not enough.
  */
-export const seesRestrictedFields = itemOwnerOrOrganizer;
+export const seesRestrictedFields = ownerOrOrganizer;
 
 /** items.delete: owners and organizers delete any item; members only their own (an assignee may not). */
 export const canDeleteItem = itemManager;
@@ -56,3 +56,16 @@ export const canManageBoard = itemManager;
 
 /** items.assignments.get: every role reads the board of an item it can see. */
 export const canReadBoard = anyMember;
+
+/**
+ * overlays.get and overlays.put: everyone but a viewer keeps a private note, reminder and
+ * checklist of their own (the design's matrix: viewers keep none).
+ */
+export const canGetOverlay = contributors;
+export const canPutOverlay = contributors;
+
+/**
+ * overlays.delete: every role removes its own overlay, a viewer's too, since one kept from
+ * before a demotion is theirs to clear even though they can no longer read or write it.
+ */
+export const canDeleteOverlay = anyMember;

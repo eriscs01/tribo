@@ -1982,9 +1982,10 @@ export interface components {
         DueSoon: {
             kind: components["schemas"]["DueSoonKind"];
             item: components["schemas"]["Item"];
+            reminderAt?: components["schemas"]["Instant"];
         };
         /** @enum {string} */
-        DueSoonKind: "task_due";
+        DueSoonKind: "task_due" | "reminder";
         EmergencyContact: {
             name: string;
             relation?: string;
@@ -2370,6 +2371,14 @@ export interface components {
             amountMinor: number;
             currency: components["schemas"]["CurrencyCode"];
         };
+        MyTask: {
+            tripName: string;
+            item: components["schemas"]["Item"];
+        };
+        MyTasks: {
+            tasks: components["schemas"]["MyTask"][];
+            dueSoon: components["schemas"]["DueSoon"][];
+        };
         NewPassword: string;
         OpeningHours: {
             /** @enum {string} */
@@ -2377,6 +2386,25 @@ export interface components {
             opens: string;
             closes: string;
         }[];
+        Overlay: {
+            itemId: string;
+            tripId: string;
+            note: string | null;
+            reminderAt: components["schemas"]["Instant"] | null;
+            checklist: components["schemas"]["OverlayChecklistEntry"][];
+            version: number;
+            createdAt: components["schemas"]["Instant"];
+            updatedAt: components["schemas"]["Instant"];
+        };
+        OverlayChecklistEntry: {
+            text: string;
+            done: boolean;
+        };
+        OverlayInput: {
+            note?: string | null;
+            reminderAt?: components["schemas"]["Instant"] | null;
+            checklist?: components["schemas"]["OverlayChecklistEntry"][];
+        };
         PasswordChangeInput: {
             currentPassword: string;
             newPassword: components["schemas"]["NewPassword"];
@@ -4473,13 +4501,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["Overlay"];
                 };
             };
             /** @description Error */
@@ -4499,17 +4527,34 @@ export interface operations {
             header?: {
                 /** @description Current version (omit to create) as an ETag */
                 "If-Match"?: string;
+                /** @description Send * to create: refused with version_conflict when one already exists */
+                "If-None-Match"?: "*";
             };
             path: {
                 itemId: string;
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OverlayInput"];
+            };
+        };
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            200: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Overlay"];
+                };
+            };
+            /** @description Too many writes in this window (rate_limited) */
+            429: {
+                headers: {
+                    /** @description Seconds until the window resets */
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -4541,9 +4586,18 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description No content */
+            204: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too many writes in this window (rate_limited) */
+            429: {
+                headers: {
+                    /** @description Seconds until the window resets */
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -5798,13 +5852,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["MyTasks"];
                 };
             };
             /** @description Error */

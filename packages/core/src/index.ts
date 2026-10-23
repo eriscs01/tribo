@@ -29,6 +29,7 @@ export {
 } from './trips/service.js';
 export {
   createItemsService,
+  createOverlaysService,
   createUnitsService,
   memberItems,
   type AllocationRecord,
@@ -36,16 +37,22 @@ export {
   type ItemRecord,
   type ItemsService,
   type ItemTimeRecord,
+  type OverlayRecord,
+  type OverlaysService,
   type UnitRecord,
   type UnitsService,
 } from './items/service.js';
 export {
   createDashboardService,
   createItineraryService,
+  createMyTasksService,
   type DashboardRecord,
   type DashboardService,
+  type DueSoonRecord,
   type ItineraryRecord,
   type ItineraryService,
+  type MyTasksRecord,
+  type MyTasksService,
   type WarningRecord,
 } from './itinerary/service.js';
 export {

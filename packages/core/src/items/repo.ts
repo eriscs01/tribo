@@ -304,6 +304,23 @@ export function listAllVisibleItems(
   return visibleItems(db, userId, tripId, filter).orderBy('i.id').execute();
 }
 
+/** The tasks of these trips that tribo.item_visible lets this account see, in id order. */
+export function listVisibleTasks(db: ItemsDb, userId: string, tripIds: readonly string[]) {
+  if (tripIds.length === 0) return Promise.resolve([]);
+  return selectItem(db)
+    .where('i.trip_id', 'in', tripIds)
+    .where('i.type', '=', 'task')
+    .where(sql<boolean>`tribo.item_visible(${userId}, i.id)`)
+    .orderBy('i.id')
+    .execute();
+}
+
+/** These items, in id order; the caller has already checked that each is one this account sees. */
+export function listItemsByIds(db: ItemsDb, itemIds: readonly string[]) {
+  if (itemIds.length === 0) return Promise.resolve([]);
+  return selectItem(db).where('i.id', 'in', itemIds).orderBy('i.id').execute();
+}
+
 /**
  * Sets this membership's answer on its attendee row, adding the row when there is none.
  * Only that one row is written: the caller's other roles and everyone else's stay.

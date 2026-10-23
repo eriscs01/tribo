@@ -8,6 +8,8 @@ import type {
   ItineraryService,
   LibraryService,
   MembersService,
+  MyTasksService,
+  OverlaysService,
   TripsService,
   UnitsService,
 } from '@tribo/core';
@@ -21,6 +23,7 @@ import { itemHandlers } from './items.js';
 import { itineraryHandlers } from './itinerary.js';
 import { libraryHandlers } from './library.js';
 import { membersHandlers } from './members.js';
+import { overlayHandlers } from './overlays.js';
 import { tripHandlers } from './trips.js';
 import { meHandlers } from './me.js';
 import { metaHandlers } from './meta.js';
@@ -36,6 +39,8 @@ export interface HandlerServices {
   items: ItemsService;
   itinerary: ItineraryService;
   dashboard: DashboardService;
+  myTasks: MyTasksService;
+  overlays: OverlaysService;
   units: UnitsService;
   library: LibraryService;
   files: FilesService;
@@ -57,8 +62,9 @@ export function operationHandlers(services: HandlerServices): Handlers {
     ...itineraryHandlers(services.itinerary),
     ...dashboardHandlers(services.dashboard),
     ...libraryHandlers(services.library),
-    ...meHandlers(services.identity, services.library),
+    ...meHandlers(services.identity, services.library, services.myTasks),
     ...metaHandlers(),
+    ...overlayHandlers(services.overlays),
     ...unitsHandlers(services.units),
     ...filesHandlers(services.files),
     ...expensesHandlers(services.expenses),

@@ -56,3 +56,12 @@ export function ifMatch(request: FastifyRequest): number | undefined {
   const counter = COUNTER_TAG.exec(header.trim())?.[1];
   return counter === undefined ? Number.NaN : Number(counter);
 }
+
+/**
+ * Whether the request carries `If-None-Match: *`, the precondition that creates something
+ * only where it does not exist yet. Any other value names an entity tag, which names nothing
+ * to create.
+ */
+export function createOnly(request: FastifyRequest): boolean {
+  return request.headers['if-none-match']?.trim() === '*';
+}

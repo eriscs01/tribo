@@ -22,6 +22,7 @@ export * from './money.js';
 export * from './no-body.js';
 export * from './openapi.js';
 export * from './operation.js';
+export * from './overlay.js';
 export * from './page.js';
 export * from './password.js';
 export * from './person.js';

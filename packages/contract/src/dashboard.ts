@@ -5,7 +5,7 @@ import { ID_PREFIX, typeId } from './ids.js';
 import { Item } from './item.js';
 import { MaskedValue } from './masked.js';
 import { Money } from './money.js';
-import { TimeZone } from './time.js';
+import { Instant, TimeZone } from './time.js';
 import { Warning } from './warning.js';
 
 /** Where today, in the trip's time zone, falls against the trip's dates. */
@@ -23,12 +23,20 @@ export const Countdown = z
   .meta({ id: 'Countdown' });
 
 /**
- * Why an item is due soon. Drop A has `task_due` (a task of the caller's due within 7 days
- * or overdue); the caller's own reminders join with overlays in Drop B.
+ * Why an item is due soon: `task_due` for a task of the caller's due within 7 days or
+ * overdue, `reminder` for an item the caller set their own reminder on (overlays.put) that
+ * falls within 7 days of now, either side. Nothing is pushed in 1a (F-08).
  */
-export const DueSoonKind = z.enum(['task_due']).meta({ id: 'DueSoonKind' });
+export const DueSoonKind = z.enum(['task_due', 'reminder']).meta({ id: 'DueSoonKind' });
 
-export const DueSoon = z.strictObject({ kind: DueSoonKind, item: Item }).meta({ id: 'DueSoon' });
+export const DueSoon = z
+  .strictObject({
+    kind: DueSoonKind,
+    item: Item,
+    /** The caller's own reminder time; on `reminder` entries only, and never anyone else's. */
+    reminderAt: Instant.optional(),
+  })
+  .meta({ id: 'DueSoon' });
 
 /**
  * trips.dashboard. Items show and mask as items.list shows them, and only items the caller
@@ -50,5 +58,7 @@ export const TripDashboard = z
     warnings: z.array(Warning),
   })
   .meta({ id: 'TripDashboard' });
+
+export type DueSoon = z.infer<typeof DueSoon>;
 
 export type TripDashboard = z.infer<typeof TripDashboard>;

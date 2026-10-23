@@ -4,7 +4,7 @@ import {
   anyMember,
   contributors,
   itemManager,
-  itemOwnerOrOrganizer,
+  ownerOrOrganizer,
   organizers,
   organizersOrOwningMember,
   ownerOnly,
@@ -37,10 +37,10 @@ describe('shared trip-role rules', () => {
     }
   });
 
-  it('itemOwnerOrOrganizer: the item owner whatever their role now, or organizers', () => {
+  it('ownerOrOrganizer: the item owner whatever their role now, or organizers', () => {
     for (const role of ROLES) {
-      expect(itemOwnerOrOrganizer({ role, owns: true })).toBe(true);
-      expect(itemOwnerOrOrganizer({ role, owns: false })).toBe(organizers(role));
+      expect(ownerOrOrganizer({ role, owns: true })).toBe(true);
+      expect(ownerOrOrganizer({ role, owns: false })).toBe(organizers(role));
     }
   });
 

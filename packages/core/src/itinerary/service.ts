@@ -15,6 +15,13 @@ export {
   type DashboardRecord,
   type DashboardService,
 } from './dashboard.js';
+export {
+  createMyTasksService,
+  type MyTasksDeps,
+  type MyTasksRecord,
+  type MyTasksService,
+} from './my-tasks.js';
+export type { DueSoonRecord } from './tasks.js';
 export type { WarningRecord } from './timeline.js';
 
 export interface ItineraryRecord {

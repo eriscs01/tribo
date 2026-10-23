@@ -1,4 +1,4 @@
-import { anyMember, contributors, itemOwnerOrOrganizer } from '../roles.js';
+import { anyMember, contributors, ownerOrOrganizer } from '../roles.js';
 
 /** files.list: every role; the file predicate narrows what each one sees. */
 export const canListFiles = anyMember;
@@ -16,7 +16,7 @@ export const canUploadFile = contributors;
  * files.update: the file's owner (whatever their role is now), organizers and the trip
  * owner: the rule an item's owner has, which a file's owner shares.
  */
-export const canUpdateFile = itemOwnerOrOrganizer;
+export const canUpdateFile = ownerOrOrganizer;
 
 /** files.delete: as files.update; the blob stays until the retention purge. */
-export const canDeleteFile = itemOwnerOrOrganizer;
+export const canDeleteFile = ownerOrOrganizer;

@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   canCreateItem,
+  canDeleteOverlay,
+  canGetOverlay,
+  canPutOverlay,
   canDeleteItem,
   canListItems,
   canNarrowVisibility,
@@ -111,6 +114,32 @@ describe('canReadBoard', () => {
   it('lets every trip role read the board of an item it may see', () => {
     for (const role of ['owner', 'organizer', 'member', 'viewer'] as const) {
       expect(canReadBoard(role)).toBe(true);
+    }
+  });
+});
+
+describe('canGetOverlay', () => {
+  it('lets owners, organizers and members keep a private overlay, never viewers', () => {
+    expect(canGetOverlay('owner')).toBe(true);
+    expect(canGetOverlay('organizer')).toBe(true);
+    expect(canGetOverlay('member')).toBe(true);
+    expect(canGetOverlay('viewer')).toBe(false);
+  });
+});
+
+describe('canPutOverlay', () => {
+  it('lets owners, organizers and members keep a private overlay, never viewers', () => {
+    expect(canPutOverlay('owner')).toBe(true);
+    expect(canPutOverlay('organizer')).toBe(true);
+    expect(canPutOverlay('member')).toBe(true);
+    expect(canPutOverlay('viewer')).toBe(false);
+  });
+});
+
+describe('canDeleteOverlay', () => {
+  it('lets every trip role remove its own overlay, a viewer’s stale one included', () => {
+    for (const role of ['owner', 'organizer', 'member', 'viewer'] as const) {
+      expect(canDeleteOverlay(role)).toBe(true);
     }
   });
 });

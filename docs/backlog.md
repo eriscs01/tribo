@@ -37,7 +37,7 @@
 - [x] `me.password.change` · Drop A · `POST /v1/me/password`
   - Change own password; revokes other sessions; Decided (G1); Never replayed (rule 6)
   - Roles: self. If-Match: `no`. Idempotency: never replayed.
-- [ ] `me.tasks` · Drop B · `GET /v1/me/tasks`
+- [x] `me.tasks` · Drop B · `GET /v1/me/tasks`
   - "My trip" tasks across trips + due-soon reminders; item_visible per trip; overlay reminders are own only
   - Roles: self. If-Match: `no`. Idempotency: safe to repeat.
 
@@ -123,13 +123,13 @@
 - [x] `items.reveal` · Drop A · `POST /v1/items/{itemId}/reveal`
   - Plaintext of bookingRef, cardLast4; Audited reveal (field paths only); never cached offline; write scope (G15); MCP approval (1b); No Idempotency-Key: each call is its own audited reveal (R2); MCP: tool returns approvalId, after approval the client calls again with approvalId within 10 min, single use (R15); Allowed on archived trips (a read, audited); refused with trip_retired after retirement
   - Roles: owner, organizer, member (own items). If-Match: `no`. Idempotency: never replayed.
-- [ ] `overlays.get` · Drop B · `GET /v1/items/{itemId}/overlay`
+- [x] `overlays.get` · Drop B · `GET /v1/items/{itemId}/overlay`
   - Caller's private note, reminder, checklist; Always private to caller
   - Roles: self (not viewer). If-Match: `no`. Idempotency: safe to repeat.
-- [ ] `overlays.put` · Drop B · `PUT /v1/items/{itemId}/overlay`
+- [x] `overlays.put` · Drop B · `PUT /v1/items/{itemId}/overlay`
   - Create or replace own overlay; reminderAt feeds due-soon; If-Match when one exists, If-None-Match: * to create (G3); trip_archived on archived trips (R29)
   - Roles: self (not viewer). If-Match: `version_or_new`. Idempotency: safe to repeat.
-- [ ] `overlays.delete` · Drop B · `DELETE /v1/items/{itemId}/overlay`
+- [x] `overlays.delete` · Drop B · `DELETE /v1/items/{itemId}/overlay`
   - Remove own overlay; trip_archived on archived trips (R29)
   - Roles: self. If-Match: `version`. Idempotency: safe to repeat.
 
