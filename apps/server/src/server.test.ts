@@ -160,7 +160,7 @@ const files: FilesService = {
   purgeDue: unused,
 };
 
-const expenses: ExpensesService = { get: unused, create: unused };
+const expenses: ExpensesService = { list: unused, get: unused, create: unused };
 
 let app: FastifyInstance | undefined;
 let lines: Record<string, unknown>[] = [];

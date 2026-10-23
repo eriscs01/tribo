@@ -2,9 +2,10 @@
 // the members included (Technical design, "Expenses"). Record only: no balances, debts or
 // settle-up (R36).
 import * as z from 'zod';
-import { ID_PREFIX, typeId } from './ids.js';
+import { ID_PREFIX, typeId, Uuid } from './ids.js';
 import { MaskedValue } from './masked.js';
 import { CurrencyCode, Money } from './money.js';
+import { page } from './page.js';
 import { Instant } from './time.js';
 
 /** How an expense is split. Drop B writes `equal` and `itemised`; `weight` follows after the trip. */
@@ -111,3 +112,14 @@ export const ExpenseInput = z
   .meta({ id: 'ExpenseInput' });
 
 export type ExpenseInput = z.infer<typeof ExpenseInput>;
+
+/**
+ * expenses.list: one page of the trip's ledger, by the day spent then the order recorded;
+ * voided expenses are not in it. Expenses only: no balances, debts or settle-up (R36).
+ */
+export const ExpensePage = page(Expense, 'ExpensePage');
+
+export type ExpensePage = z.infer<typeof ExpensePage>;
+
+/** expenses.list's keyset: the last row's day spent and id (the cursor's decoded form). */
+export const ExpenseCursorKey = z.tuple([z.iso.date(), Uuid]);

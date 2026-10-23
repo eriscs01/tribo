@@ -1,7 +1,13 @@
-import { encodeTypeId, ID_PREFIX, type Expense } from '@tribo/contract';
+import {
+  encodeTypeId,
+  ID_PREFIX,
+  PageQuery,
+  type Expense,
+  type ExpensePage,
+} from '@tribo/contract';
 import type { ExpenseRecord, ExpensesService } from '@tribo/core';
 import { pathId, requestContext, signedIn } from '../context.js';
-import type { Handlers } from '../routes.js';
+import { parsedQuery, type Handlers } from '../routes.js';
 
 /** The service masks; this only names ids as the API does. */
 function expenseView(expense: ExpenseRecord): Expense {
@@ -39,5 +45,13 @@ export function expensesHandlers(expenses: ExpensesService): Handlers {
     },
     'expenses.get': async (request) =>
       expenseView(await expenses.get(signedIn(request).userId, pathId(request, 'expenseId'))),
+    'expenses.list': async (request): Promise<ExpensePage> => {
+      const page = await expenses.list(
+        signedIn(request).userId,
+        pathId(request, 'tripId'),
+        parsedQuery(request, PageQuery),
+      );
+      return { items: page.items.map(expenseView), nextCursor: page.nextCursor };
+    },
   };
 }

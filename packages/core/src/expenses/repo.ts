@@ -167,3 +167,24 @@ export function findLiveExpense(db: ExpensesDb, userId: string, expenseId: strin
     .where('e.deleted_at', 'is', null)
     .executeTakeFirst();
 }
+
+/**
+ * One page of a trip's ledger as this reader gets it: the expenses not voided, by the day
+ * spent then id (UUIDv7: the order recorded). `after` is the last row's sort key.
+ */
+export function listLiveExpenses(
+  db: ExpensesDb,
+  userId: string,
+  tripId: string,
+  page: { limit: number; after: { spentOn: string; id: string } | null },
+) {
+  let query = selectExpense(db, userId)
+    .where('e.trip_id', '=', tripId)
+    .where('e.deleted_at', 'is', null);
+  if (page.after) {
+    query = query.where(
+      sql<boolean>`(e.spent_on, e.id) > (${page.after.spentOn}::date, ${page.after.id}::uuid)`,
+    );
+  }
+  return query.orderBy('e.spent_on').orderBy('e.id').limit(page.limit).execute();
+}

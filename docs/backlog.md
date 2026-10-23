@@ -179,7 +179,7 @@
 
 ## Expenses
 
-- [ ] `expenses.list` · Drop B · `GET /v1/trips/{tripId}/expenses`
+- [x] `expenses.list` · Drop B · `GET /v1/trips/{tripId}/expenses`
   - Trip ledger; All members; itemId nulled if item hidden; amounts masked for viewers w/o canViewCosts; Record only: no balances, debts or settle-up (R36)
   - Roles: owner, organizer, member, viewer. If-Match: `no`. Idempotency: safe to repeat.
 - [x] `expenses.create` · Drop B · `POST /v1/trips/{tripId}/expenses`

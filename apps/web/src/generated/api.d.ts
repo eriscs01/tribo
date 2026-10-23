@@ -2023,6 +2023,10 @@ export interface components {
             };
             split: components["schemas"]["ExpenseSplit"];
         };
+        ExpensePage: {
+            items: components["schemas"]["Expense"][];
+            nextCursor: string | null;
+        };
         ExpenseShare: {
             membershipId: string;
             amount: components["schemas"]["Money"] | components["schemas"]["MaskedValue"];
@@ -6442,7 +6446,10 @@ export interface operations {
     };
     "expenses.list": {
         parameters: {
-            query?: never;
+            query?: {
+                limit?: number;
+                cursor?: string;
+            };
             header?: never;
             path: {
                 tripId: string;
@@ -6451,13 +6458,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["ExpensePage"];
                 };
             };
             /** @description Error */

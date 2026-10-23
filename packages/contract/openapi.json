@@ -7506,12 +7506,12 @@
           }
         ],
         "responses": {
-          "501": {
-            "description": "Registered but not implemented yet (not_implemented)",
+          "200": {
+            "description": "OK",
             "content": {
-              "application/problem+json": {
+              "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Problem"
+                  "$ref": "#/components/schemas/ExpensePage"
                 }
               }
             }
@@ -7528,7 +7528,7 @@
           }
         },
         "x-tribo": {
-          "status": "planned",
+          "status": "implemented",
           "slice": "1a",
           "drop": "B",
           "roles": "owner, organizer, member, viewer",
@@ -7546,6 +7546,27 @@
             "schema": {
               "type": "string",
               "pattern": "^trp_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
             }
           }
         ]
@@ -9657,6 +9678,28 @@
           "payerMembershipId",
           "amount",
           "split"
+        ],
+        "additionalProperties": false
+      },
+      "ExpensePage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Expense"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
         ],
         "additionalProperties": false
       },

@@ -284,3 +284,42 @@ describe('expenses.get over HTTP', () => {
     logsNoMoney(hidden.headers['x-request-id']);
   });
 });
+
+describe('expenses.list over HTTP', () => {
+  const list = (w: World, caller: Caller, query = '') =>
+    app.inject({
+      method: 'GET',
+      url: `/v1/trips/${w.tripPath}/expenses${query}`,
+      cookies: caller.auth.cookies,
+      headers: caller.auth.headers,
+    });
+
+  it('answers a page of the ledger, masked for a viewer, and pages by cursor', async () => {
+    const w = await world();
+    const first = (await create(w, w.member, dinner(w, { spentOn: '2026-11-11' }))).json<{
+      id: string;
+    }>();
+    const second = (await create(w, w.member, dinner(w))).json<{ id: string }>();
+    const all = await list(w, w.owner);
+    expect(all.statusCode).toBe(200);
+    expect(all.json()).toEqual({ items: [first, second], nextCursor: null });
+    const one = await list(w, w.owner, '?limit=1');
+    const { nextCursor } = one.json<{ nextCursor: string }>();
+    const rest = await list(w, w.owner, `?limit=1&cursor=${nextCursor}`);
+    expect(rest.json()).toEqual({ items: [second], nextCursor: null });
+    const masked = await list(w, w.viewer);
+    expect(masked.body).not.toContain('amountMinor');
+    logsNoMoney(all.headers['x-request-id']);
+  });
+
+  it('answers 404 to a stranger with its log line', async () => {
+    const w = await world();
+    const stranger = await signedInUser();
+    const res = await list(w, stranger);
+    expect(res.statusCode).toBe(404);
+    expect(refusalLine(res.headers['x-request-id'])).toMatchObject({
+      operationId: 'expenses.list',
+      problem: 'not_found',
+    });
+  });
+});

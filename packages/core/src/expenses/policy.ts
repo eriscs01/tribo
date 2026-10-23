@@ -8,3 +8,6 @@ export const canCreateExpense = contributors;
  * every amount masked.
  */
 export const canGetExpense = anyMember;
+
+/** expenses.list: every role; the ledger stays whole, masked as expenses.get masks it. */
+export const canListExpenses = anyMember;

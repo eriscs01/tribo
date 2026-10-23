@@ -3,17 +3,22 @@
 // debts or settle-up (R36).
 import {
   decodeTypeId,
+  ExpenseCursorKey,
   ExpenseInput,
   ID_PREFIX,
   MASKED,
   type ExpenseSplit,
   type MaskedValue,
   type Money,
+  type PageQuery,
 } from '@tribo/contract';
 import { forModule, type DB, type TripRole, type ValueOf } from '@tribo/db';
 import {
   actingUser,
   ApiError,
+  decodeCursor,
+  invalidCursor,
+  page,
   type RequestContext,
   type Tx,
   type WritePath,
@@ -28,13 +33,14 @@ import {
 } from '../trips/service.js';
 import { writeOperation } from '../write-operation.js';
 import { equalShares, itemisedShares, tripAmountMinor, type Share } from './money.js';
-import { canCreateExpense, canGetExpense } from './policy.js';
+import { canCreateExpense, canGetExpense, canListExpenses } from './policy.js';
 import {
   expenseTrip,
   findExpense,
   findLiveExpense,
   hasMoneyRows,
   insertExpense,
+  listLiveExpenses,
   listShares,
   sumShares,
   type ExpenseRow,
@@ -81,6 +87,15 @@ export interface ExpenseRecord {
 }
 
 export interface ExpensesService {
+  /**
+   * expenses.list: one page of the trip's ledger, every expense not voided, to every active
+   * member; not_found to anyone else.
+   */
+  list(
+    userId: string,
+    tripId: string,
+    query: PageQuery,
+  ): Promise<{ items: ExpenseRecord[]; nextCursor: string | null }>;
   /**
    * expenses.get: one expense of a trip the caller is an active member of, unless voided;
    * not_found for any other.
@@ -243,6 +258,14 @@ async function pricedExpense(
   return { currency, total, shares };
 }
 
+/** expenses.list's cursor: the last row's day spent and id, or validation_failed at /cursor. */
+function ledgerCursor(cursor: string): { spentOn: string; id: string } {
+  const key = ExpenseCursorKey.safeParse(decodeCursor(cursor, 2));
+  if (!key.success) throw invalidCursor();
+  const [spentOn, id] = key.data;
+  return { spentOn, id };
+}
+
 /** Stands in for the trip of an expense that does not exist, so its lookups still run. */
 const NO_ROW = '00000000-0000-0000-0000-000000000000';
 
@@ -282,6 +305,32 @@ async function recorder(tx: Tx, ctx: RequestContext, tripId: string) {
 /** `write` is core's write path (writePath in write-path.ts), passed in to keep imports acyclic. */
 export function createExpensesService(db: Kysely<DB>, write: WritePath): ExpensesService {
   return {
+    async list(userId, tripId, query) {
+      const membership = await callerMembership(db, userId, tripId);
+      if (membership === null) throw new ApiError('not_found');
+      if (!canListExpenses(membership.role)) throw new ApiError('forbidden');
+      const expenses = forModule(db, 'expenses');
+      const rows = await listLiveExpenses(expenses, userId, tripId, {
+        limit: query.limit + 1,
+        after: query.cursor === undefined ? null : ledgerCursor(query.cursor),
+      });
+      const shown = page(rows, query.limit, (row) => [row.spent_on, row.id]);
+      const shares = Map.groupBy(
+        await listShares(
+          expenses,
+          shown.rows.map((row) => row.id),
+        ),
+        (share) => share.expense_id,
+      );
+      const currency = await tripCurrency(db, tripId);
+      return {
+        items: shown.rows.map((row) =>
+          expenseRecord(row, shares.get(row.id) ?? [], currency, membership),
+        ),
+        nextCursor: shown.nextCursor,
+      };
+    },
+
     async get(userId, expenseId) {
       const { row, membership } = await readableExpense(db, userId, expenseId, canGetExpense);
       const shares = await listShares(forModule(db, 'expenses'), [row.id]);
