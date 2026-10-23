@@ -3,6 +3,8 @@ import { loadMigrations, migrate } from '@tribo/db';
 import pg from 'pg';
 import { buildApp } from './app.js';
 import { loadConfig } from './config.js';
+import { dailyJobs } from './jobs/index.js';
+import { createJobRunner } from './jobs/run.js';
 import { exitOnProcessFailure } from './process-failures.js';
 import { openRuntime } from './runtime.js';
 
@@ -46,12 +48,15 @@ try {
 }
 
 await app.listen(config.listen);
+const jobs = createJobRunner({ db: runtime.db, log: app.log, jobs: dailyJobs(runtime) });
+jobs.start();
 
 for (const signal of ['SIGTERM', 'SIGINT'] as const) {
   process.once(signal, () => {
     app.log.info({ signal }, 'shutting down');
-    app
-      .close()
+    jobs
+      .stop()
+      .then(() => app.close())
       .then(close)
       .then(
         () => process.exit(0),

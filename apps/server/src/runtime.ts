@@ -81,6 +81,8 @@ export async function openRuntime(config: Config, applicationName: string) {
     ...composeServices(db, appKey, config.publicUrl, config.uploadsDir),
     release: config.release,
     pool,
+    /** The tribo_app handle, for the daily jobs' advisory locks. */
+    db,
     /** Ends the pool. Kysely ends only a pool it has queried through, so this ends it too. */
     close: async () => {
       await db.destroy();

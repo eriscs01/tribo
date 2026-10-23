@@ -115,6 +115,8 @@ export interface IdempotencyStore {
     claim: IdempotencyClaim,
     response: { status: number; body: JsonValue; redacted: boolean },
   ): Promise<void>;
+  /** Deletes the keys past their 24 hours (the daily job); resolves to how many. */
+  deleteExpired(): Promise<number>;
 }
 
 export function createIdempotencyStore(db: Kysely<DB>): IdempotencyStore {
@@ -133,6 +135,13 @@ export function createIdempotencyStore(db: Kysely<DB>): IdempotencyStore {
         .where('operation_id', '=', claim.operationId)
         .where('response_status', 'is', null)
         .execute();
+    },
+    deleteExpired: async () => {
+      const { numDeletedRows } = await own
+        .deleteFrom('tribo.idempotency_keys')
+        .where('expires_at', '<=', sql<Date>`now()`)
+        .executeTakeFirst();
+      return Number(numDeletedRows);
     },
   };
 }
