@@ -202,7 +202,7 @@
 
 ## Files
 
-- [ ] `files.list` · Drop B · `GET /v1/trips/{tripId}/files`
+- [x] `files.list` · Drop B · `GET /v1/trips/{tripId}/files`
   - File metadata; File visibility AND item_visible(parent)
   - Roles: owner, organizer, member, viewer. If-Match: `no`. Idempotency: safe to repeat.
 - [x] `files.upload` · Drop B · `POST /v1/trips/{tripId}/files`

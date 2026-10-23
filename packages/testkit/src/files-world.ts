@@ -17,6 +17,8 @@ import {
   type UploadPart,
 } from '@tribo/core';
 import type { Keyring } from '@tribo/crypto';
+import type { DB } from '@tribo/db';
+import type { Kysely } from 'kysely';
 import { boardWorld } from './board-world.js';
 import type { TestDatabase } from './database.js';
 import { createItem } from './factories.js';
@@ -80,8 +82,8 @@ export async function blobDir(options: { maxBytes?: number } = {}): Promise<Blob
   };
 }
 
-export function filesService(tdb: TestDatabase, blobs: BlobStore): FilesService {
-  return createFilesService(tdb.db, writePath(tdb.db), blobs);
+export function filesService(db: Kysely<DB>, blobs: BlobStore): FilesService {
+  return createFilesService(db, writePath(db), blobs);
 }
 
 export async function filesWorld(tdb: TestDatabase) {

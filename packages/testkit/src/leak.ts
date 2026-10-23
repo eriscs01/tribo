@@ -16,6 +16,7 @@ import {
   addAllocation,
   addMember,
   createExpense,
+  createFile,
   createInvite,
   createItem,
   createPlaceholder,
@@ -71,6 +72,15 @@ export interface WorldSpec {
     expenses: { payer: number; shares: { member: number; amount: number }[]; voided: boolean }[];
     /** Invite links the owner made: open ones, revoked ones and expired ones. */
     invites: { revoked: boolean; expired: boolean }[];
+    /** Files by member index, on the item of that index (none past the last item) or on none. */
+    files: {
+      owner: number;
+      item: number | null;
+      kind: ValueOf<'tribo.files.kind'>;
+      visibility: ValueOf<'tribo.files.visibility'>;
+      deleted: boolean;
+      purged: boolean;
+    }[];
   }[];
 }
 
@@ -141,19 +151,32 @@ function tripArb(nUsers: number, nPersons: number) {
         voided: sometimes,
       });
       const invite = fc.record({ revoked: sometimes, expired: sometimes });
+      const file = fc.record({
+        owner: member,
+        item: fc.option(fc.nat({ max: 5 })),
+        kind: fc.constantFrom(...VALUE_SETS['tribo.files.kind']),
+        visibility: fc.constantFrom(...VALUE_SETS['tribo.files.visibility']),
+        deleted: sometimes,
+        purged: sometimes,
+      });
       return fc
         .tuple(
           fc.array(item, { maxLength: 6 }),
           fc.array(expense, { maxLength: 3 }),
           fc.array(invite, { maxLength: 2 }),
+          fc.array(file, { maxLength: 4 }),
         )
-        .map(([items, expenses, invites]) => ({
+        .map(([items, expenses, invites, files]) => ({
           owner: t.owner,
           deleted: t.deleted,
           members,
           items,
           expenses,
           invites,
+          files: files.map((f) => ({
+            ...f,
+            item: f.item !== null && f.item < items.length ? f.item : null,
+          })),
         }));
     });
 }
@@ -211,6 +234,15 @@ export interface BuiltWorld {
     }[];
     expenses: { id: string; voided: boolean; shares: { membershipId: string; amount: number }[] }[];
     invites: { id: string }[];
+    files: {
+      id: string;
+      ownerMembershipId: string;
+      itemId: string | null;
+      kind: ValueOf<'tribo.files.kind'>;
+      visibility: ValueOf<'tribo.files.visibility'>;
+      deleted: boolean;
+      purged: boolean;
+    }[];
   }[];
 }
 
@@ -232,6 +264,12 @@ export interface Oracle {
    * owner or the trip's owner or an organizer.
    */
   fieldReadable(world: BuiltWorld, userId: string, itemId: string, field: MaskedField): boolean;
+  /**
+   * A file shows while it and its trip are live, to an active member, when it is shared or
+   * theirs, and when it is on no item or on one they see (children follow their item). A
+   * purged file still shows; only its bytes are gone.
+   */
+  fileVisible(world: BuiltWorld, userId: string, fileId: string): boolean;
   /** A unit shows while it is live and its item shows (children follow their item). */
   unitVisible(world: BuiltWorld, userId: string, unitId: string): boolean;
   /**
@@ -295,6 +333,17 @@ export const oracle: Oracle = {
     const mine = trip.members.find((m) => m.personId === me.id && !m.deleted);
     if (!mine) return false;
     return item.ownerMembershipId === mine.id || mine.role === 'owner' || mine.role === 'organizer';
+  },
+
+  fileVisible(w, userId, fileId) {
+    const trip = w.trips.find((t) => t.files.some((f) => f.id === fileId));
+    const file = trip?.files.find((f) => f.id === fileId);
+    const me = personOf(w, userId);
+    if (!trip || !file || file.deleted || trip.deleted || !me) return false;
+    const mine = trip.members.find((m) => m.personId === me.id && !m.deleted);
+    if (!mine) return false;
+    if (file.visibility !== 'shared' && file.ownerMembershipId !== mine.id) return false;
+    return file.itemId === null || oracle.itemVisible(w, userId, file.itemId);
   },
 
   unitVisible(w, userId, unitId) {
@@ -497,7 +546,30 @@ export async function buildWorld(db: Kysely<DB>, spec: WorldSpec): Promise<Built
         }),
       });
     }
-    trips.push({ id: tripId, deleted: t.deleted, members, items, expenses, invites });
+    const files: BuiltWorld['trips'][number]['files'] = [];
+    for (const f of t.files) {
+      const fileOwnerId = members[f.owner]?.id ?? '';
+      const itemId = f.item === null ? null : (items[f.item]?.id ?? null);
+      const id = await createFile(db, {
+        tripId,
+        ownerMembershipId: fileOwnerId,
+        itemId,
+        kind: f.kind,
+        visibility: f.visibility,
+        deleted: f.deleted,
+        purged: f.purged,
+      });
+      files.push({
+        id,
+        ownerMembershipId: fileOwnerId,
+        itemId,
+        kind: f.kind,
+        visibility: f.visibility,
+        deleted: f.deleted,
+        purged: f.purged,
+      });
+    }
+    trips.push({ id: tripId, deleted: t.deleted, members, items, expenses, invites, files });
   }
 
   // Deletes last, so every insert above saw live parents.

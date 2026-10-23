@@ -341,8 +341,52 @@ export async function createExpense(
   return id;
 }
 
+/**
+ * A file row with no blob behind it (a random blob key and SHA-256): enough for metadata
+ * reads. Tests that read bytes upload through the documents service instead.
+ */
+export async function createFile(
+  db: Db,
+  init: {
+    tripId: string;
+    ownerMembershipId: string;
+    itemId?: string | null;
+    kind?: ValueOf<'tribo.files.kind'>;
+    visibility?: ValueOf<'tribo.files.visibility'>;
+    filename?: string;
+    deleted?: boolean;
+    purged?: boolean;
+  },
+): Promise<string> {
+  const hex = randomBytes(16).toString('hex');
+  const { id } = await db
+    .insertInto('tribo.files')
+    .values({
+      trip_id: init.tripId,
+      item_id: init.itemId ?? null,
+      owner_membership_id: init.ownerMembershipId,
+      kind: init.kind ?? 'other',
+      visibility: init.visibility ?? 'shared',
+      filename: init.purged ? 'purged' : (init.filename ?? `File ${next()}.pdf`),
+      mime_type: 'application/pdf',
+      size_bytes: 1_234,
+      blob_key: `${hex.slice(0, 2)}/${hex}`,
+      sha256: randomBytes(32),
+      purged_at: init.purged ? new Date() : null,
+      deleted_at: init.deleted ? new Date() : null,
+    })
+    .returning('id')
+    .executeTakeFirstOrThrow();
+  return id;
+}
+
 type SoftDeletable =
-  'tribo.trips' | 'tribo.memberships' | 'tribo.items' | 'tribo.persons' | 'tribo.units';
+  | 'tribo.trips'
+  | 'tribo.memberships'
+  | 'tribo.items'
+  | 'tribo.persons'
+  | 'tribo.units'
+  | 'tribo.files';
 
 /** Soft-deletes one root row (sets deleted_at), as the services' delete operations do. */
 export async function softDelete(db: Db, table: SoftDeletable, id: string): Promise<void> {

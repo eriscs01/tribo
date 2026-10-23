@@ -150,6 +150,7 @@ const library: LibraryService = {
 };
 
 const files: FilesService = {
+  list: unused,
   upload: unused,
 };
 

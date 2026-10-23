@@ -1,11 +1,19 @@
 // The documents module: files of a trip, their metadata in tribo.files and their bytes in
 // the blob store (Technical design, "Documents, encryption and retention").
 import { pipeline as pipe, type Readable } from 'node:stream';
-import { decodeTypeId, FileUploadForm, FileUploadInput, ID_PREFIX } from '@tribo/contract';
+import {
+  decodeTypeId,
+  FileUploadForm,
+  FileUploadInput,
+  ID_PREFIX,
+  type PageQuery,
+} from '@tribo/contract';
 import { forModule, type DB, type ValueOf } from '@tribo/db';
 import {
   actingUser,
   ApiError,
+  page,
+  uuidCursor,
   validate,
   type RequestContext,
   type Tx,
@@ -16,8 +24,8 @@ import { visibleItemTrip } from '../items/service.js';
 import { callerMembership, memberTrip, type CallerMembership } from '../trips/service.js';
 import { writeOperation } from '../write-operation.js';
 import type { BlobStore, StoredBlob } from './blobs.js';
-import { canUploadFile } from './policy.js';
-import { findFile, insertFile, newFileId, type FileRow } from './repo.js';
+import { canListFiles, canUploadFile } from './policy.js';
+import { findFile, insertFile, listVisibleFiles, newFileId, type FileRow } from './repo.js';
 import { displayName, sniffer, typeRefusal } from './sniff.js';
 
 export { createBlobStore, type BlobStore, type StoredBlob } from './blobs.js';
@@ -52,6 +60,15 @@ export interface UploadPart {
 }
 
 export interface FilesService {
+  /**
+   * files.list: the trip's files the caller may see, oldest first; not_found unless they
+   * are an active member of the live trip.
+   */
+  list(
+    userId: string,
+    tripId: string,
+    query: PageQuery,
+  ): Promise<{ items: FileRecord[]; nextCursor: string | null }>;
   /**
    * files.upload: checks the form, the caller and the item before reading a byte, then
    * streams the bytes through the type sniffer into the blob store and records the row.
@@ -144,6 +161,23 @@ export function createFilesService(
   blobs: BlobStore,
 ): FilesService {
   return {
+    async list(userId, tripId, query) {
+      const membership = await callerMembership(db, userId, tripId);
+      if (membership === null) throw new ApiError('not_found');
+      if (!canListFiles(membership.role)) throw new ApiError('forbidden');
+      const rows = await listVisibleFiles(
+        forModule(db, 'documents'),
+        { userId, membershipId: membership.id },
+        tripId,
+        {
+          limit: query.limit + 1,
+          after: query.cursor === undefined ? null : uuidCursor(query.cursor),
+        },
+      );
+      const shown = page(rows, query.limit, (row) => [row.id]);
+      return { items: shown.rows.map(fileRecord), nextCursor: shown.nextCursor };
+    },
+
     async upload(ctx, tripId, form, file) {
       const userId = actingUser(ctx);
       const fields = validate(FileUploadForm, form);

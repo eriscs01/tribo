@@ -1,8 +1,14 @@
-import { encodeTypeId, ID_PREFIX, type FileMetadata } from '@tribo/contract';
+import {
+  encodeTypeId,
+  ID_PREFIX,
+  PageQuery,
+  type FileMetadata,
+  type FilePage,
+} from '@tribo/contract';
 import type { FileRecord, FilesService } from '@tribo/core';
-import { pathId, requestContext } from '../context.js';
+import { pathId, requestContext, signedIn } from '../context.js';
 import { withUpload } from '../multipart.js';
-import type { Handlers } from '../routes.js';
+import { parsedQuery, type Handlers } from '../routes.js';
 
 function fileView(file: FileRecord): FileMetadata {
   return {
@@ -26,6 +32,14 @@ function fileView(file: FileRecord): FileMetadata {
 
 export function filesHandlers(files: FilesService): Handlers {
   return {
+    'files.list': async (request): Promise<FilePage> => {
+      const page = await files.list(
+        signedIn(request).userId,
+        pathId(request, 'tripId'),
+        parsedQuery(request, PageQuery),
+      );
+      return { items: page.items.map(fileView), nextCursor: page.nextCursor };
+    },
     'files.upload': async (request, reply) => {
       const tripId = pathId(request, 'tripId');
       const file = await withUpload(request, (form, part) =>

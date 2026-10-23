@@ -2013,6 +2013,10 @@ export interface components {
         };
         /** @enum {string} */
         FileMimeType: "application/pdf" | "image/jpeg" | "image/png" | "image/heic" | "image/webp";
+        FilePage: {
+            items: components["schemas"]["FileMetadata"][];
+            nextCursor: string | null;
+        };
         /** @enum {string} */
         FileVisibility: "shared" | "private";
         /** Format: date-time */
@@ -6423,7 +6427,10 @@ export interface operations {
     };
     "files.list": {
         parameters: {
-            query?: never;
+            query?: {
+                limit?: number;
+                cursor?: string;
+            };
             header?: never;
             path: {
                 tripId: string;
@@ -6432,13 +6439,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["FilePage"];
                 };
             };
             /** @description Error */

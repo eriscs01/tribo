@@ -80,3 +80,43 @@ export async function insertFile(db: DocumentsDb, file: NewFile): Promise<void> 
 export function findFile(db: DocumentsDb, fileId: string) {
   return selectFile(db).where('f.id', '=', fileId).executeTakeFirst();
 }
+
+/** Who reads: their account, and their active membership in the trip the files are in. */
+export interface FileReader {
+  userId: string;
+  membershipId: string;
+}
+
+/**
+ * The one file predicate (Technical design, "Children follow their item"): live files the
+ * reader may see, shared or their own, on no item or on one tribo.item_visible lets them
+ * see. Every file read composes it; none builds its own filter.
+ */
+function visibleFiles(db: DocumentsDb, reader: FileReader) {
+  return selectFile(db)
+    .where('f.deleted_at', 'is', null)
+    .where((eb) =>
+      eb.or([
+        eb('f.visibility', '=', 'shared'),
+        eb('f.owner_membership_id', '=', reader.membershipId),
+      ]),
+    )
+    .where((eb) =>
+      eb.or([
+        eb('f.item_id', 'is', null),
+        sql<boolean>`tribo.item_visible(${reader.userId}, f.item_id)`,
+      ]),
+    );
+}
+
+/** One page of a trip's files the reader may see, in id order (UUIDv7: the order they came). */
+export function listVisibleFiles(
+  db: DocumentsDb,
+  reader: FileReader,
+  tripId: string,
+  page: { limit: number; after: string | null },
+) {
+  let query = visibleFiles(db, reader).where('f.trip_id', '=', tripId);
+  if (page.after !== null) query = query.where('f.id', '>', page.after);
+  return query.orderBy('f.id').limit(page.limit).execute();
+}

@@ -424,3 +424,45 @@ describe('files.upload over HTTP', () => {
     expect(res.statusCode).toBe(415);
   });
 });
+
+describe('files.list over HTTP', () => {
+  it('answers a page of the files the caller sees, and 404 to a stranger with its log line', async () => {
+    const w = await world();
+    const data = png();
+    const made = await upload(
+      w,
+      w.member,
+      form([['kind', 'photo']], { filename: 'beach.png', type: 'image/png', data }),
+    );
+    await upload(
+      w,
+      w.member,
+      form(
+        [
+          ['kind', 'id'],
+          ['visibility', 'private'],
+        ],
+        { filename: 'passport.png', type: 'image/png', data: png() },
+      ),
+    );
+    const res = await app.inject({
+      method: 'GET',
+      url: `/v1/trips/${w.tripPath}/files?limit=10`,
+      ...w.viewer.auth,
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ items: [made.json()], nextCursor: null });
+
+    const stranger = await signedInUser();
+    const refused = await app.inject({
+      method: 'GET',
+      url: `/v1/trips/${w.tripPath}/files`,
+      ...stranger.auth,
+    });
+    expect(refused.statusCode).toBe(404);
+    expect(refusalLine(refused.headers['x-request-id'])).toMatchObject({
+      operationId: 'files.list',
+      problem: 'not_found',
+    });
+  });
+});

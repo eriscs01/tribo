@@ -31,7 +31,7 @@ const as = contexts('files-upload');
 beforeAll(async () => {
   tdb = await createTestDatabase();
   dir = await blobDir();
-  files = filesService(tdb, dir.blobs);
+  files = filesService(tdb.db, dir.blobs);
 });
 afterAll(async () => {
   await dir.remove();
@@ -228,7 +228,7 @@ describe('files.upload', () => {
     const w = await filesWorld(tdb);
     const small = await blobDir({ maxBytes: 10_000 });
     try {
-      const capped = filesService(tdb, small.blobs);
+      const capped = filesService(tdb.db, small.blobs);
       await capped.upload(as(w.owner), w.tripId, { kind: 'photo' }, part(sample('png', 10_000)));
       const before = await small.stored();
       expect(

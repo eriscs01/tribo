@@ -1,7 +1,8 @@
 // Generated from operations.csv by src/scripts/import-operations.ts. A story replaces an
 // entry's status with 'implemented' and adds its input and output schemas.
-import { FileMetadata, FileUploadForm, FileUploadInput } from '../file.js';
+import { FileMetadata, FilePage, FileUploadForm, FileUploadInput } from '../file.js';
 import { defineOperation } from '../operation.js';
+import { PageQuery } from '../page.js';
 
 export const filesOperations = [
   defineOperation({
@@ -19,7 +20,9 @@ export const filesOperations = [
     mcpApproval: false,
     mcpTool: null,
     notes: 'File metadata; File visibility AND item_visible(parent)',
-    status: 'planned',
+    status: 'implemented',
+    query: PageQuery,
+    output: FilePage,
   }),
   defineOperation({
     id: 'files.upload',
