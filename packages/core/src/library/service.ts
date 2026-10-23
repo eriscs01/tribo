@@ -12,6 +12,7 @@ import {
 import { sealJson, type FieldRef, type Keyring } from '@tribo/crypto';
 import { forModule, type DB, type ValueOf } from '@tribo/db';
 import {
+  actingUser,
   ApiError,
   type Change,
   type RequestContext,
@@ -486,12 +487,6 @@ function personRecord(row: PersonRow): PersonRecord {
 /** Library creates: any signed-in user (operations.csv). */
 function signedInOnly(_tx: Tx, ctx: RequestContext): Promise<void> {
   return ctx.userId === null ? Promise.reject(new ApiError('unauthenticated')) : Promise.resolve();
-}
-
-/** Writes need an account behind them; only system work runs without one. */
-function actingUser(ctx: RequestContext): string {
-  if (ctx.userId === null) throw new ApiError('unauthenticated');
-  return ctx.userId;
 }
 
 /**

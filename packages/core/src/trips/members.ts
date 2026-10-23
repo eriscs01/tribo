@@ -11,13 +11,16 @@ import {
 import type { Keyring } from '@tribo/crypto';
 import { forModule, type DB } from '@tribo/db';
 import {
+  actingUser,
   ApiError,
-  encodeCursor,
+  page,
+  uuidCursor,
   type RequestContext,
   type Tx,
   type WritePath,
 } from '@tribo/platform';
 import type { Kysely } from 'kysely';
+import { accountHasMfa } from '../identity/service.js';
 import {
   createPlaceholder,
   memberPersons,
@@ -26,9 +29,7 @@ import {
 } from '../library/service.js';
 import { writeOperation } from '../write-operation.js';
 import {
-  actingUser,
   callerMembership,
-  idCursor,
   memberRecord,
   membershipChange,
   membershipWrite,
@@ -110,40 +111,33 @@ interface MemberAddLoaded {
   counter?: number;
 }
 
-/** Identity's answer to whether an account has MFA on (accountHasMfa in identity/service.ts). */
-export type MfaCheck = (db: Kysely<DB>, userId: string) => Promise<boolean>;
-
 /**
- * `write` is core's write path, `hasMfa` identity's MFA check and `memberItems` the items
- * module's side of a removal and rejoin, all passed in to keep imports acyclic (identity's
- * service reaches the write path, which reaches this one, and so does the items service).
+ * `write` is core's write path and `memberItems` the items module's side of a removal and
+ * rejoin, both passed in to keep imports acyclic (the write path and the items service
+ * reach this module).
  */
 export function createMembersService(
   db: Kysely<DB>,
   write: WritePath,
   keys: Keyring,
-  hasMfa: MfaCheck,
   memberItems: MemberItems,
 ): MembersService {
   return {
-    async list(userId, tripId, page) {
+    async list(userId, tripId, query) {
       await requireRole(db, userId, tripId, canListMembers);
-      const after = page.cursor === undefined ? null : idCursor(page.cursor);
-      // One extra row says whether another page follows.
+      const after = query.cursor === undefined ? null : uuidCursor(query.cursor);
       const rows = await listMemberships(forModule(db, 'trips'), tripId, {
-        limit: page.limit + 1,
+        limit: query.limit + 1,
         after,
       });
-      const shown = rows.slice(0, page.limit);
+      const shown = page(rows, query.limit, (r) => [r.id]);
       const persons = await memberPersons(
         db,
-        shown.map((r) => r.person_id),
+        shown.rows.map((r) => r.person_id),
       );
-      const items = shown.map((r) => memberRecord(r, persons));
-      const last = items.at(-1);
       return {
-        items,
-        nextCursor: rows.length > page.limit && last ? encodeCursor([last.id]) : null,
+        items: shown.rows.map((r) => memberRecord(r, persons)),
+        nextCursor: shown.nextCursor,
       };
     },
 
@@ -234,7 +228,7 @@ export function createMembersService(
           const refusal = roleChangeRefusal({
             to: role,
             ownMembership,
-            newOwnerHasMfa: handover && (await accountWithMfa(tx, row.person_id, hasMfa)),
+            newOwnerHasMfa: handover && (await accountWithMfa(tx, row.person_id)),
           });
           if (refusal) throw new ApiError(refusal);
           // One owner per trip (memberships_one_owner): the old owner steps down first.
@@ -303,7 +297,7 @@ export function createMembersService(
 }
 
 /** Whether the person is an account with MFA on; a placeholder has neither. */
-async function accountWithMfa(tx: Tx, personId: string, hasMfa: MfaCheck): Promise<boolean> {
+async function accountWithMfa(tx: Tx, personId: string): Promise<boolean> {
   const userId = await personAccountId(tx, personId);
-  return userId !== null && (await hasMfa(tx, userId));
+  return userId !== null && (await accountHasMfa(tx, userId));
 }

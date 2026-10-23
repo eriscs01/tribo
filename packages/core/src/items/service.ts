@@ -16,27 +16,22 @@ import {
 import { open, seal, type Keyring } from '@tribo/crypto';
 import { forModule, type DB } from '@tribo/db';
 import {
+  actingUser,
   ApiError,
-  encodeCursor,
+  onConstraint,
+  page,
+  uuidCursor,
+  validate,
   type RequestContext,
   type Tx,
-  validate,
   type WritePath,
   type WriteRecord,
 } from '@tribo/platform';
 import type { Kysely } from 'kysely';
 import { deletedWithEntity, recordEvent } from '../audit/service.js';
-import { allActiveMemberships, callerMembership, type CallerMembership } from '../trips/service.js';
+import { allActiveMemberships, callerMembership, type MemberMove } from '../trips/service.js';
 import { writeOperation } from '../write-operation.js';
-import {
-  actingEditor,
-  boardSnapshot,
-  idCursor,
-  invalid,
-  lockedItem,
-  visibleItem,
-  type ActingEditor,
-} from './acting.js';
+import { actingEditor, boardSnapshot, invalid, lockedItem, visibleItem } from './acting.js';
 import { endOf, inFieldOrder, itemRecord, startOf, type ItemRecord } from './record.js';
 import {
   canCreateItem,
@@ -147,25 +142,22 @@ const itemsRsvp = writeOperation('items.rsvp', ItemRsvpInput);
 export function createItemsService(db: Kysely<DB>, write: WritePath, keys: Keyring): ItemsService {
   return {
     create(ctx, tripId, body) {
-      /** Who authorize found: the acting account and its membership, which owns the item. */
-      let owner: { userId: string; membership: CallerMembership } | undefined;
       return write(ctx, {
         operation: itemsCreate,
         target: { tripId },
         body,
         ifMatch: undefined,
         authorize: async (tx, c, target) => {
-          if (c.userId === null) throw new ApiError('unauthenticated');
-          const membership = await callerMembership(tx, c.userId, target.tripId);
+          const userId = actingUser(c);
+          const membership = await callerMembership(tx, userId, target.tripId);
           // A trip the caller is not in does not exist for them.
           if (membership === null) throw new ApiError('not_found');
           if (!canCreateItem(membership.role)) throw new ApiError('forbidden');
-          owner = { userId: c.userId, membership };
+          // The acting account and its membership, which owns the item.
+          return { userId, membership };
         },
         load: (_tx, target) => Promise.resolve({ tripId: target.tripId }),
-        mutate: async (tx, _c, loaded, input) => {
-          if (!owner) throw new Error('items.create mutated before authorize');
-          const { userId: createdBy, membership } = owner;
+        mutate: async (tx, _c, loaded, input, { userId: createdBy, membership }) => {
           const ownerMembershipId = membership.id;
           const sharedWith = await tripMemberships(tx, tripId, input.sharedWith ?? []);
           const items = forModule(tx, 'items');
@@ -211,7 +203,6 @@ export function createItemsService(db: Kysely<DB>, write: WritePath, keys: Keyri
       // A trip the caller is not in does not exist for them.
       if (viewer === null) throw new ApiError('not_found');
       if (!canListItems(viewer.role)) throw new ApiError('forbidden');
-      // One extra row says whether another page follows.
       const rows = await listVisibleItems(forModule(db, 'items'), userId, tripId, {
         filter: {
           ...(query.type === undefined ? {} : { type: query.type }),
@@ -220,30 +211,28 @@ export function createItemsService(db: Kysely<DB>, write: WritePath, keys: Keyri
           ...(query.assignee === 'me' ? { assigneeMembershipId: viewer.id } : {}),
         },
         limit: query.limit + 1,
-        after: query.cursor === undefined ? null : idCursor(query.cursor),
+        after: query.cursor === undefined ? null : uuidCursor(query.cursor),
       });
-      const items = rows.slice(0, query.limit).map((row) => itemRecord(row, viewer));
-      const last = items.at(-1);
+      const shown = page(rows, query.limit, (row) => [row.id]);
       return {
-        items,
-        nextCursor: rows.length > query.limit && last ? encodeCursor([last.id]) : null,
+        items: shown.rows.map((row) => itemRecord(row, viewer)),
+        nextCursor: shown.nextCursor,
       };
     },
 
     update(ctx, itemId, body, ifMatch) {
-      let acting: ActingEditor | undefined;
       return write(ctx, {
         operation: itemsUpdate,
         target: { itemId },
         body,
         ifMatch,
         authorize: async (tx, c, target) => {
-          acting = await actingEditor(tx, c, target.itemId);
+          const acting = await actingEditor(tx, c, target.itemId);
           if (!canUpdateItem(acting.editor)) throw new ApiError('forbidden');
+          return acting;
         },
         load: lockedItem,
-        mutate: async (tx, _c, { row }, patch) => {
-          if (!acting) throw new Error('items.update mutated before authorize');
+        mutate: async (tx, _c, { row }, patch, acting) => {
           const { userId, membership, editor } = acting;
           const visibility = patch.visibility ?? (row.visibility as ItemRecord['visibility']);
           const narrows =
@@ -351,23 +340,22 @@ export function createItemsService(db: Kysely<DB>, write: WritePath, keys: Keyri
       }),
 
     rsvp(ctx, itemId, body) {
-      let acting: ActingEditor | undefined;
       return write(ctx, {
         operation: itemsRsvp,
         target: { itemId },
         body,
         ifMatch: undefined,
         authorize: async (tx, c, target) => {
-          acting = await actingEditor(tx, c, target.itemId);
+          const acting = await actingEditor(tx, c, target.itemId);
           if (!canRsvpItem(acting.membership.role)) throw new ApiError('forbidden');
+          return acting;
         },
         // The item lock serialises board writes; the counter is the board's, not the item's.
         load: async (tx, target) => {
           const { row, tripId } = await lockedItem(tx, target);
           return { tripId, counter: row.board_version, row };
         },
-        mutate: async (tx, _c, { row }, input) => {
-          if (!acting) throw new Error('items.rsvp mutated before authorize');
+        mutate: async (tx, _c, { row }, input, acting) => {
           const items = forModule(tx, 'items');
           const membershipId = acting.membership.id;
           await upsertRsvp(items, {
@@ -392,19 +380,18 @@ export function createItemsService(db: Kysely<DB>, write: WritePath, keys: Keyri
     },
 
     delete(ctx, itemId, body, ifMatch) {
-      let acting: ActingEditor | undefined;
       return write(ctx, {
         operation: itemsDelete,
         target: { itemId },
         body,
         ifMatch,
         authorize: async (tx, c, target) => {
-          acting = await actingEditor(tx, c, target.itemId);
+          const acting = await actingEditor(tx, c, target.itemId);
           if (!canDeleteItem(acting.editor)) throw new ApiError('forbidden');
+          return acting;
         },
         load: lockedItem,
-        mutate: async (tx, _c, { row }) => {
-          if (!acting) throw new Error('items.delete mutated before authorize');
+        mutate: async (tx, _c, { row }, _input, acting) => {
           const items = forModule(tx, 'items');
           const version = await softDeleteItem(items, row.id, acting.userId);
           return {
@@ -425,13 +412,6 @@ export function createItemsService(db: Kysely<DB>, write: WritePath, keys: Keyri
 
 /** The items side of members.remove and of a rejoin (R32), as the members service takes it. */
 export const memberItems = { leave: removeMemberFromItems, rejoin: restoreMemberItems };
-
-/** Who leaves or rejoins a trip, and who is acting: the items side of members' writes. */
-interface MemberMove {
-  tripId: string;
-  membershipId: string;
-  userId: string;
-}
 
 /**
  * R32, the items side of a member's removal, in the removal's transaction: the member's
@@ -539,21 +519,12 @@ function unmasked<T extends object | string>(value: T | null): Exclude<T, Masked
 }
 
 /** A timed end before its start is only known once PostgreSQL has resolved both zones. */
-async function checkedTimes<T>(insert: () => Promise<T>): Promise<T> {
-  try {
-    return await insert();
-  } catch (error) {
-    if (
-      error instanceof Error &&
-      'constraint' in error &&
-      error.constraint === 'items_time_order'
-    ) {
-      throw new ApiError('validation_failed', {
-        errors: [{ path: '/end', message: 'the item ends before it starts' }],
-      });
-    }
-    throw error;
-  }
+function checkedTimes<T>(insert: () => Promise<T>): Promise<T> {
+  return insert().catch((error: unknown) =>
+    onConstraint(error, {
+      items_time_order: () => invalid('/end', 'the item ends before it starts'),
+    }),
+  );
 }
 
 /** Every stored field and the owned shares; ciphertext stays ciphertext (Audit and versioning). */

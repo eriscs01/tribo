@@ -8,7 +8,7 @@ import {
   type InvitePreview,
   type InvitePage,
 } from '@tribo/contract';
-import type { InviteRecord, InvitesService, SignedIn } from '@tribo/core';
+import type { InviteRecord, InvitesService } from '@tribo/core';
 import { pathId, requestContext, signedIn } from '../context.js';
 import { parsedQuery, type Handlers } from '../routes.js';
 import { clientOf, cookieMaxAge, sessionView, setSessionCookie } from '../session.js';
@@ -29,17 +29,8 @@ function inviteView(invite: InviteRecord): Invite {
   };
 }
 
-/** A join's new session: the cookie's token and who it signs in. */
-interface JoinSession {
-  token: string;
-  session: SignedIn;
-}
-
 /** invites.*: the owner's invite links, and the public preview and join behind them. */
-export function invitesHandlers(
-  invites: InvitesService<JoinSession>,
-  csrfSecret: Buffer,
-): Handlers {
+export function invitesHandlers(invites: InvitesService, csrfSecret: Buffer): Handlers {
   return {
     'invites.list': async (request): Promise<InvitePage> => {
       const page = await invites.list(

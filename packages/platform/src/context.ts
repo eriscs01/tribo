@@ -1,4 +1,5 @@
 import type { ValueOf } from '@tribo/db';
+import { ApiError } from './errors.js';
 
 /**
  * Who is acting and through what, as each adapter resolves it for one request. The write
@@ -16,4 +17,10 @@ export interface RequestContext {
   clientId?: string;
   clientName?: string;
   mcpSession?: string;
+}
+
+/** Writes need an account behind them; only system work runs without one. */
+export function actingUser(ctx: RequestContext): string {
+  if (ctx.userId === null) throw new ApiError('unauthenticated');
+  return ctx.userId;
 }

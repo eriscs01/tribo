@@ -2,7 +2,7 @@
 // auth.mfa.confirm (Drop A): Confirm TOTP; returns 10 recovery codes; Codes shown once; Codes never stored for replay; a replay returns 200 with codes omitted and redacted = true (R2)
 // Roles (self) at the HTTP edge, where only a signed-in caller gets in: auth-http.int.test.ts.
 import { randomBytes } from 'node:crypto';
-import { createIdentityService, type IdentityService, type SignedIn } from '@tribo/core';
+import { createIdentityService, type IdentityService, type SignedIn, writePath } from '@tribo/core';
 import { AppKey, keyring } from '@tribo/crypto';
 import { ApiError, type RequestContext } from '@tribo/platform';
 import { sql } from 'kysely';
@@ -21,7 +21,7 @@ let n = 0;
 
 beforeAll(async () => {
   tdb = await createTestDatabase();
-  identity = createIdentityService(tdb.db, keys, 'Tribo (tribo.test)');
+  identity = createIdentityService(tdb.db, writePath(tdb.db), keys, 'Tribo (tribo.test)');
 });
 afterAll(() => tdb.destroy());
 

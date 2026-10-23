@@ -2,14 +2,7 @@
 // its board: who the caller is on one item, the item's write lock, how costs mask, and the
 // board's snapshot. Private to the module; service.ts and units.ts both build on it.
 import { forModule, type DB } from '@tribo/db';
-import { Uuid } from '@tribo/contract';
-import {
-  ApiError,
-  decodeCursor,
-  invalidCursor,
-  type RequestContext,
-  type Tx,
-} from '@tribo/platform';
+import { actingUser, ApiError, type RequestContext, type Tx } from '@tribo/platform';
 import type { Kysely } from 'kysely';
 import { callerMembership, type CallerMembership } from '../trips/service.js';
 import { seesRestrictedFields, type ItemEditor } from './policy.js';
@@ -32,15 +25,15 @@ export async function actingEditor(
   ctx: RequestContext,
   itemId: string,
 ): Promise<ActingEditor> {
-  if (ctx.userId === null) throw new ApiError('unauthenticated');
+  const userId = actingUser(ctx);
   const items = forModule(tx, 'items');
-  const row = await findVisibleItem(items, ctx.userId, itemId);
-  const membership = row ? await callerMembership(tx, ctx.userId, row.trip_id) : null;
+  const row = await findVisibleItem(items, userId, itemId);
+  const membership = row ? await callerMembership(tx, userId, row.trip_id) : null;
   if (!row || !membership) throw new ApiError('not_found');
   const owns = row.owner_membership_id === membership.id;
   const assigned = !owns && (await isAssignee(items, row.id, membership.id));
   return {
-    userId: ctx.userId,
+    userId,
     row,
     membership,
     editor: { role: membership.role, owns, assigned },
@@ -107,12 +100,4 @@ export function boardSnapshot(rows: Awaited<ReturnType<typeof listBoard>>) {
 
 export function invalid(path: string, message: string): ApiError {
   return new ApiError('validation_failed', { errors: [{ path, message }] });
-}
-
-/** A cursor over rows in id order (items, units); anything else is refused before it reaches SQL. */
-export function idCursor(cursor: string): string {
-  const [id] = decodeCursor(cursor, 1);
-  const key = Uuid.safeParse(id);
-  if (!key.success) throw invalidCursor();
-  return key.data;
 }

@@ -13,8 +13,10 @@ import {
 import { newToken, tokenHash } from '@tribo/crypto';
 import { forModule, type DB } from '@tribo/db';
 import {
+  actingUser,
   ApiError,
-  encodeCursor,
+  page,
+  uuidCursor,
   validate,
   type Loaded,
   type RequestContext,
@@ -23,16 +25,11 @@ import {
 } from '@tribo/platform';
 import type { Kysely } from 'kysely';
 import { recordEvent } from '../audit/service.js';
+import type { ClientInfo } from '../identity/service.js';
 import { memberPersons } from '../library/service.js';
 import { writeOperation } from '../write-operation.js';
-import { acceptInvite, type AcceptedInvite, type InviteAccounts, type JoinClient } from './join.js';
-import {
-  actingUser,
-  activePlaceholder,
-  idCursor,
-  requireRole,
-  type MemberItems,
-} from './membership.js';
+import { acceptInvite, type AcceptedInvite } from './join.js';
+import { activePlaceholder, requireRole, type MemberItems } from './membership.js';
 import { canManageInvites, inviteStatus } from './policy.js';
 import {
   findLiveInvite,
@@ -62,7 +59,7 @@ export interface InviteRecord {
 /** invites.create's answer: the invite with its token and link, shown this once. */
 export type CreatedInvite = InviteRecord & { token: string; link: string; redacted: false };
 
-export interface InvitesService<S = unknown> {
+export interface InvitesService {
   /**
    * invites.create: the owner makes a link with a role, an expiry and optionally a use cap,
    * or pre-links it to a placeholder member to claim (single use). The token is returned
@@ -99,7 +96,7 @@ export interface InvitesService<S = unknown> {
    * membership. Refuses username_taken, already_member, claim_conflict and, for every dead
    * link alike, invite_invalid.
    */
-  accept(ctx: RequestContext, body: unknown, client: JoinClient): Promise<AcceptedInvite<S>>;
+  accept(ctx: RequestContext, body: unknown, client: ClientInfo): Promise<AcceptedInvite>;
 }
 
 export interface InvitePreviewRecord {
@@ -112,31 +109,28 @@ const invitesCreate = writeOperation('invites.create', InviteInput);
 const invitesRevoke = writeOperation('invites.revoke', NoBody);
 
 /**
- * `publicUrl` is the configured origin invite links name, never the Host header. `accounts`
- * is identity's side of a join and `memberItems` the items module's side of a rejoin, both
- * passed in to keep imports acyclic.
+ * `publicUrl` is the configured origin invite links name, never the Host header.
+ * `memberItems` is the items module's side of a rejoin, passed in to keep imports acyclic.
  */
-export function createInvitesService<S>(
+export function createInvitesService(
   db: Kysely<DB>,
   publicUrl: URL,
-  ports: { accounts: InviteAccounts<S>; memberItems: MemberItems },
-): InvitesService<S> {
+  memberItems: MemberItems,
+): InvitesService {
   return {
-    accept: acceptInvite(db, ports),
+    accept: acceptInvite(db, memberItems),
 
-    async list(userId, tripId, page) {
+    async list(userId, tripId, query) {
       await requireRole(db, userId, tripId, canManageInvites);
-      // One extra row says whether another page follows.
       const rows = await listInvites(forModule(db, 'trips'), tripId, {
-        limit: page.limit + 1,
-        after: page.cursor === undefined ? null : idCursor(page.cursor),
+        limit: query.limit + 1,
+        after: query.cursor === undefined ? null : uuidCursor(query.cursor),
       });
       const now = new Date();
-      const items = rows.slice(0, page.limit).map((row) => inviteRecord(row, now));
-      const last = items.at(-1);
+      const shown = page(rows, query.limit, (row) => [row.id]);
       return {
-        items,
-        nextCursor: rows.length > page.limit && last ? encodeCursor([last.id]) : null,
+        items: shown.rows.map((row) => inviteRecord(row, now)),
+        nextCursor: shown.nextCursor,
       };
     },
 

@@ -9,12 +9,18 @@ import {
 } from '@tribo/contract';
 import { newToken, open, seal, tokenHash, type FieldRef, type Keyring } from '@tribo/crypto';
 import { forModule, type DB, type ValueOf } from '@tribo/db';
-import { ApiError, validate, type RequestContext, type Tx } from '@tribo/platform';
+import {
+  ApiError,
+  onConstraint,
+  validate,
+  type RequestContext,
+  type Tx,
+  type WritePath,
+} from '@tribo/platform';
 import type { Kysely } from 'kysely';
 import { recordEvent, recordWrite } from '../audit/service.js';
 import { createAccountPerson } from '../library/service.js';
 import { writeOperation } from '../write-operation.js';
-import { writePath } from '../write-path.js';
 import {
   burnPasswordCheck,
   hashSecret,
@@ -118,14 +124,17 @@ export function totpMatches(secret: Buffer, code: string): boolean {
   return totpValid(secret, code);
 }
 
-/** `issuer` names this deployment in authenticator apps, e.g. "Tribo (tribo.example)". */
+/**
+ * `write` is core's write path (writePath in write-path.ts), passed in to keep imports
+ * acyclic; `issuer` names this deployment in authenticator apps, e.g. "Tribo (tribo.example)".
+ */
 export function createIdentityService(
   db: Kysely<DB>,
+  write: WritePath,
   keys: Keyring,
   issuer: string,
 ): IdentityService {
   const identity = forModule(db, 'identity');
-  const write = writePath(db);
 
   /** Records a refused sign-in (and counts it if it was a guess), then refuses it. */
   async function refuse(
@@ -419,19 +428,10 @@ export function createIdentityService(
 }
 
 /** Two concurrent creates of one username: the unique index decides, as username_taken. */
-async function uniqueUsername<T>(insert: () => Promise<T>): Promise<T> {
-  try {
-    return await insert();
-  } catch (error) {
-    if (
-      error instanceof Error &&
-      'constraint' in error &&
-      error.constraint === 'users_username_key'
-    ) {
-      throw new ApiError('username_taken');
-    }
-    throw error;
-  }
+function uniqueUsername<T>(insert: () => Promise<T>): Promise<T> {
+  return insert().catch((error: unknown) =>
+    onConstraint(error, { users_username_key: () => new ApiError('username_taken') }),
+  );
 }
 
 /** What history shows of an account: never a hash, a secret or login bookkeeping. */

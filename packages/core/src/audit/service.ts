@@ -1,5 +1,11 @@
 import { forModule, type DB } from '@tribo/db';
-import { ApiError, type RequestContext, type Tx, type WriteRecord } from '@tribo/platform';
+import {
+  ApiError,
+  onConstraint,
+  type RequestContext,
+  type Tx,
+  type WriteRecord,
+} from '@tribo/platform';
 import type { Kysely } from 'kysely';
 import {
   deletedWithLatestDelete,
@@ -32,22 +38,15 @@ export async function recordWrite(tx: Tx, ctx: RequestContext, record: WriteReco
   });
 }
 
-function isConstraint(error: unknown, name: string): boolean {
-  return error instanceof Error && 'constraint' in error && error.constraint === name;
-}
-
 /**
  * An event with no snapshot: a credential act (sign-in, failed sign-in, sign-out), since
  * credentials are never versioned, or a reveal, which changes nothing. Auth actions route
  * to the month's auth chain. A retired trip chain refuses the event (trip_retired).
  */
 export async function recordEvent(tx: Tx, ctx: RequestContext, event: EventRecord): Promise<void> {
-  try {
-    await insertEvent(forModule(tx, 'audit'), ctx, event);
-  } catch (error) {
-    if (isConstraint(error, 'trip_retired')) throw new ApiError('trip_retired');
-    throw error;
-  }
+  await insertEvent(forModule(tx, 'audit'), ctx, event).catch((error: unknown) =>
+    onConstraint(error, { trip_retired: () => new ApiError('trip_retired') }),
+  );
 }
 
 /**
