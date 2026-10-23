@@ -24,6 +24,9 @@ COPY . .
 RUN pnpm install --frozen-lockfile --offline && pnpm exec tsc -b apps/web && pnpm build:web
 
 FROM ${CADDY_IMAGE}
+# brotli-libs is raised past the base image's 1.2.0-r0 for CVE-2026-111497 (decoder
+# out-of-bounds write); drop this once the caddy base image ships 1.2.1-r0 or later.
+RUN apk upgrade --no-cache brotli-libs
 COPY --from=caddy /usr/bin/caddy /usr/bin/caddy
 COPY --from=web /repo/apps/web/dist/app /srv/tribo
 COPY deploy/caddy/site.caddy deploy/caddy/*.Caddyfile /etc/caddy/
