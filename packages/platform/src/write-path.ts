@@ -50,7 +50,8 @@ export interface WritePorts {
   record(tx: Tx, ctx: RequestContext, record: WriteRecord): Promise<void>;
 }
 
-export interface WriteSpec<Target, Input, L extends Loaded, R> {
+/** `A` is what authorize found (the acting member, say), handed on to load and mutate. */
+export interface WriteSpec<Target, Input, L extends Loaded, R, A = void> {
   /** Its input schema validates the body; its ifMatch names the counter to compare. */
   operation: Operation & { input: z.ZodType<Input> };
   /** Path parameters, already parsed by the adapter. */
@@ -59,16 +60,16 @@ export interface WriteSpec<Target, Input, L extends Loaded, R> {
   /** The If-Match header as a counter value, if the caller sent one. */
   ifMatch: number | undefined;
   /** Throws forbidden or not_found; runs before the body is looked at. */
-  authorize(tx: Tx, ctx: RequestContext, target: Target): Promise<void>;
+  authorize(tx: Tx, ctx: RequestContext, target: Target): Promise<A>;
   /** Reads and locks (FOR UPDATE) what the write changes. */
-  load(tx: Tx, target: Target, input: Input): Promise<L>;
+  load(tx: Tx, target: Target, input: Input, auth: A): Promise<L>;
   /** Applies the change and bumps the counter; business-rule failures throw ApiError. */
-  mutate(tx: Tx, ctx: RequestContext, loaded: L, input: Input): Promise<Change<R>>;
+  mutate(tx: Tx, ctx: RequestContext, loaded: L, input: Input, auth: A): Promise<Change<R>>;
 }
 
-export type WritePath = <Target, Input, L extends Loaded, R>(
+export type WritePath = <Target, Input, L extends Loaded, R, A = void>(
   ctx: RequestContext,
-  spec: WriteSpec<Target, Input, L, R>,
+  spec: WriteSpec<Target, Input, L, R, A>,
 ) => Promise<R>;
 
 /**
@@ -79,13 +80,13 @@ export type WritePath = <Target, Input, L extends Loaded, R>(
 export function createWritePath(db: Kysely<DB>, ports: WritePorts): WritePath {
   return (ctx, spec) =>
     db.transaction().execute(async (tx) => {
-      await spec.authorize(tx, ctx, spec.target);
+      const auth = await spec.authorize(tx, ctx, spec.target);
       const input = validate(spec.operation.input, spec.body);
-      const loaded = await spec.load(tx, spec.target, input);
+      const loaded = await spec.load(tx, spec.target, input, auth);
       if (loaded.tripId !== null) await ports.guardTrip(tx, loaded.tripId, spec.operation.id);
       checkIfMatch(spec.operation.ifMatch, spec.ifMatch, loaded.counter);
 
-      const { result, related = [], ...change } = await spec.mutate(tx, ctx, loaded, input);
+      const { result, related = [], ...change } = await spec.mutate(tx, ctx, loaded, input, auth);
       const versionBefore = loaded.counter ?? null;
       if (change.version !== (versionBefore ?? 0) + 1) {
         throw new Error(

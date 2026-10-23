@@ -171,15 +171,15 @@ export function createUnitsService(db: Kysely<DB>, write: WritePath): UnitsServi
     },
 
     replaceBoard(ctx, itemId, body, ifMatch) {
-      let acting: ActingEditor | undefined;
       return write(ctx, {
         operation: boardReplace,
         target: { itemId },
         body,
         ifMatch,
         authorize: async (tx, c, target) => {
-          acting = await actingEditor(tx, c, target.itemId);
+          const acting = await actingEditor(tx, c, target.itemId);
           if (!canManageBoard(acting.editor)) throw new ApiError('forbidden');
+          return acting;
         },
         // The item, then its units, locked until commit: the counter is the board's, and
         // no concurrent save or unit edit moves what the final-state check relies on.
@@ -188,8 +188,7 @@ export function createUnitsService(db: Kysely<DB>, write: WritePath): UnitsServi
           const units = await itemUnits(forModule(tx, 'items'), row.id, { lock: true });
           return { tripId, counter: row.board_version, row, units };
         },
-        mutate: async (tx, _c, { row: item, units }, input) => {
-          if (!acting) throw new Error('items.assignments.replace mutated before authorize');
+        mutate: async (tx, _c, { row: item, units }, input, acting) => {
           const { userId } = acting;
           const rows = input.allocations.map((a): NewAllocation => ({
             membershipId: decodeTypeId(ID_PREFIX.membership, a.membershipId),
@@ -230,23 +229,22 @@ export function createUnitsService(db: Kysely<DB>, write: WritePath): UnitsServi
     },
 
     create(ctx, itemId, body) {
-      let acting: ActingEditor | undefined;
       return write(ctx, {
         operation: unitsCreate,
         target: { itemId },
         body,
         ifMatch: undefined,
         authorize: async (tx, c, target) => {
-          acting = await actingEditor(tx, c, target.itemId);
+          const acting = await actingEditor(tx, c, target.itemId);
           if (!canManageBoard(acting.editor)) throw new ApiError('forbidden');
+          return acting;
         },
         // The item stays live until the unit is in; a new unit has no counter yet.
         load: async (tx, target) => {
           const { tripId, row } = await lockedItem(tx, target);
           return { tripId, row };
         },
-        mutate: async (tx, _c, { row: item }, input) => {
-          if (!acting) throw new Error('units.create mutated before authorize');
+        mutate: async (tx, _c, { row: item }, input, acting) => {
           const { userId, membership } = acting;
           if (UNIT_KIND[item.type as ValueOf<'tribo.items.type'>] !== input.kind) {
             throw invalid('/kind', `a ${item.type} item has no ${input.kind}s`);
@@ -280,18 +278,14 @@ export function createUnitsService(db: Kysely<DB>, write: WritePath): UnitsServi
     },
 
     update(ctx, unitId, body, ifMatch) {
-      let acting: ActingEditor | undefined;
       return write(ctx, {
         operation: unitsUpdate,
         target: { unitId },
         body,
         ifMatch,
-        authorize: async (tx, c, target) => {
-          acting = await actingOnUnit(tx, c, target.unitId);
-        },
+        authorize: (tx, c, target) => actingOnUnit(tx, c, target.unitId),
         load: lockedUnit,
-        mutate: async (tx, _c, { item, unit }, patch) => {
-          if (!acting) throw new Error('units.update mutated before authorize');
+        mutate: async (tx, _c, { item, unit }, patch, acting) => {
           const { userId, membership } = acting;
           if (unit.kind === 'vehicle' && patch.bedType != null) {
             throw invalid('/bedType', 'a vehicle has no bed type');
@@ -335,18 +329,14 @@ export function createUnitsService(db: Kysely<DB>, write: WritePath): UnitsServi
     },
 
     delete(ctx, unitId, body, ifMatch) {
-      let acting: ActingEditor | undefined;
       return write(ctx, {
         operation: unitsDelete,
         target: { unitId },
         body,
         ifMatch,
-        authorize: async (tx, c, target) => {
-          acting = await actingOnUnit(tx, c, target.unitId);
-        },
+        authorize: (tx, c, target) => actingOnUnit(tx, c, target.unitId),
         load: lockedUnit,
-        mutate: async (tx, _c, { item, unit }) => {
-          if (!acting) throw new Error('units.delete mutated before authorize');
+        mutate: async (tx, _c, { item, unit }, _input, acting) => {
           const items = forModule(tx, 'items');
           const version = await softDeleteUnit(items, unit.id, acting.userId);
           await deleteUnitAllocations(items, unit.id);

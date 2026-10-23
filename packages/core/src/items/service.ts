@@ -26,7 +26,7 @@ import {
 } from '@tribo/platform';
 import type { Kysely } from 'kysely';
 import { deletedWithEntity, recordEvent } from '../audit/service.js';
-import { allActiveMemberships, callerMembership, type CallerMembership } from '../trips/service.js';
+import { allActiveMemberships, callerMembership } from '../trips/service.js';
 import { writeOperation } from '../write-operation.js';
 import {
   actingEditor,
@@ -35,7 +35,6 @@ import {
   invalid,
   lockedItem,
   visibleItem,
-  type ActingEditor,
 } from './acting.js';
 import { endOf, inFieldOrder, itemRecord, startOf, type ItemRecord } from './record.js';
 import {
@@ -147,8 +146,6 @@ const itemsRsvp = writeOperation('items.rsvp', ItemRsvpInput);
 export function createItemsService(db: Kysely<DB>, write: WritePath, keys: Keyring): ItemsService {
   return {
     create(ctx, tripId, body) {
-      /** Who authorize found: the acting account and its membership, which owns the item. */
-      let owner: { userId: string; membership: CallerMembership } | undefined;
       return write(ctx, {
         operation: itemsCreate,
         target: { tripId },
@@ -160,12 +157,11 @@ export function createItemsService(db: Kysely<DB>, write: WritePath, keys: Keyri
           // A trip the caller is not in does not exist for them.
           if (membership === null) throw new ApiError('not_found');
           if (!canCreateItem(membership.role)) throw new ApiError('forbidden');
-          owner = { userId: c.userId, membership };
+          // The acting account and its membership, which owns the item.
+          return { userId: c.userId, membership };
         },
         load: (_tx, target) => Promise.resolve({ tripId: target.tripId }),
-        mutate: async (tx, _c, loaded, input) => {
-          if (!owner) throw new Error('items.create mutated before authorize');
-          const { userId: createdBy, membership } = owner;
+        mutate: async (tx, _c, loaded, input, { userId: createdBy, membership }) => {
           const ownerMembershipId = membership.id;
           const sharedWith = await tripMemberships(tx, tripId, input.sharedWith ?? []);
           const items = forModule(tx, 'items');
@@ -231,19 +227,18 @@ export function createItemsService(db: Kysely<DB>, write: WritePath, keys: Keyri
     },
 
     update(ctx, itemId, body, ifMatch) {
-      let acting: ActingEditor | undefined;
       return write(ctx, {
         operation: itemsUpdate,
         target: { itemId },
         body,
         ifMatch,
         authorize: async (tx, c, target) => {
-          acting = await actingEditor(tx, c, target.itemId);
+          const acting = await actingEditor(tx, c, target.itemId);
           if (!canUpdateItem(acting.editor)) throw new ApiError('forbidden');
+          return acting;
         },
         load: lockedItem,
-        mutate: async (tx, _c, { row }, patch) => {
-          if (!acting) throw new Error('items.update mutated before authorize');
+        mutate: async (tx, _c, { row }, patch, acting) => {
           const { userId, membership, editor } = acting;
           const visibility = patch.visibility ?? (row.visibility as ItemRecord['visibility']);
           const narrows =
@@ -351,23 +346,22 @@ export function createItemsService(db: Kysely<DB>, write: WritePath, keys: Keyri
       }),
 
     rsvp(ctx, itemId, body) {
-      let acting: ActingEditor | undefined;
       return write(ctx, {
         operation: itemsRsvp,
         target: { itemId },
         body,
         ifMatch: undefined,
         authorize: async (tx, c, target) => {
-          acting = await actingEditor(tx, c, target.itemId);
+          const acting = await actingEditor(tx, c, target.itemId);
           if (!canRsvpItem(acting.membership.role)) throw new ApiError('forbidden');
+          return acting;
         },
         // The item lock serialises board writes; the counter is the board's, not the item's.
         load: async (tx, target) => {
           const { row, tripId } = await lockedItem(tx, target);
           return { tripId, counter: row.board_version, row };
         },
-        mutate: async (tx, _c, { row }, input) => {
-          if (!acting) throw new Error('items.rsvp mutated before authorize');
+        mutate: async (tx, _c, { row }, input, acting) => {
           const items = forModule(tx, 'items');
           const membershipId = acting.membership.id;
           await upsertRsvp(items, {
@@ -392,19 +386,18 @@ export function createItemsService(db: Kysely<DB>, write: WritePath, keys: Keyri
     },
 
     delete(ctx, itemId, body, ifMatch) {
-      let acting: ActingEditor | undefined;
       return write(ctx, {
         operation: itemsDelete,
         target: { itemId },
         body,
         ifMatch,
         authorize: async (tx, c, target) => {
-          acting = await actingEditor(tx, c, target.itemId);
+          const acting = await actingEditor(tx, c, target.itemId);
           if (!canDeleteItem(acting.editor)) throw new ApiError('forbidden');
+          return acting;
         },
         load: lockedItem,
-        mutate: async (tx, _c, { row }) => {
-          if (!acting) throw new Error('items.delete mutated before authorize');
+        mutate: async (tx, _c, { row }, _input, acting) => {
           const items = forModule(tx, 'items');
           const version = await softDeleteItem(items, row.id, acting.userId);
           return {
