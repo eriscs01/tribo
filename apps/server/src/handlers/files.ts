@@ -6,7 +6,7 @@ import {
   type FilePage,
 } from '@tribo/contract';
 import type { FileRecord, FilesService } from '@tribo/core';
-import { pathId, requestContext, signedIn } from '../context.js';
+import { ifMatch, pathId, requestContext, signedIn } from '../context.js';
 import { withUpload } from '../multipart.js';
 import { parsedQuery, type Handlers } from '../routes.js';
 
@@ -42,6 +42,15 @@ export function filesHandlers(files: FilesService): Handlers {
     },
     'files.get': async (request) =>
       fileView(await files.get(signedIn(request).userId, pathId(request, 'fileId'))),
+    'files.update': async (request) =>
+      fileView(
+        await files.update(
+          requestContext(request),
+          pathId(request, 'fileId'),
+          request.body,
+          ifMatch(request),
+        ),
+      ),
     'files.upload': async (request, reply) => {
       const tripId = pathId(request, 'tripId');
       const file = await withUpload(request, (form, part) =>

@@ -153,6 +153,7 @@ const files: FilesService = {
   list: unused,
   get: unused,
   upload: unused,
+  update: unused,
 };
 
 let app: FastifyInstance | undefined;

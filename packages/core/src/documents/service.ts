@@ -3,6 +3,7 @@
 import { pipeline as pipe, type Readable } from 'node:stream';
 import {
   decodeTypeId,
+  FilePatch,
   FileUploadForm,
   FileUploadInput,
   ID_PREFIX,
@@ -24,17 +25,19 @@ import { visibleItemTrip } from '../items/service.js';
 import { callerMembership, memberTrip, type CallerMembership } from '../trips/service.js';
 import { writeOperation } from '../write-operation.js';
 import type { BlobStore, StoredBlob } from './blobs.js';
-import { canGetFile, canListFiles, canUploadFile } from './policy.js';
+import { canGetFile, canListFiles, canUpdateFile, canUploadFile } from './policy.js';
 import {
   fileTrip,
   findFile,
   findVisibleFile,
   insertFile,
   listVisibleFiles,
+  lockFile,
   newFileId,
+  updateFile,
   type FileRow,
 } from './repo.js';
-import { displayName, sniffer, typeRefusal } from './sniff.js';
+import { displayName, nameRefusal, sniffer, typeRefusal, type FileMime } from './sniff.js';
 
 export { createBlobStore, type BlobStore, type StoredBlob } from './blobs.js';
 
@@ -85,9 +88,17 @@ export interface FilesService {
    * A write that does not commit (a refusal, a replayed Idempotency-Key) removes the blob.
    */
   upload(ctx: RequestContext, tripId: string, form: unknown, file: UploadPart): Promise<FileRecord>;
+  /** files.update: merge-patches the name, item or visibility under If-Match = version. */
+  update(
+    ctx: RequestContext,
+    fileId: string,
+    body: unknown,
+    ifMatch: number | undefined,
+  ): Promise<FileRecord>;
 }
 
 const filesUpload = writeOperation('files.upload', FileUploadInput);
+const filesUpdate = writeOperation('files.update', FilePatch);
 
 function fileRecord(row: FileRow): FileRecord {
   return {
@@ -173,6 +184,39 @@ async function readableFile(
   return { row, membership };
 }
 
+/**
+ * Who is acting on a file they can see: their account and membership, and whether `allowed`
+ * lets them. A file they cannot see does not exist for them, before any role is weighed.
+ */
+async function actingOnFile(
+  tx: Tx,
+  ctx: RequestContext,
+  fileId: string,
+  allowed: (editor: { role: TripRole; owns: boolean }) => boolean,
+) {
+  const userId = actingUser(ctx);
+  const { row, membership } = await readableFile(tx, userId, fileId, () => true);
+  if (!allowed({ role: membership.role, owns: row.owner_membership_id === membership.id })) {
+    throw new ApiError('forbidden');
+  }
+  return { userId, membership };
+}
+
+/** The write path's load for one file: the live row, locked until commit. */
+async function lockedFile(tx: Tx, target: { fileId: string }) {
+  const row = await lockFile(forModule(tx, 'documents'), target.fileId);
+  if (!row) throw new ApiError('not_found');
+  return { tripId: row.trip_id, counter: row.version, row };
+}
+
+/** A new name for a file of this type: shown as an upload's would be, and keeping its type. */
+function renamed(name: string, type: FileMime): string {
+  const shown = displayName(name, type);
+  const refusal = nameRefusal(shown, type);
+  if (refusal) throw new ApiError(refusal);
+  return shown;
+}
+
 /** The caller adding a file to the trip: their active membership, which a viewer's is not. */
 async function uploader(tx: Tx, userId: string, tripId: string): Promise<CallerMembership> {
   const membership = await callerMembership(tx, userId, tripId);
@@ -220,6 +264,53 @@ export function createFilesService(
 
     async get(userId, fileId) {
       return fileRecord((await readableFile(db, userId, fileId, canGetFile)).row);
+    },
+
+    update(ctx, fileId, body, ifMatch) {
+      return write(ctx, {
+        operation: filesUpdate,
+        target: { fileId },
+        body,
+        ifMatch,
+        authorize: (tx, c, target) => actingOnFile(tx, c, target.fileId, canUpdateFile),
+        load: lockedFile,
+        mutate: async (tx, _c, { row }, patch, { userId }) => {
+          // Its bytes are gone, and so is any name it had: a purged file stays as it is.
+          if (row.purged_at !== null) throw new ApiError('file_purged');
+          const { itemId } = patch;
+          const documents = forModule(tx, 'documents');
+          const version = await updateFile(
+            documents,
+            row.id,
+            {
+              ...(patch.filename === undefined
+                ? {}
+                : { filename: renamed(patch.filename, row.mime_type as FileMime) }),
+              ...(itemId === undefined
+                ? {}
+                : {
+                    itemId:
+                      itemId === null
+                        ? null
+                        : await attachableItem(tx, userId, row.trip_id, itemId),
+                  }),
+              ...(patch.visibility === undefined ? {} : { visibility: patch.visibility }),
+            },
+            userId,
+          );
+          const changed = await findFile(documents, row.id);
+          if (!changed) throw new Error(`file ${row.id} vanished inside its own write`);
+          return {
+            action: 'update',
+            aggregate: 'file',
+            entityId: row.id,
+            tripId: row.trip_id,
+            version,
+            snapshot: fileSnapshot(changed),
+            result: fileRecord(changed),
+          };
+        },
+      });
     },
 
     async upload(ctx, tripId, form, file) {

@@ -86,3 +86,17 @@ export const FileUploadInput = FileUploadForm.extend({
 }).meta({ id: 'FileUploadInput' });
 
 export type FileUploadInput = z.infer<typeof FileUploadInput>;
+
+/**
+ * files.update: JSON Merge Patch of a file's metadata; absent keys stay. A new name keeps an
+ * extension of the file's type, or none; itemId null detaches it from its item.
+ */
+export const FilePatch = z
+  .strictObject({
+    filename: Filename.optional(),
+    itemId: typeId(ID_PREFIX.item).nullable().optional(),
+    visibility: FileVisibility.optional(),
+  })
+  .meta({ id: 'FilePatch' });
+
+export type FilePatch = z.infer<typeof FilePatch>;

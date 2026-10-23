@@ -212,7 +212,7 @@
 - [x] `files.get` · Drop B · `GET /v1/files/{fileId}`
   - File metadata; As files.list; purged shows purgedAt
   - Roles: owner, organizer, member, viewer. If-Match: `no`. Idempotency: safe to repeat.
-- [ ] `files.update` · Drop B · `PATCH /v1/files/{fileId}`
+- [x] `files.update` · Drop B · `PATCH /v1/files/{fileId}`
   - Rename, relink item, change visibility; trip_archived on archived trips (R29)
   - Roles: file owner, organizer, owner. If-Match: `version`. Idempotency: safe to repeat.
 - [ ] `files.delete` · Drop B · `DELETE /v1/files/{fileId}`

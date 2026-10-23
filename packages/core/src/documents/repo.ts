@@ -135,3 +135,41 @@ export async function fileTrip(db: DocumentsDb, fileId: string): Promise<string 
 export function findVisibleFile(db: DocumentsDb, reader: FileReader, fileId: string) {
   return visibleFiles(db, reader).where('f.id', '=', fileId).executeTakeFirst();
 }
+
+/** The write path's load for one live file: the row, locked until commit. */
+export function lockFile(db: DocumentsDb, fileId: string) {
+  return selectFile(db)
+    .where('f.id', '=', fileId)
+    .where('f.deleted_at', 'is', null)
+    .forUpdate()
+    .executeTakeFirst();
+}
+
+export interface FileChanges {
+  filename?: string;
+  itemId?: string | null;
+  visibility?: ValueOf<'tribo.files.visibility'>;
+}
+
+/** Applies a metadata change and bumps the file's version; returns the new version. */
+export async function updateFile(
+  db: DocumentsDb,
+  fileId: string,
+  changes: FileChanges,
+  updatedBy: string,
+): Promise<number> {
+  const { version } = await db
+    .updateTable('tribo.files')
+    .set((eb) => ({
+      ...(changes.filename === undefined ? {} : { filename: changes.filename }),
+      ...(changes.itemId === undefined ? {} : { item_id: changes.itemId }),
+      ...(changes.visibility === undefined ? {} : { visibility: changes.visibility }),
+      version: eb('version', '+', 1),
+      updated_at: sql`now()`,
+      updated_by: updatedBy,
+    }))
+    .where('id', '=', fileId)
+    .returning('version')
+    .executeTakeFirstOrThrow();
+  return version;
+}

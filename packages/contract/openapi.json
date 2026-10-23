@@ -2265,12 +2265,31 @@
           }
         ],
         "responses": {
-          "501": {
-            "description": "Registered but not implemented yet (not_implemented)",
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileMetadata"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many writes in this window (rate_limited)",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the window resets",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
                 }
               }
             }
@@ -2287,7 +2306,7 @@
           }
         },
         "x-tribo": {
-          "status": "planned",
+          "status": "implemented",
           "slice": "1a",
           "drop": "B",
           "roles": "file owner, organizer, owner",
@@ -2316,7 +2335,17 @@
               "type": "string"
             }
           }
-        ]
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FilePatch"
+              }
+            }
+          }
+        }
       },
       "delete": {
         "operationId": "files.delete",
@@ -9553,6 +9582,31 @@
           "items",
           "nextCursor"
         ],
+        "additionalProperties": false
+      },
+      "FilePatch": {
+        "type": "object",
+        "properties": {
+          "filename": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "itemId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^itm_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "visibility": {
+            "$ref": "#/components/schemas/FileVisibility"
+          }
+        },
         "additionalProperties": false
       },
       "FileVisibility": {

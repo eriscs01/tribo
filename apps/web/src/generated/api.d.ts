@@ -2017,6 +2017,11 @@ export interface components {
             items: components["schemas"]["FileMetadata"][];
             nextCursor: string | null;
         };
+        FilePatch: {
+            filename?: string;
+            itemId?: string | null;
+            visibility?: components["schemas"]["FileVisibility"];
+        };
         /** @enum {string} */
         FileVisibility: "shared" | "private";
         /** Format: date-time */
@@ -3793,11 +3798,26 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FilePatch"];
+            };
+        };
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            200: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileMetadata"];
+                };
+            };
+            /** @description Too many writes in this window (rate_limited) */
+            429: {
+                headers: {
+                    /** @description Seconds until the window resets */
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {

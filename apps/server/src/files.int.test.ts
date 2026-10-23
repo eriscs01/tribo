@@ -505,3 +505,33 @@ describe('files.get over HTTP', () => {
     });
   });
 });
+
+describe('files.update over HTTP', () => {
+  it('renames under If-Match and answers 412 to a stale one, with its log line', async () => {
+    const w = await world();
+    const made = await upload(
+      w,
+      w.member,
+      form([['kind', 'photo']], { filename: 'beach.png', type: 'image/png', data: png() }),
+    );
+    const { id } = made.json<{ id: string }>();
+    const patch = (version: string, payload: Record<string, unknown>) =>
+      app.inject({
+        method: 'PATCH',
+        url: `/v1/files/${id}`,
+        payload,
+        cookies: w.member.auth.cookies,
+        headers: { ...w.member.auth.headers, 'if-match': version },
+      });
+    const ok = await patch('"1"', { filename: 'Beach day.png', itemId: w.itemPath });
+    expect(ok.statusCode).toBe(200);
+    expect(ok.json()).toMatchObject({ filename: 'Beach day.png', itemId: w.itemPath, version: 2 });
+    const stale = await patch('"1"', { visibility: 'private' });
+    expect(stale.statusCode).toBe(412);
+    expect(refusalLine(stale.headers['x-request-id'])).toMatchObject({
+      operationId: 'files.update',
+      problem: 'version_conflict',
+    });
+    logsNothingOf(ok.headers['x-request-id'], 'Beach day', png());
+  });
+});
