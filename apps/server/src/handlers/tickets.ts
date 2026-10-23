@@ -56,5 +56,15 @@ export function ticketsHandlers(tickets: TicketsService): Handlers {
       );
       return reply.header('cache-control', 'private, no-store').send(ticketView(ticket));
     },
+
+    'tickets.delete': async (request, reply) => {
+      await tickets.delete(
+        requestContext(request),
+        pathId(request, 'ticketId'),
+        request.body,
+        ifMatch(request),
+      );
+      return reply.code(204).send();
+    },
   };
 }

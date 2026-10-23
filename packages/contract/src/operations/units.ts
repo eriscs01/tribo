@@ -195,7 +195,7 @@ export const unitsOperations = [
     mcpApproval: false,
     mcpTool: null,
     notes: 'Remove ticket; trip_archived on archived trips (R29)',
-    status: 'planned',
+    status: 'implemented',
   }),
   defineOperation({
     id: 'tickets.reveal',

@@ -164,7 +164,7 @@
 - [x] `tickets.update` · Drop B · `PATCH /v1/tickets/{ticketId}`
   - Edit ticket; masked_field_write; trip_archived on archived trips (R29)
   - Roles: item owner, organizer, owner; member own seat/baggage (G4). If-Match: `version`. Idempotency: safe to repeat.
-- [ ] `tickets.delete` · Drop B · `DELETE /v1/tickets/{ticketId}`
+- [x] `tickets.delete` · Drop B · `DELETE /v1/tickets/{ticketId}`
   - Remove ticket; trip_archived on archived trips (R29)
   - Roles: item owner, organizer, owner. If-Match: `version`. Idempotency: safe to repeat.
 - [ ] `tickets.reveal` · Drop B · `POST /v1/tickets/{ticketId}/reveal`

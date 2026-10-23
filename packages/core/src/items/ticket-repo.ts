@@ -130,3 +130,24 @@ export async function updateTicket(
     .where('id', '=', ticketId)
     .execute();
 }
+
+/** Stamps deleted_at and bumps the version; a new ticket for the passenger may follow. */
+export async function softDeleteTicket(
+  db: ItemsDb,
+  ticketId: string,
+  deletedBy: string,
+): Promise<number> {
+  const row = await db
+    .updateTable('tribo.tickets')
+    .set((eb) => ({
+      deleted_at: sql<Date>`now()`,
+      deleted_by: deletedBy,
+      updated_at: sql<Date>`now()`,
+      updated_by: deletedBy,
+      version: eb('version', '+', 1),
+    }))
+    .where('id', '=', ticketId)
+    .returning('version')
+    .executeTakeFirstOrThrow();
+  return row.version;
+}

@@ -400,3 +400,49 @@ describe('tickets.update over HTTP', () => {
     expect(malformed.statusCode).toBe(404);
   });
 });
+
+describe('tickets.delete over HTTP', () => {
+  const remove = (caller: Caller, ticketPath: string, headers = { 'if-match': '"1"' }) =>
+    app.inject({
+      method: 'DELETE',
+      url: `/v1/tickets/${ticketPath}`,
+      cookies: caller.auth.cookies,
+      headers: { ...caller.auth.headers, ...headers },
+    });
+
+  it('answers 204 under If-Match, then 404, and never logs the ticket', async () => {
+    const w = await world();
+    const ticketPath = encodeTypeId(ID_PREFIX.ticket, await memberTicket(w));
+    const res = await remove(w.owner, ticketPath);
+    expect(res.statusCode).toBe(204);
+    expect(res.body).toBe('');
+    logsNoTicket(res.headers['x-request-id']);
+    const again = await remove(w.owner, ticketPath, { 'if-match': '"2"' });
+    expect(again.statusCode).toBe(404);
+    expect(refusalLine(again.headers['x-request-id'])).toMatchObject({
+      operationId: 'tickets.delete',
+      problem: 'not_found',
+    });
+  });
+
+  it('logs each refusal by operation and code, and never the ticket', async () => {
+    const w = await world();
+    const ticketPath = encodeTypeId(ID_PREFIX.ticket, await memberTicket(w));
+    const cases: [Caller, Record<string, string>, number, string][] = [
+      [w.member, { 'if-match': '"1"' }, 403, 'forbidden'],
+      [w.viewer, { 'if-match': '"1"' }, 403, 'forbidden'],
+      [w.owner, {} as Record<string, string>, 428, 'if_match_required'],
+      [w.owner, { 'if-match': '"7"' }, 412, 'version_conflict'],
+    ];
+    for (const [caller, headers, status, problem] of cases) {
+      // eslint-disable-next-line no-await-in-loop -- each refusal is checked on its own
+      const res = await remove(caller, ticketPath, headers as { 'if-match': string });
+      expect(res.statusCode, problem).toBe(status);
+      expect(refusalLine(res.headers['x-request-id'])).toMatchObject({
+        operationId: 'tickets.delete',
+        problem,
+      });
+      logsNoTicket(res.headers['x-request-id']);
+    }
+  });
+});

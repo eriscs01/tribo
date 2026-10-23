@@ -2,7 +2,14 @@
 // ticket number and baggage, edited apart from the assignment board. A ticket follows its
 // item's visibility (children follow their item); its number is masked on every read and
 // leaves the database only through tickets.reveal.
-import { decodeTypeId, ID_PREFIX, TicketInput, TicketPatch, type PageQuery } from '@tribo/contract';
+import {
+  decodeTypeId,
+  ID_PREFIX,
+  NoBody,
+  TicketInput,
+  TicketPatch,
+  type PageQuery,
+} from '@tribo/contract';
 import { seal, type Keyring } from '@tribo/crypto';
 import { forModule, type DB } from '@tribo/db';
 import {
@@ -28,6 +35,7 @@ import {
   listTickets,
   lockSealedTicket,
   newTicketId,
+  softDeleteTicket,
   updateTicket,
   type TicketChanges,
   type SealedTicketRow,
@@ -85,10 +93,22 @@ export interface TicketsService {
     body: unknown,
     ifMatch: number | undefined,
   ): Promise<TicketRecord>;
+  /**
+   * tickets.delete: soft-deletes the ticket under If-Match = its version, for whoever
+   * manages the item's tickets; the passenger may be given a new one afterwards. Its
+   * snapshot keeps the ticket as it was, the number sealed, for a restore.
+   */
+  delete(
+    ctx: RequestContext,
+    ticketId: string,
+    body: unknown,
+    ifMatch: number | undefined,
+  ): Promise<void>;
 }
 
 const ticketsCreate = writeOperation('tickets.create', TicketInput);
 const ticketsUpdate = writeOperation('tickets.update', TicketPatch);
+const ticketsDelete = writeOperation('tickets.delete', NoBody);
 
 /** Stands in for the item or trip of a ticket that does not exist, so its lookups still run. */
 const NO_ROW = '00000000-0000-0000-0000-000000000000';
@@ -142,10 +162,17 @@ async function actingOnTicket(tx: Tx, ctx: RequestContext, ticketId: string) {
   return { userId, edit, itemId: item.id };
 }
 
-type ActingTicket = Awaited<ReturnType<typeof actingOnTicket>>;
+/** The caller removes a ticket: whoever manages the tickets of its item, or forbidden. */
+async function actingOnRemoval(tx: Tx, ctx: RequestContext, ticketId: string) {
+  const userId = actingUser(ctx);
+  const { item, membership } = await readableTicket(tx, userId, ticketId);
+  const owns = item.owner_membership_id === membership.id;
+  if (!canManageTickets({ role: membership.role, owns })) throw new ApiError('forbidden');
+  return { userId, itemId: item.id };
+}
 
 /** The write path's load for one ticket: its item, then the ticket, both locked until commit. */
-async function lockedTicket(tx: Tx, target: { ticketId: string }, auth: ActingTicket) {
+async function lockedTicket(tx: Tx, target: { ticketId: string }, auth: { itemId: string }) {
   const items = forModule(tx, 'items');
   const item = await lockItem(items, auth.itemId);
   const ticket = item ? await lockSealedTicket(items, target.ticketId) : undefined;
@@ -346,6 +373,30 @@ export function createTicketsService(
             version: row.version,
             snapshot: ticketSnapshot(row),
             result: ticketRecord(row),
+          };
+        },
+      });
+    },
+
+    delete(ctx, ticketId, body, ifMatch) {
+      return write(ctx, {
+        operation: ticketsDelete,
+        target: { ticketId },
+        body,
+        ifMatch,
+        authorize: (tx, c, target) => actingOnRemoval(tx, c, target.ticketId),
+        load: (tx, target, _input, auth) => lockedTicket(tx, target, auth),
+        mutate: async (tx, _c, { item, ticket }, _input, { userId }) => {
+          const version = await softDeleteTicket(forModule(tx, 'items'), ticket.id, userId);
+          return {
+            action: 'delete',
+            aggregate: 'ticket',
+            entityId: ticket.id,
+            tripId: item.trip_id,
+            version,
+            // The ticket as it was: restore copies this snapshot forward.
+            snapshot: ticketSnapshot(ticket),
+            result: undefined,
           };
         },
       });
