@@ -1,7 +1,8 @@
-// The overlays handlers over HTTP: ids and times named as the API names them, the reply kept
-// out of shared caches, preconditions read from the headers, and no line a request leaves
-// holds a note, a checklist line or a reminder. The rules behind each operation are proven
-// against the overlays service in packages/testkit.
+// The overlays handlers over HTTP, and the due-soon reads their reminders feed (me.tasks and
+// the trip dashboard): ids and times named as the API names them, the reply kept out of shared
+// caches, preconditions read from the headers, and no line a request leaves holds a note, a
+// checklist line or a reminder. The rules behind each operation are proven against the
+// services in packages/testkit.
 import { randomBytes } from 'node:crypto';
 import { PassThrough } from 'node:stream';
 import { CSRF_HEADER, encodeTypeId, ID_PREFIX, SESSION_COOKIE } from '@tribo/contract';
@@ -295,5 +296,94 @@ describe('overlays.delete over HTTP', () => {
       problem: 'not_found',
     });
     for (const res of [missing, removed, again]) logsNoOverlay(res.headers['x-request-id']);
+  });
+});
+
+describe('the due-soon reads over HTTP', () => {
+  const tomorrow = new Date(Date.now() + 86_400_000);
+  const soon = (w: World, caller: Caller, url: string, headers: Record<string, string> = {}) =>
+    app.inject({ method: 'GET', url, cookies: caller.auth.cookies, headers });
+
+  /** The member's task due tomorrow and a reminder of theirs on the shared item, and the owner's own reminder. */
+  async function withReminders(w: World) {
+    const taskId = await createItem(tdb.db, {
+      tripId: w.trip.tripId,
+      ownerMembershipId: w.memberMembershipId,
+      type: 'task',
+      days: { start: tomorrow.toISOString().slice(0, 10) },
+    });
+    await createOverlay(tdb.db, {
+      tripId: w.trip.tripId,
+      itemId: w.itemId,
+      membershipId: w.memberMembershipId,
+      note: NOTE,
+      reminderAt: tomorrow,
+      checklist: [{ text: CHECK, done: false }],
+    });
+    await createOverlay(tdb.db, {
+      tripId: w.trip.tripId,
+      itemId: w.itemId,
+      membershipId: w.trip.ownerMembershipId,
+      note: 'the owner’s own note',
+      reminderAt: new Date(tomorrow.getTime() + 60_000),
+    });
+    return { taskId, taskPath: encodeTypeId(ID_PREFIX.item, taskId) };
+  }
+
+  it('answers me.tasks with the caller’s tasks and own reminders, ids named as the API names them', async () => {
+    const w = await world();
+    const { taskPath } = await withReminders(w);
+    const res = await soon(w, w.member, '/v1/me/tasks');
+    expect(res.statusCode).toBe(200);
+    const body = res.json<{
+      tasks: { tripName: string; item: { id: string; tripId: string } }[];
+      dueSoon: { kind: string; item: { id: string }; reminderAt?: string }[];
+    }>();
+    expect(body.tasks.map((t) => [t.item.id, t.item.tripId])).toEqual([[taskPath, w.tripPath]]);
+    expect(body.dueSoon.map((d) => [d.kind, d.item.id, d.reminderAt])).toEqual([
+      ['task_due', taskPath, undefined],
+      ['reminder', w.itemPath, tomorrow.toISOString()],
+    ]);
+    // Neither the owner’s reminder time nor anyone’s words are in the answer or the logs.
+    expect(res.body).not.toContain('the owner’s own note');
+    expect(res.body).not.toContain(NOTE);
+    expect(res.body).not.toContain(new Date(tomorrow.getTime() + 60_000).toISOString());
+    logsNoOverlay(res.headers['x-request-id']);
+  });
+
+  it('answers the owner their own reminder only, and a signed-out caller 401 with a log line', async () => {
+    const w = await world();
+    await withReminders(w);
+    const owner = await soon(w, w.owner, '/v1/me/tasks');
+    expect(
+      owner.json<{ dueSoon: { reminderAt?: string }[] }>().dueSoon.map((d) => d.reminderAt),
+    ).toEqual([new Date(tomorrow.getTime() + 60_000).toISOString()]);
+    const signedOut = await app.inject({ method: 'GET', url: '/v1/me/tasks' });
+    expect(signedOut.statusCode).toBe(401);
+    expect(refusalLine(signedOut.headers['x-request-id'])).toMatchObject({
+      operationId: 'me.tasks',
+      problem: 'unauthenticated',
+    });
+  });
+
+  it('adds the same reminders to the trip dashboard, changing its ETag with them', async () => {
+    const w = await world();
+    const url = `/v1/trips/${w.tripPath}/dashboard`;
+    const before = await soon(w, w.member, url);
+    expect(before.statusCode).toBe(200);
+    expect(before.json<{ dueSoon: unknown[] }>().dueSoon).toEqual([]);
+    await withReminders(w);
+    const after = await soon(w, w.member, url, { 'if-none-match': String(before.headers.etag) });
+    expect(after.statusCode).toBe(200);
+    expect(after.headers.etag).not.toBe(before.headers.etag);
+    expect(
+      after
+        .json<{ dueSoon: { kind: string; reminderAt?: string }[] }>()
+        .dueSoon.map((d) => [d.kind, d.reminderAt]),
+    ).toEqual([
+      ['task_due', undefined],
+      ['reminder', tomorrow.toISOString()],
+    ]);
+    logsNoOverlay(after.headers['x-request-id']);
   });
 });

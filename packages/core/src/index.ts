@@ -45,10 +45,14 @@ export {
 export {
   createDashboardService,
   createItineraryService,
+  createMyTasksService,
   type DashboardRecord,
   type DashboardService,
+  type DueSoonRecord,
   type ItineraryRecord,
   type ItineraryService,
+  type MyTasksRecord,
+  type MyTasksService,
   type WarningRecord,
 } from './itinerary/service.js';
 export {

@@ -148,6 +148,35 @@ describe('overlays.put', () => {
     expect((await overlays.get(w.member.userId, w.lodging)).version).toBe(2);
   });
 
+  it('answers version_conflict to a create that loses the race to a commit it could not see', async () => {
+    const w = await overlaysWorld(tdb);
+    let release = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const rival = tdb.db.transaction().execute(async (trx) => {
+      await createOverlay(trx, {
+        tripId: w.tripId,
+        itemId: w.lodging,
+        membershipId: w.member.membershipId,
+        note: 'first',
+      });
+      await held;
+    });
+    const wait = (ms: number) =>
+      new Promise<void>((resolve) => {
+        setTimeout(resolve, ms);
+      });
+    await wait(150);
+    // The put finds no committed overlay, so it inserts, and waits on the rival's row.
+    const losing = refusal(overlays.put(as(w.member), w.lodging, body(), CREATE));
+    await wait(300);
+    release();
+    await rival;
+    expect(await losing).toBe('version_conflict');
+    expect(await overlayRows(tdb, w.lodging)).toHaveLength(1);
+  });
+
   it('creates a new one after the old one was removed, as version 1', async () => {
     const w = await overlaysWorld(tdb);
     const id = await createOverlay(tdb.db, {

@@ -8,6 +8,7 @@ import type {
   ItineraryService,
   LibraryService,
   MembersService,
+  MyTasksService,
   OverlaysService,
   TripsService,
   UnitsService,
@@ -38,6 +39,7 @@ export interface HandlerServices {
   items: ItemsService;
   itinerary: ItineraryService;
   dashboard: DashboardService;
+  myTasks: MyTasksService;
   overlays: OverlaysService;
   units: UnitsService;
   library: LibraryService;
@@ -60,7 +62,7 @@ export function operationHandlers(services: HandlerServices): Handlers {
     ...itineraryHandlers(services.itinerary),
     ...dashboardHandlers(services.dashboard),
     ...libraryHandlers(services.library),
-    ...meHandlers(services.identity, services.library),
+    ...meHandlers(services.identity, services.library, services.myTasks),
     ...metaHandlers(),
     ...overlayHandlers(services.overlays),
     ...unitsHandlers(services.units),

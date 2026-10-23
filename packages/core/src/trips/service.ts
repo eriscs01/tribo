@@ -41,6 +41,7 @@ import {
   insertTrip,
   listDestinations,
   listMemberTrips,
+  listPersonTrips,
   lockTrip,
   replaceDestinations,
   softDeleteTrip,
@@ -146,6 +147,40 @@ export async function memberTrip(
   if (!row) throw new ApiError('not_found');
   const destinations = await listDestinations(trips, [tripId]);
   return { trip: tripRecord(row, destinations.get(tripId) ?? []), viewer };
+}
+
+/** One of the caller's trips as a read across all of them needs it: where, and the caller's seat. */
+export interface CallerTrip {
+  tripId: string;
+  name: string;
+  timezone: string;
+  archived: boolean;
+  viewer: CallerMembership;
+}
+
+/**
+ * Every trip the caller is an active member of, deleted trips left out, archived ones marked
+ * and ordered by start: one query, whatever their number. Members only and the trip's own
+ * data: what a trip holds is for its module to say.
+ */
+export async function callerTrips(db: Kysely<DB>, userId: string): Promise<CallerTrip[]> {
+  const personId = await accountPersonId(db, userId);
+  if (personId === null) return [];
+  const rows = await listPersonTrips(forModule(db, 'trips'), personId);
+  return rows.map((row) => {
+    const role = row.trip_role as TripRole;
+    return {
+      tripId: row.trip_id,
+      name: row.name,
+      timezone: row.timezone,
+      archived: row.archived_at !== null,
+      viewer: {
+        id: row.membership_id,
+        role,
+        canViewCosts: role !== 'viewer' || row.can_view_costs,
+      },
+    };
+  });
 }
 
 /**

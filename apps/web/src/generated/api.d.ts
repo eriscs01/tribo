@@ -1982,9 +1982,10 @@ export interface components {
         DueSoon: {
             kind: components["schemas"]["DueSoonKind"];
             item: components["schemas"]["Item"];
+            reminderAt?: components["schemas"]["Instant"];
         };
         /** @enum {string} */
-        DueSoonKind: "task_due";
+        DueSoonKind: "task_due" | "reminder";
         EmergencyContact: {
             name: string;
             relation?: string;
@@ -2369,6 +2370,14 @@ export interface components {
         Money: {
             amountMinor: number;
             currency: components["schemas"]["CurrencyCode"];
+        };
+        MyTask: {
+            tripName: string;
+            item: components["schemas"]["Item"];
+        };
+        MyTasks: {
+            tasks: components["schemas"]["MyTask"][];
+            dueSoon: components["schemas"]["DueSoon"][];
         };
         NewPassword: string;
         OpeningHours: {
@@ -5843,13 +5852,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["MyTasks"];
                 };
             };
             /** @description Error */

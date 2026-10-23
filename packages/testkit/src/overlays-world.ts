@@ -42,9 +42,21 @@ export const overlayNote = (membershipId: string, itemId: string) =>
   `ovl-note:${membershipId}:${itemId}`;
 
 /**
+ * The reminder a seeded overlay carries: a distinct minute per membership, a day after
+ * the instant the leak tests read at (SEEDED_NOW), so each lies within the due-soon window
+ * and a read that shows the wrong member's is told apart by value.
+ */
+export function seededReminder(world: BuiltWorld, membershipId: string): Date {
+  const index = world.trips.flatMap((t) => t.members).findIndex((m) => m.id === membershipId);
+  return new Date(Date.parse('2026-11-10T02:00:00Z') + index * 60_000);
+}
+
+/** The instant the leak tests of the due-soon reads pretend it is: 10:00 on 9 Nov 2026 in Manila. */
+export const SEEDED_NOW = new Date('2026-11-09T02:00:00Z');
+
+/**
  * Gives every membership of the world, removed ones included, an overlay on every item of its
- * trip, each carrying its owner's marker in the note, the checklist and the reminder. Returns
- * the reminder time so a test can look for it.
+ * trip, each carrying its owner's marker in the note, the checklist and the reminder.
  */
 export async function seedOverlays(trx: Kysely<DB>, world: BuiltWorld): Promise<void> {
   const rows = world.trips.flatMap((trip) =>
@@ -54,7 +66,7 @@ export async function seedOverlays(trx: Kysely<DB>, world: BuiltWorld): Promise<
         item_id: item.id,
         membership_id: member.id,
         note: overlayNote(member.id, item.id),
-        reminder_at: new Date('2026-11-13T02:00:00Z'),
+        reminder_at: seededReminder(world, member.id),
         checklist: JSON.stringify([{ text: `ovl-check:${member.id}`, done: false }]),
       })),
     ),

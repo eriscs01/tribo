@@ -97,3 +97,28 @@ export function softDeleteOverlay(db: ItemsDb, overlayId: string) {
     .returning(OVERLAY_COLUMNS)
     .executeTakeFirstOrThrow();
 }
+
+/**
+ * The reminders these memberships set that fall in the window, on items this account sees
+ * (tribo.item_visible), soonest first. The memberships are the caller's own and nobody
+ * else's: that is the one thing an overlay is scoped by.
+ */
+export function listReminders(
+  db: ItemsDb,
+  userId: string,
+  membershipIds: readonly string[],
+  window: { from: Date; to: Date },
+) {
+  if (membershipIds.length === 0) return Promise.resolve([]);
+  return db
+    .selectFrom('tribo.overlays')
+    .select(['item_id', 'membership_id', 'reminder_at'])
+    .where('membership_id', 'in', membershipIds)
+    .where('deleted_at', 'is', null)
+    .where('reminder_at', '>=', window.from)
+    .where('reminder_at', '<=', window.to)
+    .where(sql<boolean>`tribo.item_visible(${userId}, item_id)`)
+    .orderBy('reminder_at')
+    .orderBy('item_id')
+    .execute();
+}

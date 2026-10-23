@@ -613,6 +613,16 @@ To see a pattern rather than one request, grep for the message and the code, for
 
    An edit that changes the amount of an equal split re-splits it among the same members, so it is refused at `/split/membershipIds` when one of them has since left the trip: send the split again without them. A voided expense leaves the ledger and everyone's "my share", and still locks the trip's currency (`currency_locked` on `trips.update`), since a restore (1b) brings its amounts back.
 
+   **Overlays and my tasks** (operations `overlays.*` and `me.tasks`, [decision 0025](decisions/0025-overlays-and-my-tasks.md)). An overlay is a member's own note, reminder and checklist on an item, and nobody else's: neither a log line, an audit row nor a problem body holds one, so a user reporting a lost note is asked for the request id, and `tribo audit request <id>` shows one `create`, `update` or `delete` on `overlay` with counters only. An overlay's audit event and snapshot are not for any other reader. The due-soon list on the dashboard and in `me.tasks` shows a task due within 7 days (overdue included) and the caller's own reminders within 7 days either side of now; a reminder older than that, one of a viewer, or one on an item the caller can no longer see is not shown, which is the rule working.
+
+   | `problem`                 | Operation                 | What to tell the user                                                                                                                         |
+   | ------------------------- | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+   | `if_match_required` (428) | `overlays.put`, `.delete` | Send `If-None-Match: *` to create an overlay and `If-Match` with its version to replace or remove it                                          |
+   | `version_conflict` (412)  | `overlays.put`            | The overlay already exists (a create), is not at that version, or does not exist (a replace); `overlays.get` it and send the answer's version |
+   | `forbidden` (403)         | `overlays.get`, `.put`    | Viewers keep no overlay                                                                                                                       |
+   | `not_found` (404)         | `overlays.*`              | The item is not one the caller can see, or (get, delete) they have no overlay on it; on purpose the answer does not say which                 |
+   | `trip_archived` (409)     | `overlays.put`, `.delete` | The trip is archived and read-only                                                                                                            |
+
    **Daily jobs** ([decision 0020](decisions/0020-daily-job-runner.md)). The app runs every job in `apps/server/src/jobs/index.ts` when it starts and then every 24 hours, one after another. Today that is `idempotency-keys`, which deletes Idempotency-Keys past their 24 hours, then `files-purge`, the retention purge ([decision 0023](decisions/0023-file-retention-purge.md)). Each run has its own request id, `job-<uuid>`, on each of its log lines and on every audit event it writes, so a run is followed like a request:
 
    ```bash

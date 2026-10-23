@@ -37,7 +37,7 @@
 - [x] `me.password.change` · Drop A · `POST /v1/me/password`
   - Change own password; revokes other sessions; Decided (G1); Never replayed (rule 6)
   - Roles: self. If-Match: `no`. Idempotency: never replayed.
-- [ ] `me.tasks` · Drop B · `GET /v1/me/tasks`
+- [x] `me.tasks` · Drop B · `GET /v1/me/tasks`
   - "My trip" tasks across trips + due-soon reminders; item_visible per trip; overlay reminders are own only
   - Roles: self. If-Match: `no`. Idempotency: safe to repeat.
 

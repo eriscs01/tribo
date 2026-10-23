@@ -6240,12 +6240,12 @@
           }
         ],
         "responses": {
-          "501": {
-            "description": "Registered but not implemented yet (not_implemented)",
+          "200": {
+            "description": "OK",
             "content": {
-              "application/problem+json": {
+              "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Problem"
+                  "$ref": "#/components/schemas/MyTasks"
                 }
               }
             }
@@ -6262,7 +6262,7 @@
           }
         },
         "x-tribo": {
-          "status": "planned",
+          "status": "implemented",
           "slice": "1a",
           "drop": "B",
           "roles": "self",
@@ -9541,6 +9541,9 @@
           },
           "item": {
             "$ref": "#/components/schemas/Item"
+          },
+          "reminderAt": {
+            "$ref": "#/components/schemas/Instant"
           }
         },
         "required": [
@@ -9552,7 +9555,8 @@
       "DueSoonKind": {
         "type": "string",
         "enum": [
-          "task_due"
+          "task_due",
+          "reminder"
         ]
       },
       "EmergencyContact": {
@@ -11551,6 +11555,44 @@
         "required": [
           "amountMinor",
           "currency"
+        ],
+        "additionalProperties": false
+      },
+      "MyTask": {
+        "type": "object",
+        "properties": {
+          "tripName": {
+            "type": "string"
+          },
+          "item": {
+            "$ref": "#/components/schemas/Item"
+          }
+        },
+        "required": [
+          "tripName",
+          "item"
+        ],
+        "additionalProperties": false
+      },
+      "MyTasks": {
+        "type": "object",
+        "properties": {
+          "tasks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MyTask"
+            }
+          },
+          "dueSoon": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DueSoon"
+            }
+          }
+        },
+        "required": [
+          "tasks",
+          "dueSoon"
         ],
         "additionalProperties": false
       },

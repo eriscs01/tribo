@@ -556,3 +556,28 @@ export async function tripsPastRetention(db: TripsDb, days: number) {
     ended: rows.filter((r) => r.ended === true).map((r) => r.id),
   };
 }
+
+/**
+ * The trips a person is an active member of, deleted trips left out, each with the
+ * membership: what a read across all of a person's trips needs of the trips module.
+ */
+export function listPersonTrips(db: TripsDb, personId: string) {
+  return db
+    .selectFrom('tribo.memberships as m')
+    .innerJoin('tribo.trips as t', 't.id', 'm.trip_id')
+    .select([
+      'm.id as membership_id',
+      'm.trip_role',
+      'm.can_view_costs',
+      't.id as trip_id',
+      't.name',
+      't.timezone',
+      't.archived_at',
+    ])
+    .where('m.person_id', '=', personId)
+    .where('m.deleted_at', 'is', null)
+    .where('t.deleted_at', 'is', null)
+    .orderBy('t.start_date')
+    .orderBy('t.id')
+    .execute();
+}
