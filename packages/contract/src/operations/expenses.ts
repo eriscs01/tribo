@@ -57,7 +57,8 @@ export const expensesOperations = [
     mcpApproval: false,
     mcpTool: null,
     notes: 'Expense with shares; As expenses.list',
-    status: 'planned',
+    status: 'implemented',
+    output: Expense,
   }),
   defineOperation({
     id: 'expenses.update',

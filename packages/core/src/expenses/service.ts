@@ -10,7 +10,7 @@ import {
   type MaskedValue,
   type Money,
 } from '@tribo/contract';
-import { forModule, type DB, type ValueOf } from '@tribo/db';
+import { forModule, type DB, type TripRole, type ValueOf } from '@tribo/db';
 import {
   actingUser,
   ApiError,
@@ -28,9 +28,11 @@ import {
 } from '../trips/service.js';
 import { writeOperation } from '../write-operation.js';
 import { equalShares, itemisedShares, tripAmountMinor, type Share } from './money.js';
-import { canCreateExpense } from './policy.js';
+import { canCreateExpense, canGetExpense } from './policy.js';
 import {
+  expenseTrip,
   findExpense,
+  findLiveExpense,
   hasMoneyRows,
   insertExpense,
   listShares,
@@ -79,6 +81,11 @@ export interface ExpenseRecord {
 }
 
 export interface ExpensesService {
+  /**
+   * expenses.get: one expense of a trip the caller is an active member of, unless voided;
+   * not_found for any other.
+   */
+  get(userId: string, expenseId: string): Promise<ExpenseRecord>;
   /**
    * expenses.create: records an expense in the trip currency with its shares frozen; the
    * payer and every member named must be active members of the trip.
@@ -236,6 +243,33 @@ async function pricedExpense(
   return { currency, total, shares };
 }
 
+/** Stands in for the trip of an expense that does not exist, so its lookups still run. */
+const NO_ROW = '00000000-0000-0000-0000-000000000000';
+
+/**
+ * An expense the reader may see, with their membership in its trip, or not_found: the
+ * ledger stays whole, so every active member of a live trip sees its expenses that are
+ * not voided. The same queries run whether the expense is voided, in another trip or
+ * unknown, so neither the answer nor its cost tells them apart.
+ */
+async function readableExpense(
+  db: Kysely<DB>,
+  userId: string,
+  expenseId: string,
+  allowed: (role: TripRole) => boolean,
+): Promise<{ row: ExpenseRow; membership: CallerMembership }> {
+  const expenses = forModule(db, 'expenses');
+  const membership = await callerMembership(
+    db,
+    userId,
+    (await expenseTrip(expenses, expenseId)) ?? NO_ROW,
+  );
+  const row = await findLiveExpense(expenses, userId, expenseId);
+  if (!row || !membership) throw new ApiError('not_found');
+  if (!allowed(membership.role)) throw new ApiError('forbidden');
+  return { row, membership };
+}
+
 /** The caller adding to the trip's ledger: their active membership, which a viewer's is not. */
 async function recorder(tx: Tx, ctx: RequestContext, tripId: string) {
   const userId = actingUser(ctx);
@@ -248,6 +282,12 @@ async function recorder(tx: Tx, ctx: RequestContext, tripId: string) {
 /** `write` is core's write path (writePath in write-path.ts), passed in to keep imports acyclic. */
 export function createExpensesService(db: Kysely<DB>, write: WritePath): ExpensesService {
   return {
+    async get(userId, expenseId) {
+      const { row, membership } = await readableExpense(db, userId, expenseId, canGetExpense);
+      const shares = await listShares(forModule(db, 'expenses'), [row.id]);
+      return expenseRecord(row, shares, await tripCurrency(db, row.trip_id), membership);
+    },
+
     create(ctx, tripId, body) {
       return write(ctx, {
         operation: expensesCreate,

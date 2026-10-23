@@ -308,6 +308,7 @@ export async function createExpense(
     shares: readonly { membershipId: string; amount: number }[];
     voided?: boolean;
     spentOn?: string;
+    itemId?: string | null;
   },
 ): Promise<string> {
   const total = init.shares.reduce((sum, x) => sum + x.amount, 0);
@@ -315,6 +316,7 @@ export async function createExpense(
     .insertInto('tribo.expenses')
     .values({
       trip_id: init.tripId,
+      item_id: init.itemId ?? null,
       category: 'food',
       description: `Expense ${next()}`,
       spent_on: init.spentOn ?? '2026-11-12',

@@ -1,6 +1,6 @@
 import { encodeTypeId, ID_PREFIX, type Expense } from '@tribo/contract';
 import type { ExpenseRecord, ExpensesService } from '@tribo/core';
-import { pathId, requestContext } from '../context.js';
+import { pathId, requestContext, signedIn } from '../context.js';
 import type { Handlers } from '../routes.js';
 
 /** The service masks; this only names ids as the API does. */
@@ -37,5 +37,7 @@ export function expensesHandlers(expenses: ExpensesService): Handlers {
       );
       return reply.code(201).send(expenseView(expense));
     },
+    'expenses.get': async (request) =>
+      expenseView(await expenses.get(signedIn(request).userId, pathId(request, 'expenseId'))),
   };
 }

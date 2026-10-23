@@ -149,3 +149,21 @@ export function listShares(db: ExpensesDb, expenseIds: readonly string[]) {
     .orderBy('membership_id')
     .execute();
 }
+
+/** The trip an expense row is in, voided or not; undefined when there is no such row. */
+export async function expenseTrip(db: ExpensesDb, expenseId: string): Promise<string | undefined> {
+  const row = await db
+    .selectFrom('tribo.expenses')
+    .select('trip_id')
+    .where('id', '=', expenseId)
+    .executeTakeFirst();
+  return row?.trip_id;
+}
+
+/** The expense unless it is voided, as this reader gets it. */
+export function findLiveExpense(db: ExpensesDb, userId: string, expenseId: string) {
+  return selectExpense(db, userId)
+    .where('e.id', '=', expenseId)
+    .where('e.deleted_at', 'is', null)
+    .executeTakeFirst();
+}

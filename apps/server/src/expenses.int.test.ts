@@ -238,3 +238,49 @@ describe('expenses.create over HTTP', () => {
     });
   });
 });
+
+describe('expenses.get over HTTP', () => {
+  const get = (caller: Caller, expensePath: string) =>
+    app.inject({
+      method: 'GET',
+      url: `/v1/expenses/${expensePath}`,
+      cookies: caller.auth.cookies,
+      headers: caller.auth.headers,
+    });
+
+  it('answers the expense to a member and masks its amounts for a viewer', async () => {
+    const w = await world();
+    const created = (await create(w, w.member, dinner(w))).json<{ id: string }>();
+    const read = await get(w.owner, created.id);
+    expect(read.statusCode).toBe(200);
+    expect(read.json()).toEqual(created);
+    const masked = await get(w.viewer, created.id);
+    expect(masked.statusCode).toBe(200);
+    expect(masked.json()).toMatchObject({
+      id: created.id,
+      amount: { masked: true },
+      tripAmount: { masked: true },
+    });
+    expect(masked.body).not.toContain('amountMinor');
+    logsNoMoney(read.headers['x-request-id']);
+  });
+
+  it('answers 404 to a stranger, the same as for no expense, with its log line', async () => {
+    const w = await world();
+    const created = (await create(w, w.member, dinner(w))).json<{ id: string }>();
+    const stranger = await signedInUser();
+    const hidden = await get(stranger, created.id);
+    const none = await get(
+      stranger,
+      encodeTypeId(ID_PREFIX.expense, '0192f000-0000-7000-8000-0000000000ff'),
+    );
+    expect(hidden.statusCode).toBe(404);
+    expect(none.statusCode).toBe(404);
+    expect(hidden.json<{ code: string }>().code).toBe(none.json<{ code: string }>().code);
+    expect(refusalLine(hidden.headers['x-request-id'])).toMatchObject({
+      operationId: 'expenses.get',
+      problem: 'not_found',
+    });
+    logsNoMoney(hidden.headers['x-request-id']);
+  });
+});
