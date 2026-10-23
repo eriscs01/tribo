@@ -63,3 +63,4 @@ fixed.
 | [0020](0020-daily-job-runner.md)                      | 23 Oct 2026 | The daily job runner                                                             | accepted |
 | [0021](0021-file-uploads.md)                          | 23 Oct 2026 | File uploads: the form, the type allowlist, names and no orphan blobs            | accepted |
 | [0022](0022-file-downloads.md)                        | 23 Oct 2026 | File downloads: the headers, the name, failures and the audit of sensitive files | accepted |
+| [0023](0023-file-retention-purge.md)                  | 23 Oct 2026 | The file retention purge: what is due, how a purge is written, what it leaves    | accepted |

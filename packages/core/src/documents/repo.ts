@@ -194,3 +194,57 @@ export async function softDeleteFile(
     .executeTakeFirstOrThrow();
   return version;
 }
+
+/** The trips the retention purge acts on, as the trips module names them. */
+export interface RetentionTrips {
+  deleted: readonly string[];
+  ended: readonly string[];
+}
+
+/**
+ * Files due for the purge (decision 0023), not yet purged: soft-deleted at least `days`
+ * ago, on a trip deleted that long ago, or sensitive on a trip that ended that long ago.
+ */
+function dueFiles(db: DocumentsDb, days: number, trips: RetentionTrips) {
+  return selectFile(db)
+    .where('f.purged_at', 'is', null)
+    .where((eb) =>
+      eb.or([
+        eb(sql`f.deleted_at + make_interval(days => ${days})`, '<=', sql`now()`),
+        ...(trips.deleted.length > 0 ? [eb('f.trip_id', 'in', trips.deleted)] : []),
+        ...(trips.ended.length > 0
+          ? [eb.and([eb('f.sensitive', '=', true), eb('f.trip_id', 'in', trips.ended)])]
+          : []),
+      ]),
+    );
+}
+
+export async function listDueFiles(
+  db: DocumentsDb,
+  days: number,
+  trips: RetentionTrips,
+): Promise<string[]> {
+  return (await dueFiles(db, days, trips).orderBy('f.id').execute()).map((row) => row.id);
+}
+
+/** A due file, locked until commit; undefined once it is purged or no longer due. */
+export function lockDueFile(db: DocumentsDb, fileId: string, days: number, trips: RetentionTrips) {
+  return dueFiles(db, days, trips).where('f.id', '=', fileId).forUpdate().executeTakeFirst();
+}
+
+/** The tombstone: purged_at set and the name gone; returns the bumped version. */
+export async function markPurged(db: DocumentsDb, fileId: string): Promise<number> {
+  const { version } = await db
+    .updateTable('tribo.files')
+    .set((eb) => ({
+      purged_at: sql`now()`,
+      filename: 'purged',
+      version: eb('version', '+', 1),
+      updated_at: sql`now()`,
+      updated_by: null,
+    }))
+    .where('id', '=', fileId)
+    .returning('version')
+    .executeTakeFirstOrThrow();
+  return version;
+}

@@ -449,6 +449,11 @@ function userSnapshot(row: {
   };
 }
 
+/** The admin setting the file retention purge counts in (Technical design, "Retention"). */
+export function documentRetentionDays(db: Kysely<DB>): Promise<number> {
+  return repo.documentRetentionDays(forModule(db, 'identity'));
+}
+
 /** Whether the account has MFA on: what taking over a trip asks of its new owner (G14). */
 export function accountHasMfa(db: Kysely<DB>, userId: string): Promise<boolean> {
   return repo.hasMfaEnabled(forModule(db, 'identity'), userId);

@@ -135,3 +135,16 @@ export async function deletedWithLatestDelete(
     .execute();
   return rows.flatMap((r) => (r.entity_id === null ? [] : [r.entity_id]));
 }
+
+/** Deletes every snapshot of one aggregate (retention and erasure only). */
+export async function deleteSnapshots(
+  db: AuditDb,
+  entityType: string,
+  entityId: string,
+): Promise<void> {
+  await db
+    .deleteFrom('tribo.entity_versions')
+    .where('entity_type', '=', entityType)
+    .where('entity_id', '=', entityId)
+    .execute();
+}

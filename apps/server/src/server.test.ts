@@ -156,6 +156,7 @@ const files: FilesService = {
   update: unused,
   delete: unused,
   download: unused,
+  purgeDue: unused,
 };
 
 let app: FastifyInstance | undefined;
