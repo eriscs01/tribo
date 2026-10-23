@@ -1,7 +1,6 @@
 import type { ErrorCode } from '@tribo/contract';
-import type { ValueOf } from '@tribo/db';
-
-type TripRole = ValueOf<'tribo.memberships.trip_role'>;
+import type { TripRole, ValueOf } from '@tribo/db';
+import { anyMember, organizers, ownerOnly } from '../roles.js';
 
 /** R29: an archived trip is read-only, except that it can still be deleted and restored. */
 const WRITES_ON_ARCHIVED = new Set(['trips.delete', 'trips.restore']);
@@ -24,23 +23,13 @@ export function tripCreateRefusal(caller: { mfaVerified: boolean }): ErrorCode |
 }
 
 /** trips.get: every member reads the trip, viewers included. */
-const TRIP_READERS: ReadonlySet<TripRole> = new Set(['owner', 'organizer', 'member', 'viewer']);
-
-export function canGetTrip(role: TripRole): boolean {
-  return TRIP_READERS.has(role);
-}
+export const canGetTrip = anyMember;
 
 /** trips.update: the owner and organizers edit the trip. */
-const TRIP_EDITORS: ReadonlySet<TripRole> = new Set(['owner', 'organizer']);
-
-export function canUpdateTrip(role: TripRole): boolean {
-  return TRIP_EDITORS.has(role);
-}
+export const canUpdateTrip = organizers;
 
 /** trips.delete: the owner alone deletes the trip. */
-export function canDeleteTrip(role: TripRole): boolean {
-  return role === 'owner';
-}
+export const canDeleteTrip = ownerOnly;
 
 /**
  * The stored statuses in lifecycle order; `archived` is derived from archived_at (R40).
@@ -64,19 +53,13 @@ export function statusMoveRefusal(from: string, to: string): ErrorCode | null {
 }
 
 /** members.list: every member reads who else is in the trip, viewers included. */
-export function canListMembers(role: TripRole): boolean {
-  return TRIP_READERS.has(role);
-}
+export const canListMembers = anyMember;
 
 /** members.add: the owner alone adds travellers (and invites, sets roles and removes). */
-export function canAddMember(role: TripRole): boolean {
-  return role === 'owner';
-}
+export const canAddMember = ownerOnly;
 
 /** members.setRole: the owner alone sets roles and cost grants. */
-export function canSetMemberRole(role: TripRole): boolean {
-  return role === 'owner';
-}
+export const canSetMemberRole = ownerOnly;
 
 /** Every role but a viewer reads costs anyway; only a viewer's are a grant (can_view_costs). */
 export function takesCostGrant(role: TripRole): boolean {
@@ -101,9 +84,7 @@ export function roleChangeRefusal(change: {
 }
 
 /** invites.create, .list and .revoke: the owner alone manages the trip's invite links. */
-export function canManageInvites(role: TripRole): boolean {
-  return role === 'owner';
-}
+export const canManageInvites = ownerOnly;
 
 /** An invite's standing, derived on every read from its row and the clock (R40). */
 export function inviteStatus(

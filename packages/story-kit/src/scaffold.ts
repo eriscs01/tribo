@@ -10,8 +10,8 @@ import {
   leakTest,
   pageStub,
   policyRow,
+  sharedRule,
   schemaStub,
-  TRIP_ROLE_TYPE,
 } from './templates.js';
 
 /** The repository as the plan reads it; paths are relative to its root. */
@@ -170,13 +170,15 @@ function policy(draft: Draft, story: Story) {
     draft.skip(path, `it already names ${op.id}`);
     return;
   }
-  let source = before;
-  if (!/\btype TripRole\b/.test(source)) {
-    source = addImport(appendBlock(source, TRIP_ROLE_TYPE), '@tribo/db', ['ValueOf'], {
-      typeOnly: true,
-    });
+  const rule = sharedRule(tripRoles);
+  if (!rule) {
+    draft.report.push(
+      `no policy row: ${tripRoles.join(', ')} reduce to no rule in packages/core/src/roles.ts; add one there`,
+    );
+    return;
   }
-  draft.write(path, appendBlock(source, policyRow(story, tripRoles)), `added ${story.policyName}`);
+  const source = addImport(appendBlock(before, policyRow(story, rule)), '../roles.js', [rule]);
+  draft.write(path, source, `added ${story.policyName}`);
 }
 
 const HANDLERS_FUNCTION = /export function \w+Handlers\(/;

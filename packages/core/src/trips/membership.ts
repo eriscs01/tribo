@@ -1,7 +1,7 @@
 // What the trips module's services share about memberships: who the caller is inside a trip,
 // the role check every trips-module operation makes, and how a membership is recorded and
 // shown. Private to the module; service.ts, members.ts and invites.ts build on it.
-import { forModule, type DB } from '@tribo/db';
+import { forModule, type DB, type TripRole } from '@tribo/db';
 import {
   ApiError,
   type Change,
@@ -23,7 +23,6 @@ import {
   findMembershipPersons,
   lockMembershipOf,
   type MembershipRow,
-  type TripRole,
 } from './repo.js';
 
 /** The caller inside a trip: their membership, its role, and whether costs show to them. */

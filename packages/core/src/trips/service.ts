@@ -7,7 +7,7 @@ import {
   TripPatch,
   type PageQuery,
 } from '@tribo/contract';
-import { forModule, type DB, type ValueOf } from '@tribo/db';
+import { forModule, type DB, type TripRole, type ValueOf } from '@tribo/db';
 import {
   actingUser,
   ApiError,
@@ -47,7 +47,6 @@ import {
   softDeleteTrip,
   updateTrip,
   type TripFields,
-  type TripRole,
   type TripRow,
 } from './repo.js';
 

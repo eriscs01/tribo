@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { planScaffold, type Workspace } from './scaffold.js';
 import { addImport } from './source.js';
 import { storyOf, tripRolesOf } from './story.js';
+import { sharedRule } from './templates.js';
 
 /** A registry file as the importer writes it, every entry planned. */
 const registryFile = (name: string, ids: string[]) =>
@@ -33,7 +34,7 @@ const FIXTURE: Record<string, string> = {
   ]),
   'packages/contract/src/operations/members.ts': registryFile('members', ['members.add']),
   'packages/core/src/items/policy.ts':
-    "import type { ValueOf } from '@tribo/db';\n\ntype TripRole = ValueOf<'tribo.memberships.trip_role'>;\n",
+    "import { organizers } from '../roles.js';\n\nexport const canUpdateItem = organizers;\n",
   'packages/core/src/expenses/policy.ts': 'export {};\n',
   'packages/core/src/trips/policy.ts': 'export {};\n',
   'apps/server/src/handlers/items.ts': [
@@ -140,9 +141,11 @@ describe('planScaffold', () => {
     expect(plan.writes.get('packages/contract/src/item.ts')).toContain(
       "export const ItemPage = page(Item, 'ItemPage');",
     );
-    expect(plan.writes.get('packages/core/src/items/policy.ts')).toContain(
-      'export function canListItem(role: TripRole): boolean',
-    );
+    // A policy row aliases the shared rule its roles reduce to, never a new role set.
+    const itemsPolicy = plan.writes.get('packages/core/src/items/policy.ts') ?? '';
+    expect(itemsPolicy).toContain('export const canListItem = anyMember;');
+    expect(itemsPolicy).toContain("import { organizers, anyMember } from '../roles.js';");
+    expect(itemsPolicy).not.toContain('Set(');
     expect(plan.writes.get('apps/server/src/handlers/items.ts')).toContain(
       "'items.list': () =>\n      Promise.reject(new ApiError('not_implemented'",
     );
@@ -174,10 +177,11 @@ describe('planScaffold', () => {
     const index = plan.writes.get('apps/server/src/handlers/index.ts') ?? '';
     expect(index).toContain('...expensesHandlers(),');
     expect(index).toContain("import { expensesHandlers } from './expenses.js';");
-    // The empty placeholder policy gives way to the TripRole type and the row.
+    // The empty placeholder policy gives way to the shared rule's import and the row.
     const policy = plan.writes.get('packages/core/src/expenses/policy.ts') ?? '';
     expect(policy).not.toContain('export {};');
-    expect(policy).toContain("import type { ValueOf } from '@tribo/db';");
+    expect(policy).toContain("import { contributors } from '../roles.js';");
+    expect(policy).toContain('export const canCreateExpense = contributors;');
   });
 
   it('writes the Drop B limits into the tests of the stories they bind', () => {
@@ -223,5 +227,29 @@ describe('addImport', () => {
       "import { a } from 'pkg';\nimport { d } from 'other';\nimport { b } from './b.js';\n",
     );
     expect(addImport(source, './e.js', ['e']).endsWith("import { e } from './e.js';\n")).toBe(true);
+  });
+});
+
+describe('sharedRule', () => {
+  it('reduces every roles column in the registry to a shared rule', () => {
+    const unmatched = registry
+      .map((op) => ({ id: op.id, roles: tripRolesOf(op.roles) }))
+      .filter((r) => r.roles !== null && sharedRule(r.roles) === null);
+    expect(unmatched).toEqual([]);
+  });
+
+  it('writes no policy row for roles no shared rule lets in, and says where to add one', () => {
+    const op = registry.find((o) => o.id === 'expenses.create');
+    if (!op) throw new Error('no expenses.create');
+    const plan = planScaffold(storyOf({ ...op, roles: 'owner, member' }), workspace());
+    expect(plan.writes.has('packages/core/src/expenses/policy.ts')).toBe(false);
+    expect(plan.report).toContain(
+      'no policy row: owner, member reduce to no rule in packages/core/src/roles.ts; add one there',
+    );
+  });
+
+  it('names no rule for roles no shared rule lets in, whatever their order', () => {
+    expect(sharedRule(['owner', 'member'])).toBeNull();
+    expect(sharedRule(['viewer', 'owner', 'member', 'organizer'])).toBe('anyMember');
   });
 });
