@@ -1,7 +1,8 @@
 #!/bin/sh
 # Restore check (runbook step 11), run on a machine with Docker, never on the production host:
 # brings up the scratch Compose project tribo-restore from a snapshot pull.sh made, restores
-# the dump and the uploads into it, then runs `tribo audit verify`.
+# the dump and the uploads into it, checks every restored blob against the snapshot, then runs
+# `tribo audit verify`.
 #
 #   sh deploy/backup/restore.sh [snapshot dir]    the newest snapshot by default
 #   sh deploy/backup/restore.sh --down            deletes the scratch project, its volumes and
@@ -105,10 +106,23 @@ if [ -d "$snapshot/uploads" ]; then
     fail "the snapshot has uploads but compose.yml at $deploy has no uploads volume"
   say "restoring the uploads"
   compose create app
-  # The app runs as node (uid 1000); the snapshot's owners are this machine's.
-  docker run --rm --user 0 --platform linux/amd64 --entrypoint sh \
+  # The app runs as node (uid 1000); the snapshot's owners are this machine's. Then every
+  # blob in the volume must match the snapshot's byte for byte, and none may be missing.
+  restored=$(docker run --rm --user 0 --platform linux/amd64 --entrypoint sh \
     -v "${project}_uploads:/data" -v "$snapshot/uploads:/src:ro" \
-    "ghcr.io/eriscs01/tribo-app:$version" -c 'cp -R /src/. /data/ && chown -R 1000:1000 /data'
+    "ghcr.io/eriscs01/tribo-app:$version" -c '
+      set -eu
+      cp -R /src/. /data/ && chown -R 1000:1000 /data
+      sums() { cd "$1" && find . -type f ! -path "./.tmp/*" -exec sha256sum {} + | sort; }
+      sums /src >/tmp/src.sums
+      sums /data >/tmp/data.sums
+      cmp -s /tmp/src.sums /tmp/data.sums || { echo mismatch; exit 0; }
+      wc -l </tmp/src.sums') || fail "restoring the uploads"
+  case $restored in
+    mismatch) fail "the restored upload volume does not match the snapshot" ;;
+    *[!0-9\ ]* | '') fail "restoring the uploads printed '$restored'" ;;
+  esac
+  say "restored $(echo "$restored" | tr -d ' ') uploaded files, each matching the snapshot"
 fi
 
 say "starting the app and the proxy"

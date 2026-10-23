@@ -61,3 +61,4 @@ export {
   type ChainReport,
   type RequestEvent,
 } from './audit/service.js';
+export { createBlobStore, type BlobStore, type StoredBlob } from './documents/service.js';

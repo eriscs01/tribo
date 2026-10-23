@@ -53,7 +53,12 @@ services:
       TRIBO_PUBLIC_URL: ${TRIBO_PUBLIC_URL:?set TRIBO_PUBLIC_URL in .env}
       TRIBO_DB_HOST: db
       TRIBO_LOG_LEVEL: ${TRIBO_LOG_LEVEL:-info}
+      TRIBO_UPLOADS_DIR: /var/lib/tribo/uploads
     secrets: [app_key, db_owner_password, db_app_password]
+    volumes:
+      # Encrypted uploads, the only writable path of the read-only app container. Named
+      # tribo_uploads on the host, where backup/serve.sh syncs it from.
+      - uploads:/var/lib/tribo/uploads
     depends_on:
       db:
         condition: service_healthy
@@ -133,5 +138,6 @@ secrets:
 
 volumes:
   pgdata:
+  uploads:
   caddy_data:
   caddy_config:

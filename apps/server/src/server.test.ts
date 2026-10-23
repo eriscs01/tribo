@@ -325,6 +325,19 @@ describe('problem details', () => {
     expect(res.statusCode).toBe(400);
     expect(res.json()).toMatchObject({ code: 'validation_failed' });
   });
+
+  it('answers a body over the limit with 413 file_too_large, the one 413 in the contract', async () => {
+    const res = await (
+      await server()
+    ).inject({
+      method: 'POST',
+      url: '/v1/test/login',
+      headers: { 'content-type': 'application/json' },
+      payload: JSON.stringify({ pad: 'x'.repeat(2 * 1024 * 1024) }),
+    });
+    expect(res.statusCode).toBe(413);
+    expect(res.json()).toMatchObject({ code: 'file_too_large', status: 413 });
+  });
 });
 
 describe('request id', () => {
@@ -714,6 +727,16 @@ describe('config', () => {
     expect(config.db).toMatchObject({ host: 'db', port: 5432, appPassword: 'app-pw' });
     expect(config.trustedProxies).toEqual(['loopback', 'uniquelocal']);
     expect(config.release).toEqual({ version: 'dev', commit: 'unknown' });
+    expect(config.uploadsDir).toBe('/var/lib/tribo/uploads');
+  });
+
+  it('takes the upload directory from TRIBO_UPLOADS_DIR', async () => {
+    const config = loadConfig({
+      TRIBO_PUBLIC_URL: 'https://tribo.example.org',
+      TRIBO_SECRETS_DIR: await secrets(),
+      TRIBO_UPLOADS_DIR: '/data/uploads',
+    });
+    expect(config.uploadsDir).toBe('/data/uploads');
   });
 
   it('reads the release the image was built from', async () => {

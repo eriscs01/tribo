@@ -250,11 +250,15 @@ Sprint 0 task 14. `deploy/compose.yml` runs Tribo in any deployment mode from th
 | Service  | Image                                                              | Notes                                                                                                                                                                                               |
 | -------- | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `proxy`  | `ghcr.io/eriscs01/tribo-proxy:<tag>`                               | Caddy with the Cloudflare DNS module and the built SPA. `/v1/*` and `/healthz` go to `app`; everything else is the SPA, with `index.html` for unknown paths                                         |
-| `app`    | `ghcr.io/eriscs01/tribo-app:<tag>`                                 | Runs as `node` (uid 1000) on a read-only root filesystem with no capabilities; applies migrations at start                                                                                          |
+| `app`    | `ghcr.io/eriscs01/tribo-app:<tag>`                                 | Runs as `node` (uid 1000) on a read-only root filesystem with no capabilities; applies migrations at start; writes encrypted uploads to the `uploads` volume, its one writable path                 |
 | `db`     | `postgres:18.6` (pinned by digest)                                 | On an empty volume, creates the two roles and the database from the bootstrap files in the release's app image (the app image mounted twice, which needs the Docker Engine in `docker-minimum.env`) |
 | `tunnel` | `cloudflare/cloudflared` (pinned by digest), profile `tunnel` only | Cloudflare Tunnel mode                                                                                                                                                                              |
 
 Only `proxy` publishes ports (80, 443 and 443/udp). The database and the app are reachable only on the Compose network.
+
+The volumes are `pgdata` (the database), `uploads` (uploaded files, encrypted with the app key, at `/var/lib/tribo/uploads` in `app`), `caddy_data` and `caddy_config`. Compose names them `tribo_<volume>` on the host, so the uploads are in `/var/lib/docker/volumes/tribo_uploads/_data`, where the backup (step 10) syncs them from. `docker compose down -v` deletes the uploads with the database.
+
+Uploads are capped at 25 MiB ([decision 0019](decisions/0019-blob-store-and-upload-ceiling.md)). Caddy refuses a request body over 26 MiB (the file plus its multipart framing) before it reaches the app, and the app stops reading a file at 25 MiB; both answer `413` with the problem code `file_too_large`. Caddy's refusal writes no app log line, since the request never reached the app: its access log in `docker compose logs proxy` has the status. In Cloudflare proxied and tunnel modes the edge allows 100 MB, so the 25 MiB ceiling still holds.
 
 ### Install a release (steps 6–8)
 
@@ -292,6 +296,8 @@ Only `proxy` publishes ports (80, 443 and 443/udp). The database and the app are
 
 4. `docker compose pull && docker compose up -d --wait`, then `docker compose logs -f proxy` until the certificate is issued (acme modes), and open `${TRIBO_PUBLIC_URL}/healthz` from a phone on mobile data. It answers `{"status":"ok"}`.
 
+   If `app` stays unhealthy and `docker compose logs app` ends with `upload directory /var/lib/tribo/uploads is not writable`, the `uploads` volume is not mounted (a `compose.yml` from before `v0.4.0`) or not owned by uid 1000; take `deploy/` from the release tag again. The app checks the directory at start, before it serves anything.
+
    If `db` stays unhealthy on the first start, read why with `docker compose logs db | grep 'tribo init'`. The init script runs only on an empty volume, so after fixing the cause (usually the secrets' modes), delete the half-made volume and start again with `docker compose down -v && docker compose up -d --wait`. Do this only on a first install: `down -v` deletes the database.
 
 5. First admin (step 9): `docker compose exec app tribo admin create <username>`; scan the TOTP code and store the recovery codes.
@@ -308,7 +314,7 @@ Only `proxy` publishes ports (80, 443 and 443/udp). The database and the app are
 
 ### Upgrade
 
-Set `TRIBO_VERSION` to the new tag, then `sh docker-check.sh && docker compose pull && docker compose up -d`. Recreating the app container deletes its logs, so save them first if a problem is open ("Debugging a production problem", step 6). `docker-check.sh` refuses a Docker Engine or Compose older than `docker-minimum.env` in that release; upgrade them with `sudo apt-get install --only-upgrade docker-ce docker-ce-cli docker-compose-plugin` first. Migrations apply at app start under an advisory lock; they never need a down-migration, so rolling back is setting the old tag again.
+Take `deploy/` from the new tag as in step 6.1 (from `v0.4.0` on, `compose.yml` adds the `uploads` volume, which Compose creates on the next `up`), set `TRIBO_VERSION` to the new tag, then `sh docker-check.sh && docker compose pull && docker compose up -d`. Recreating the app container deletes its logs, so save them first if a problem is open ("Debugging a production problem", step 6). `docker-check.sh` refuses a Docker Engine or Compose older than `docker-minimum.env` in that release; upgrade them with `sudo apt-get install --only-upgrade docker-ce docker-ce-cli docker-compose-plugin` first. Migrations apply at app start under an advisory lock; they never need a down-migration, so rolling back is setting the old tag again.
 
 ### Releases
 
@@ -375,7 +381,7 @@ Copy the settings and set `TRIBO_BACKUP_DIR` to a directory on the disk you own,
 mkdir -p ~/.config/tribo && cp deploy/backup/backup.env.example ~/.config/tribo/backup.env
 ```
 
-Check that the key can do nothing but serve backups. The first command prints the release tag and `uploads=no` (until the documents module adds the upload volume); the second must fail with `refused 'id'`:
+Check that the key can do nothing but serve backups. The first command prints the release tag and `uploads=yes` (`uploads=no` on a release before `v0.4.0`, which has no upload volume); the second must fail with `refused 'id'`:
 
 ```bash
 ssh tribo-backup status
@@ -455,9 +461,9 @@ Then restore the newest snapshot (pass a snapshot directory to restore another):
 sh deploy/backup/restore.sh
 ```
 
-It checks the dump against its manifest checksum, starts the scratch database (whose init script creates the two roles and an empty database), restores the dump as the `postgres` superuser in one transaction with every object owned by `tribo_owner` and `tribo_app`'s grants as they were, copies the uploads in, starts the app (which finds no migration to apply) and the proxy, and runs `tribo audit verify`.
+It checks the dump against its manifest checksum, starts the scratch database (whose init script creates the two roles and an empty database), restores the dump as the `postgres` superuser in one transaction with every object owned by `tribo_owner` and `tribo_app`'s grants as they were, copies the uploads in and checks every restored file against the snapshot by SHA-256, starts the app (which finds no migration to apply) and the proxy, and runs `tribo audit verify`.
 
-Check: the output ends with `All N chains intact.` and `passed`. Then open https://restore.tribo.localhost:8443 and accept the browser's warning (Caddy's internal CA, new on every run). Sign in as your admin from step 9, open the trip from exit criteria 1–2 and check that its items are there.
+Check: the output says `restored N uploaded files, each matching the snapshot` (when the snapshot has uploads) and ends with `All N chains intact.` and `passed`. A `does not match the snapshot` failure means the copy into the scratch volume lost or changed a file: check the disk space on your machine and run the check again. Then open https://restore.tribo.localhost:8443 and accept the browser's warning (Caddy's internal CA, new on every run). Sign in as your admin from step 9, open the trip from exit criteria 1–2 and check that its items are there.
 
 Delete the scratch project with its volumes, passwords and copy of the app key, then the file you exported:
 

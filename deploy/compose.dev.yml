@@ -47,12 +47,26 @@ services:
       TRIBO_PUBLIC_URL: https://tribo.localhost
       TRIBO_DB_HOST: db
       TRIBO_LOG_LEVEL: info
+      TRIBO_UPLOADS_DIR: /var/lib/tribo/uploads
       # Edits made on the host reach the container without inotify events on some VMs
       # (Colima's default), so tsc polls; its own writes still wake `node --watch`.
       TSC_WATCHFILE: DynamicPriorityPolling
       TSC_WATCHDIRECTORY: DynamicPriorityPolling
     secrets: [db_owner_password, db_app_password, app_key]
-    volumes: *node-modules
+    # The node-modules mounts plus the upload volume (YAML cannot append to an anchored list).
+    volumes:
+      - ..:/repo
+      - pnpm_store:/root/.local/share/pnpm/store
+      - nm_root:/repo/node_modules
+      - nm_server:/repo/apps/server/node_modules
+      - nm_web:/repo/apps/web/node_modules
+      - nm_contract:/repo/packages/contract/node_modules
+      - nm_core:/repo/packages/core/node_modules
+      - nm_crypto:/repo/packages/crypto/node_modules
+      - nm_db:/repo/packages/db/node_modules
+      - nm_platform:/repo/packages/platform/node_modules
+      - nm_testkit:/repo/packages/testkit/node_modules
+      - uploads:/var/lib/tribo/uploads
     depends_on:
       db:
         condition: service_healthy
@@ -131,6 +145,7 @@ secrets:
 
 volumes:
   pgdata:
+  uploads:
   caddy_data:
   caddy_config:
   pnpm_store:

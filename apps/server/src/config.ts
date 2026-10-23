@@ -24,6 +24,8 @@ const Env = z.object({
   TRIBO_DB_PORT: z.coerce.number().int().min(1).max(65535).default(5432),
   TRIBO_DB_NAME: z.string().min(1).default('tribo'),
   TRIBO_SECRETS_DIR: z.string().min(1).default('/run/secrets'),
+  /** The upload volume (deploy/compose.yml): encrypted blobs, written by the documents module. */
+  TRIBO_UPLOADS_DIR: z.string().min(1).default('/var/lib/tribo/uploads'),
   /**
    * Hops whose X-Forwarded-For and X-Request-Id the app believes: the Caddy container on the
    * private Compose network. Caddy itself decides which outer proxies (Cloudflare) to trust
@@ -47,6 +49,7 @@ export interface Config {
     ownerPassword: string;
   };
   appKeyFile: string;
+  uploadsDir: string;
   trustedProxies: string[];
   release: Release;
 }
@@ -90,6 +93,7 @@ export function loadConfig(env: NodeJS.ProcessEnv): Config {
       ownerPassword: readSecret(e.TRIBO_SECRETS_DIR, 'db_owner_password'),
     },
     appKeyFile: join(e.TRIBO_SECRETS_DIR, 'app_key'),
+    uploadsDir: e.TRIBO_UPLOADS_DIR,
     trustedProxies: e.TRIBO_APP_TRUSTED_PROXIES.split(',')
       .map((s) => s.trim())
       .filter((s) => s !== ''),

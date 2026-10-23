@@ -9,6 +9,8 @@ import { openRuntime } from './runtime.js';
 const config = loadConfig(process.env);
 const runtime = await openRuntime(config, 'tribo');
 const { appKey, pool, close } = runtime;
+// A read-only or missing upload volume stops the start, naming the directory.
+await runtime.blobs.check();
 const app = await buildApp(runtime, config);
 exitOnProcessFailure(process, app.log);
 // Like every line, this one names the release (logger.ts); it is the one to look for first.
