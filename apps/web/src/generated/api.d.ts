@@ -2444,6 +2444,14 @@ export interface components {
             drivingLicence?: boolean;
             emergencyContact?: (components["schemas"]["EmergencyContact"] | components["schemas"]["MaskedValue"]) | null;
         };
+        PersonReveal: {
+            emergencyContact?: components["schemas"]["EmergencyContact"] | null;
+        };
+        /** @enum {string} */
+        PersonRevealField: "emergencyContact";
+        PersonRevealInput: {
+            fields: components["schemas"]["PersonRevealField"][];
+        };
         Place: {
             id: string;
             name: string;
@@ -5169,11 +5177,26 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PersonRevealInput"];
+            };
+        };
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            201: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonReveal"];
+                };
+            };
+            /** @description Too many writes in this window (rate_limited) */
+            429: {
+                headers: {
+                    /** @description Seconds until the window resets */
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {

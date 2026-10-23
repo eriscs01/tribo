@@ -66,6 +66,7 @@ export {
   allActiveMemberships,
   callerMembership,
   licensedMemberships,
+  sharedTripRoles,
   type CallerMembership,
   type MemberItems,
   type MemberMove,

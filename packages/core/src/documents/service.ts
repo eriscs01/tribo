@@ -25,6 +25,7 @@ import type { Kysely } from 'kysely';
 import { recordEvent } from '../audit/service.js';
 import { visibleItemTrip } from '../items/service.js';
 import { callerMembership, memberTrip, type CallerMembership } from '../trips/service.js';
+import { inTransaction } from '../transaction.js';
 import { writeOperation } from '../write-operation.js';
 import type { BlobStore, StoredBlob } from './blobs.js';
 import {
@@ -210,11 +211,6 @@ async function attachableItem(
     });
   }
   return id;
-}
-
-/** Runs `work` in the caller's transaction when it is one, or in a new one. */
-function inTransaction<T>(db: Kysely<DB>, work: (tx: Tx) => Promise<T>): Promise<T> {
-  return db.isTransaction ? work(db as Tx) : db.transaction().execute(work);
 }
 
 /** Stands in for the trip of a file that does not exist, so its lookup still runs. */

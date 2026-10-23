@@ -69,3 +69,22 @@ export const PersonPatch = z
   .meta({ id: 'PersonPatch' });
 
 export type PersonPatch = z.infer<typeof PersonPatch>;
+
+/** The person fields a reveal can show: the emergency contact; ID and passport join in 1b. */
+export const PersonRevealField = z.enum(['emergencyContact']).meta({ id: 'PersonRevealField' });
+
+export type PersonRevealField = z.infer<typeof PersonRevealField>;
+
+/** library.people.reveal: which masked field to show; each call is its own audited reveal (R2). */
+export const PersonRevealInput = z
+  .strictObject({ fields: z.array(PersonRevealField).min(1).max(1) })
+  .meta({ id: 'PersonRevealInput' });
+
+export type PersonRevealInput = z.infer<typeof PersonRevealInput>;
+
+/** The plaintext of the field asked for (null when none is stored); never cached offline. */
+export const PersonReveal = z
+  .strictObject({ emergencyContact: EmergencyContact.nullable().optional() })
+  .meta({ id: 'PersonReveal' });
+
+export type PersonReveal = z.infer<typeof PersonReveal>;

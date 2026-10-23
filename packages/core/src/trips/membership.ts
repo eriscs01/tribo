@@ -22,9 +22,13 @@ import {
   countActiveMemberships,
   findActiveMembership,
   findMembershipPersons,
+  listSharedTripRoles,
   lockMembershipOf,
   type MembershipRow,
 } from './repo.js';
+
+/** Stands in for the person of an account that has none, so its lookup still runs. */
+const NO_PERSON = '00000000-0000-0000-0000-000000000000';
 
 /** The caller inside a trip: their membership, its role, and whether costs show to them. */
 export interface CallerMembership {
@@ -46,6 +50,21 @@ export async function callerMembership(
   if (!row) return null;
   const role = row.trip_role as TripRole;
   return { id: row.id, role, canViewCosts: role !== 'viewer' || row.can_view_costs };
+}
+
+/**
+ * The roles the account holds in the live trips it shares with this person (library's port
+ * for library.people.reveal): both memberships active, the trip not deleted and its audit
+ * chain not retired. Empty for an account with no person, and for an unknown person.
+ */
+export async function sharedTripRoles(
+  db: Kysely<DB>,
+  userId: string,
+  personId: string,
+): Promise<TripRole[]> {
+  const mine = await accountPersonId(db, userId);
+  const roles = await listSharedTripRoles(forModule(db, 'trips'), mine ?? NO_PERSON, personId);
+  return roles as TripRole[];
 }
 
 /** True when every one of these is an active membership of the trip. */

@@ -26,8 +26,9 @@ import {
   type WritePath,
 } from '@tribo/platform';
 import type { Kysely } from 'kysely';
-import { recordEvent } from '../audit/service.js';
+import { recordReveal } from '../audit/service.js';
 import { activeMembershipSet, callerMembership, type CallerMembership } from '../trips/service.js';
+import { inTransaction } from '../transaction.js';
 import { writeOperation } from '../write-operation.js';
 import { actingEditor, invalid, lockedItem, visibleItem } from './acting.js';
 import { canListTicket, canManageTickets, ticketEdit, ticketReveal } from './policy.js';
@@ -174,11 +175,6 @@ async function actingOnTicket(tx: Tx, ctx: RequestContext, ticketId: string) {
   );
   if (edit === null) throw new ApiError('forbidden');
   return { userId, edit, itemId: item.id };
-}
-
-/** Runs `work` in the caller's transaction when it is one, or in a new one. */
-function inTransaction<T>(db: Kysely<DB>, work: (tx: Tx) => Promise<T>): Promise<T> {
-  return db.isTransaction ? work(db as Tx) : db.transaction().execute(work);
 }
 
 /** The caller removes a ticket: whoever manages the tickets of its item, or forbidden. */
@@ -454,12 +450,11 @@ export function createTicketsService(
         if (outcome === 'forbidden') throw new ApiError('forbidden');
         if (outcome === 'hidden') throw new ApiError('not_found');
         const { fields } = validate(TicketRevealInput, body);
-        await recordEvent(tx, ctx, {
-          action: 'reveal',
+        await recordReveal(tx, ctx, {
           entityType: 'ticket',
           entityId: ticket.id,
           tripId: item.trip_id,
-          reason: fields.map((f) => `/${f}`).join(','),
+          fields,
         });
         const sealed = await findTicketNoEnc(forModule(tx, 'items'), ticket.id);
         return {

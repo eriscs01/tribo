@@ -245,7 +245,7 @@
   - Add vendor (kind, contacts, links); Audited on platform chain (G11)
   - Roles: any signed-in user. If-Match: `no`. Idempotency: creates (key).
   - Limit: Takes no Idempotency-Key in 1a: only expenses.create, files.upload and tickets.create honour it; this create follows in 1b.
-- [ ] `library.people.reveal` · Drop B · `POST /v1/library/people/{personId}/reveal`
+- [x] `library.people.reveal` · Drop B · `POST /v1/library/people/{personId}/reveal`
   - Plaintext emergency contact; ID/passport in 1b; Audited reveal; write scope (G15); MCP approval (1b); No Idempotency-Key: each call is its own audited reveal (R2); MCP: tool returns approvalId, after approval the client calls again with approvalId within 10 min, single use (R15); Moved to Drop B so organizers can reach emergency contacts during the trip
   - Roles: self; owner, organizer of a shared trip. If-Match: `no`. Idempotency: never replayed.
 

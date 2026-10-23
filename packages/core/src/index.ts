@@ -22,6 +22,7 @@ export {
   type MemberRecord,
   type MembersService,
   type MoneyRecorded,
+  sharedTripRoles,
   type TripCreator,
   type TripRecord,
   type TripsService,
@@ -68,9 +69,12 @@ export {
 } from './itinerary/service.js';
 export {
   createLibraryService,
+  createPersonRevealService,
   type LibraryHitRecord,
   type LibraryService,
   type PersonRecord,
+  type PersonRevealService,
+  type SharedTripRoles,
   type PlaceRecord,
   type VendorRecord,
 } from './library/service.js';

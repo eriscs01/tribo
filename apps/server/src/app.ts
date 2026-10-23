@@ -37,6 +37,7 @@ export function buildApp(
     tickets,
     units,
     library,
+    personReveal,
     files,
     expenses,
   } = services;
@@ -61,6 +62,7 @@ export function buildApp(
         tickets,
         units,
         library,
+        personReveal,
         files,
         expenses,
       }),

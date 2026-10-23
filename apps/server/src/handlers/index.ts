@@ -11,6 +11,7 @@ import type {
   MyTasksService,
   OfflineBundleService,
   OverlaysService,
+  PersonRevealService,
   TicketsService,
   TripsService,
   UnitsService,
@@ -49,6 +50,7 @@ export interface HandlerServices {
   tickets: TicketsService;
   units: UnitsService;
   library: LibraryService;
+  personReveal: PersonRevealService;
   files: FilesService;
   expenses: ExpensesService;
 }
@@ -68,7 +70,7 @@ export function operationHandlers(services: HandlerServices): Handlers {
     ...itineraryHandlers(services.itinerary),
     ...dashboardHandlers(services.dashboard),
     ...offlineBundleHandlers(services.offlineBundle),
-    ...libraryHandlers(services.library),
+    ...libraryHandlers(services.library, services.personReveal),
     ...meHandlers(services.identity, services.library, services.myTasks),
     ...metaHandlers(),
     ...overlayHandlers(services.overlays),

@@ -1,7 +1,7 @@
 // Generated from operations.csv by src/scripts/import-operations.ts. A story replaces an
 // entry's status with 'implemented' and adds its input and output schemas.
 import { defineOperation } from '../operation.js';
-import { Person, PersonInput, PersonPatch } from '../person.js';
+import { Person, PersonInput, PersonPatch, PersonRevealInput, PersonReveal } from '../person.js';
 import { Place, PlaceInput } from '../place.js';
 import { Vendor, VendorInput } from '../vendor.js';
 import { LibrarySearchQuery, LibrarySearchResult } from '../library.js';
@@ -118,7 +118,9 @@ export const libraryOperations = [
     mcpTool: 'reveal_fields',
     notes:
       'Plaintext emergency contact; ID/passport in 1b; Audited reveal; write scope (G15); MCP approval (1b); No Idempotency-Key: each call is its own audited reveal (R2); MCP: tool returns approvalId, after approval the client calls again with approvalId within 10 min, single use (R15); Moved to Drop B so organizers can reach emergency contacts during the trip',
-    status: 'planned',
+    status: 'implemented',
+    input: PersonRevealInput,
+    output: PersonReveal,
   }),
   defineOperation({
     id: 'library.people.recordConsent',
