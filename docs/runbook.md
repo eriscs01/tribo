@@ -282,7 +282,7 @@ Set `TRIBO_VERSION` to the new tag, then `sh docker-check.sh && docker compose p
 
 ### Releases
 
-Pushing a tag `vX.Y.Z` on `main` runs CI. Once every job passes, its "Publish" job pushes `ghcr.io/eriscs01/tribo-app:vX.Y.Z` and `ghcr.io/eriscs01/tribo-proxy:vX.Y.Z` (linux/amd64) and lists both digests in the run summary. The packages are public, so the host pulls them without credentials (set each package's visibility to public in GitHub once, after its first push).
+Pushing a tag `vX.Y.Z` on `main` runs CI. Once every job passes, its "Publish" job pushes `ghcr.io/eriscs01/tribo-app:vX.Y.Z` and `ghcr.io/eriscs01/tribo-proxy:vX.Y.Z` (linux/amd64) and lists both digests in the run summary. They are the images that Trivy scanned and End to end ran in the same run, retagged, not rebuilt ([decision 0014](decisions/0014-published-images-are-the-scanned-ones.md)); the summary shows each scanned image's id beside the id that was pushed. The packages are public, so the host pulls them without credentials (set each package's visibility to public in GitHub once, after its first push).
 
 | Tag      | Date       | Notes                                                                                                                                                                                      |
 | -------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
