@@ -4061,12 +4061,12 @@
           }
         ],
         "responses": {
-          "501": {
-            "description": "Registered but not implemented yet (not_implemented)",
+          "200": {
+            "description": "OK",
             "content": {
-              "application/problem+json": {
+              "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Problem"
+                  "$ref": "#/components/schemas/TicketPage"
                 }
               }
             }
@@ -4083,7 +4083,7 @@
           }
         },
         "x-tribo": {
-          "status": "planned",
+          "status": "implemented",
           "slice": "1a",
           "drop": "B",
           "roles": "owner, organizer, member, viewer",
@@ -4101,6 +4101,27 @@
             "schema": {
               "type": "string",
               "pattern": "^itm_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
             }
           }
         ]
@@ -9430,6 +9451,47 @@
         ],
         "additionalProperties": false
       },
+      "Baggage": {
+        "type": "object",
+        "properties": {
+          "checkedKg": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cabinKg": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "addOns": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "checkedKg",
+          "cabinKg",
+          "addOns"
+        ],
+        "additionalProperties": false
+      },
       "Contacts": {
         "type": "object",
         "properties": {
@@ -12150,6 +12212,87 @@
           "weight",
           "itemised"
         ]
+      },
+      "Ticket": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^tkt_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+          },
+          "itemId": {
+            "type": "string",
+            "pattern": "^itm_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+          },
+          "passenger": {
+            "type": "string",
+            "pattern": "^mem_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+          },
+          "seat": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ticketNo": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MaskedValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "baggage": {
+            "$ref": "#/components/schemas/Baggage"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "createdAt": {
+            "$ref": "#/components/schemas/Instant"
+          },
+          "updatedAt": {
+            "$ref": "#/components/schemas/Instant"
+          }
+        },
+        "required": [
+          "id",
+          "itemId",
+          "passenger",
+          "seat",
+          "ticketNo",
+          "baggage",
+          "version",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "TicketPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Ticket"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "additionalProperties": false
       },
       "TimeInput": {
         "anyOf": [

@@ -9,6 +9,7 @@ export {
   createPlace,
   createPlaceholder,
   createResetLink,
+  createTicket,
   createTrip,
   createUnit,
   createUser,

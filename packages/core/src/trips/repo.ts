@@ -329,6 +329,23 @@ export async function countActiveMemberships(
   return Number(row.n);
 }
 
+/** Which of these memberships are active in the trip. */
+export async function activeMembershipIds(
+  db: TripsDb,
+  tripId: string,
+  membershipIds: readonly string[],
+): Promise<string[]> {
+  if (membershipIds.length === 0) return [];
+  const rows = await db
+    .selectFrom('tribo.memberships')
+    .select('id')
+    .where('trip_id', '=', tripId)
+    .where('id', 'in', membershipIds)
+    .where('deleted_at', 'is', null)
+    .execute();
+  return rows.map((r) => r.id);
+}
+
 /** The person behind each of these memberships of the trip, removed ones included. */
 export function findMembershipPersons(
   db: TripsDb,

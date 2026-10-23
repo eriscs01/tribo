@@ -66,6 +66,12 @@ import {
 export type { ItemRecord, ItemTimeRecord } from './record.js';
 export { ownReminders, visibleTasks, type ReminderRecord } from './my-items.js';
 export { createOverlaysService, type OverlayRecord, type OverlaysService } from './overlays.js';
+export {
+  createTicketsService,
+  type BaggageRecord,
+  type TicketRecord,
+  type TicketsService,
+} from './tickets.js';
 export { tripItems, type TripItem } from './trip-items.js';
 export {
   createUnitsService,

@@ -1958,6 +1958,11 @@ export interface components {
             token: string;
             newPassword: components["schemas"]["NewPassword"];
         };
+        Baggage: {
+            checkedKg: number | null;
+            cabinKg: number | null;
+            addOns: string[];
+        };
         Contacts: {
             phone?: string;
             /** Format: email */
@@ -2489,6 +2494,21 @@ export interface components {
         };
         /** @enum {string} */
         SplitMethod: "equal" | "weight" | "itemised";
+        Ticket: {
+            id: string;
+            itemId: string;
+            passenger: string;
+            seat: string | null;
+            ticketNo: components["schemas"]["MaskedValue"] | null;
+            baggage: components["schemas"]["Baggage"];
+            version: number;
+            createdAt: components["schemas"]["Instant"];
+            updatedAt: components["schemas"]["Instant"];
+        };
+        TicketPage: {
+            items: components["schemas"]["Ticket"][];
+            nextCursor: string | null;
+        };
         TimeInput: components["schemas"]["WallClockTime"] | components["schemas"]["AllDay"];
         TimeZone: string;
         TotpCode: string;
@@ -4743,7 +4763,10 @@ export interface operations {
     };
     "tickets.list": {
         parameters: {
-            query?: never;
+            query?: {
+                limit?: number;
+                cursor?: string;
+            };
             header?: never;
             path: {
                 itemId: string;
@@ -4752,13 +4775,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["TicketPage"];
                 };
             };
             /** @description Error */

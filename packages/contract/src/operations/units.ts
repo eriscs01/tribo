@@ -4,6 +4,7 @@ import { defineOperation } from '../operation.js';
 import { UnitPage, Unit, UnitInput, UnitPatch } from '../unit.js';
 import { PageQuery } from '../page.js';
 import { ItemBoard, ItemBoardInput } from '../assignment.js';
+import { TicketPage } from '../ticket.js';
 
 export const unitsOperations = [
   defineOperation({
@@ -137,7 +138,9 @@ export const unitsOperations = [
     mcpTool: null,
     notes:
       'Per-passenger tickets of a transport item; ticketNo masked for all; follows item_visible',
-    status: 'planned',
+    status: 'implemented',
+    query: PageQuery,
+    output: TicketPage,
   }),
   defineOperation({
     id: 'tickets.create',

@@ -69,3 +69,6 @@ export const canPutOverlay = contributors;
  * before a demotion is theirs to clear even though they can no longer read or write it.
  */
 export const canDeleteOverlay = anyMember;
+
+/** tickets.list: every role reads the tickets of an item it can see; the ticket number stays masked for all. */
+export const canListTicket = anyMember;

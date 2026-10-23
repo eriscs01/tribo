@@ -3,6 +3,7 @@ import {
   canCreateItem,
   canDeleteOverlay,
   canGetOverlay,
+  canListTicket,
   canPutOverlay,
   canDeleteItem,
   canListItems,
@@ -140,6 +141,14 @@ describe('canDeleteOverlay', () => {
   it('lets every trip role remove its own overlay, a viewer’s stale one included', () => {
     for (const role of ['owner', 'organizer', 'member', 'viewer'] as const) {
       expect(canDeleteOverlay(role)).toBe(true);
+    }
+  });
+});
+
+describe('canListTicket', () => {
+  it('lets every trip role list the tickets of an item it may see', () => {
+    for (const role of ['owner', 'organizer', 'member', 'viewer'] as const) {
+      expect(canListTicket(role)).toBe(true);
     }
   });
 });
