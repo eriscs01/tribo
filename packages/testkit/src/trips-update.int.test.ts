@@ -1,7 +1,7 @@
 // @module-tag drop-a
 // trips.update (Drop A): Edit fields, destinations, status transition; invalid_transition on bad status move; Status archived only via trips.archive; currency_locked once any expense or budget line exists (R9, write-path rule); trip_archived on archived trips (R29)
 import { encodeTypeId, ID_PREFIX } from '@tribo/contract';
-import { createTripsService, writePath, type TripsService } from '@tribo/core';
+import { createTripsService, moneyRecorded, writePath, type TripsService } from '@tribo/core';
 import type { RequestContext } from '@tribo/platform';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createTestDatabase, type TestDatabase } from './database.js';
@@ -19,7 +19,7 @@ let trips: TripsService;
 
 beforeAll(async () => {
   tdb = await createTestDatabase();
-  trips = createTripsService(tdb.db, writePath(tdb.db));
+  trips = createTripsService(tdb.db, writePath(tdb.db), moneyRecorded);
 });
 afterAll(() => tdb.destroy());
 

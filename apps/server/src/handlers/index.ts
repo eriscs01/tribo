@@ -1,5 +1,6 @@
 import type {
   DashboardService,
+  ExpensesService,
   FilesService,
   IdentityService,
   InvitesService,
@@ -13,6 +14,7 @@ import type {
 import type { Handlers } from '../routes.js';
 import { authHandlers } from './auth.js';
 import { dashboardHandlers } from './dashboard.js';
+import { expensesHandlers } from './expenses.js';
 import { filesHandlers } from './files.js';
 import { invitesHandlers } from './invites.js';
 import { itemHandlers } from './items.js';
@@ -37,6 +39,7 @@ export interface HandlerServices {
   units: UnitsService;
   library: LibraryService;
   files: FilesService;
+  expenses: ExpensesService;
 }
 
 /**
@@ -58,5 +61,6 @@ export function operationHandlers(services: HandlerServices): Handlers {
     ...metaHandlers(),
     ...unitsHandlers(services.units),
     ...filesHandlers(services.files),
+    ...expensesHandlers(services.expenses),
   };
 }

@@ -4,6 +4,7 @@ import {
   memberItems,
   createMembersService,
   createTripsService,
+  moneyRecorded,
   writePath,
   type MembersService,
 } from '@tribo/core';
@@ -177,7 +178,7 @@ describe('members.setRole', () => {
       members.setRole(as(w.member), w.tripId, w.viewer.membershipId, { role: 'member' }, 1),
     ).resolves.toMatchObject({ role: 'member' });
     // The trip's owner check (trips.delete) follows the transfer.
-    const trips = createTripsService(tdb.db, writePath(tdb.db));
+    const trips = createTripsService(tdb.db, writePath(tdb.db), moneyRecorded);
     expect(await refusal(trips.delete(as(w.owner), w.tripId, undefined, 1))).toBe('forbidden');
   });
 

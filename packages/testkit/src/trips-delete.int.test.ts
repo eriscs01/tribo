@@ -6,6 +6,7 @@ import { PAGE_LIMIT_MAX } from '@tribo/contract';
 import {
   createItemsService,
   createTripsService,
+  moneyRecorded,
   writePath,
   type ItemsService,
   type TripsService,
@@ -30,7 +31,7 @@ let items: ItemsService;
 
 beforeAll(async () => {
   tdb = await createTestDatabase();
-  trips = createTripsService(tdb.db, writePath(tdb.db));
+  trips = createTripsService(tdb.db, writePath(tdb.db), moneyRecorded);
   items = createItemsService(tdb.db, writePath(tdb.db), testKeys());
 });
 afterAll(() => tdb.destroy());

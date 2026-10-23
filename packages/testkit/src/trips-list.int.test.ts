@@ -1,6 +1,6 @@
 // trips.list: the caller's member trips only, latest start first, in keyset pages.
 import { PAGE_LIMIT_MAX } from '@tribo/contract';
-import { createTripsService, writePath, type TripsService } from '@tribo/core';
+import { createTripsService, moneyRecorded, writePath, type TripsService } from '@tribo/core';
 import { ApiError } from '@tribo/platform';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createTestDatabase, type TestDatabase } from './database.js';
@@ -11,7 +11,7 @@ let trips: TripsService;
 
 beforeAll(async () => {
   tdb = await createTestDatabase();
-  trips = createTripsService(tdb.db, writePath(tdb.db));
+  trips = createTripsService(tdb.db, writePath(tdb.db), moneyRecorded);
 });
 afterAll(() => tdb.destroy());
 

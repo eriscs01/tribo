@@ -4,6 +4,7 @@ import { encodeTypeId, ID_PREFIX } from '@tribo/contract';
 import {
   createItemsService,
   createTripsService,
+  moneyRecorded,
   verifyChains,
   writePath,
   type ItemsService,
@@ -49,7 +50,7 @@ const mem = (id: string) => encodeTypeId(ID_PREFIX.membership, id);
 beforeAll(async () => {
   tdb = await createTestDatabase();
   const write = writePath(tdb.db);
-  trips = createTripsService(tdb.db, write);
+  trips = createTripsService(tdb.db, write, moneyRecorded);
   items = createItemsService(tdb.db, write, testKeys());
 });
 afterAll(() => tdb.destroy());

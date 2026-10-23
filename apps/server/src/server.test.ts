@@ -21,6 +21,7 @@ import type {
   ItemsService,
   ItineraryService,
   DashboardService,
+  ExpensesService,
   FilesService,
   LibraryService,
   MembersService,
@@ -159,6 +160,8 @@ const files: FilesService = {
   purgeDue: unused,
 };
 
+const expenses: ExpensesService = { create: unused };
+
 let app: FastifyInstance | undefined;
 let lines: Record<string, unknown>[] = [];
 
@@ -190,6 +193,7 @@ async function server(overrides: Partial<ServerDeps> = {}) {
         units,
         library,
         files,
+        expenses,
       }),
       'test.ip': (request) => {
         request.log.info('handler ran');

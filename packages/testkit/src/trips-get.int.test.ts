@@ -1,7 +1,7 @@
 // @module-tag drop-a
 // trips.get (Drop A): Trip detail incl. destinations; Members only; ETag = SHA-256 of the representation (rule 4)
 // The ETag is the REST adapter's; apps/server/src/trips.int.test.ts proves it over HTTP.
-import { createTripsService, writePath, type TripsService } from '@tribo/core';
+import { createTripsService, moneyRecorded, writePath, type TripsService } from '@tribo/core';
 import { ApiError } from '@tribo/platform';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createTestDatabase, type TestDatabase } from './database.js';
@@ -19,7 +19,7 @@ let trips: TripsService;
 
 beforeAll(async () => {
   tdb = await createTestDatabase();
-  trips = createTripsService(tdb.db, writePath(tdb.db));
+  trips = createTripsService(tdb.db, writePath(tdb.db), moneyRecorded);
 });
 afterAll(() => tdb.destroy());
 

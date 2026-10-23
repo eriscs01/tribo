@@ -182,7 +182,7 @@
 - [ ] `expenses.list` · Drop B · `GET /v1/trips/{tripId}/expenses`
   - Trip ledger; All members; itemId nulled if item hidden; amounts masked for viewers w/o canViewCosts; Record only: no balances, debts or settle-up (R36)
   - Roles: owner, organizer, member, viewer. If-Match: `no`. Idempotency: safe to repeat.
-- [ ] `expenses.create` · Drop B · `POST /v1/trips/{tripId}/expenses`
+- [x] `expenses.create` · Drop B · `POST /v1/trips/{tripId}/expenses`
   - Record expense: payer, amount, FX, members included and split equal|weight|itemised (one share per included member); Shares frozen, largest remainder; tripAmountMinor = max(1, round half-up(amount × fxRate × 10^(e_trip − e_orig))), fxRate per major unit, static ISO 4217 exponent table (R8); write path guarantees shares sum to tripAmountMinor (R11, rule 2); trip_archived on archived trips (R29)
   - Roles: owner, organizer, member. If-Match: `no`. Idempotency: creates (key).
   - Limit: Honours Idempotency-Key: 24 h per caller, the same key with a different body is idempotency_key_reused.

@@ -1,6 +1,7 @@
 // Generated from operations.csv by src/scripts/import-operations.ts. A story replaces an
 // entry's status with 'implemented' and adds its input and output schemas.
 import { defineOperation } from '../operation.js';
+import { Expense, ExpenseInput } from '../expense.js';
 
 export const expensesOperations = [
   defineOperation({
@@ -37,7 +38,9 @@ export const expensesOperations = [
     mcpTool: 'record_expense',
     notes:
       'Record expense: payer, amount, FX, members included and split equal|weight|itemised (one share per included member); Shares frozen, largest remainder; tripAmountMinor = max(1, round half-up(amount × fxRate × 10^(e_trip − e_orig))), fxRate per major unit, static ISO 4217 exponent table (R8); write path guarantees shares sum to tripAmountMinor (R11, rule 2); trip_archived on archived trips (R29)',
-    status: 'planned',
+    status: 'implemented',
+    input: ExpenseInput,
+    output: Expense,
   }),
   defineOperation({
     id: 'expenses.get',

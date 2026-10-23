@@ -6,6 +6,7 @@ import {
   itemManager,
   itemOwnerOrOrganizer,
   organizers,
+  organizersOrOwningMember,
   ownerOnly,
 } from './roles.js';
 
@@ -40,6 +41,13 @@ describe('shared trip-role rules', () => {
     for (const role of ROLES) {
       expect(itemOwnerOrOrganizer({ role, owns: true })).toBe(true);
       expect(itemOwnerOrOrganizer({ role, owns: false })).toBe(organizers(role));
+    }
+  });
+
+  it('organizersOrOwningMember: organizers, or a member on what they own; never a viewer, even an owning one', () => {
+    for (const role of ROLES) {
+      expect(organizersOrOwningMember({ role, owns: false })).toBe(organizers(role));
+      expect(organizersOrOwningMember({ role, owns: true })).toBe(role !== 'viewer');
     }
   });
 });

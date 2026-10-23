@@ -23,8 +23,19 @@ export function buildApp(
     handlers?: Handlers;
   },
 ) {
-  const { identity, trips, members, invites, items, itinerary, dashboard, units, library, files } =
-    services;
+  const {
+    identity,
+    trips,
+    members,
+    invites,
+    items,
+    itinerary,
+    dashboard,
+    units,
+    library,
+    files,
+    expenses,
+  } = services;
   const csrf = csrfSecret(services.appKey);
   return buildServer({
     trustedProxies: config.trustedProxies,
@@ -43,6 +54,7 @@ export function buildApp(
         units,
         library,
         files,
+        expenses,
       }),
       ...config.handlers,
     },
