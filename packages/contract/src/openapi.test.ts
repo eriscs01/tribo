@@ -78,9 +78,11 @@ describe('toOpenApi', () => {
       );
       const etag = declared?.responses['200']?.headers?.ETag !== undefined;
       const notModified = declared?.responses['304'] !== undefined;
-      expect([ifNoneMatch ?? false, etag, notModified], op.id).toEqual(
-        Array(3).fill(op.etag !== undefined),
+      // An upsert also takes If-None-Match, but as `*` to create, with no ETag or 304 behind it.
+      expect(ifNoneMatch ?? false, op.id).toBe(
+        op.etag !== undefined || op.ifMatch === 'version_or_new',
       );
+      expect([etag, notModified], op.id).toEqual(Array(2).fill(op.etag !== undefined));
       return notModified;
     });
     expect(tagged.map((op) => op.id)).toEqual(

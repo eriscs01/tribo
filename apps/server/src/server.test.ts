@@ -163,6 +163,7 @@ const files: FilesService = {
 
 const overlays: OverlaysService = {
   get: unused,
+  put: unused,
 };
 
 const expenses: ExpensesService = {

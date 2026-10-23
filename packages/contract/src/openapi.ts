@@ -169,6 +169,14 @@ function parameters(op: Operation, components: Components): Json[] {
       description: 'An ETag already held; 304 when it is still current',
       schema: { type: 'string' },
     });
+  } else if (op.ifMatch === 'version_or_new') {
+    params.push({
+      name: 'If-None-Match',
+      in: 'header',
+      required: false,
+      description: 'Send * to create: refused with version_conflict when one already exists',
+      schema: { type: 'string', enum: ['*'] },
+    });
   }
   // The CSV's `key` is the design; the header is declared only where this release honours it.
   if (honoursIdempotencyKey(op)) {

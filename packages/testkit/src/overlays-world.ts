@@ -27,6 +27,16 @@ export async function overlaysWorld(tdb: TestDatabase) {
 
 export type OverlaysWorld = Awaited<ReturnType<typeof overlaysWorld>>;
 
+/** The overlay rows an item has, live or not, oldest first. */
+export function overlayRows(tdb: TestDatabase, itemId: string) {
+  return tdb.db
+    .selectFrom('tribo.overlays')
+    .selectAll()
+    .where('item_id', '=', itemId)
+    .orderBy('id')
+    .execute();
+}
+
 /** What a seeded overlay's note says, so a read that shows someone else's is caught by value. */
 export const overlayNote = (membershipId: string, itemId: string) =>
   `ovl-note:${membershipId}:${itemId}`;

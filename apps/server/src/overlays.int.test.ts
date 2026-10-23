@@ -177,3 +177,85 @@ describe('overlays.get over HTTP', () => {
     expect(malformed.statusCode).toBe(404);
   });
 });
+
+describe('overlays.put over HTTP', () => {
+  const put = (w: World, caller: Caller, body: unknown, headers: Record<string, string> = {}) =>
+    app.inject({
+      method: 'PUT',
+      url: overlayUrl(w),
+      payload: body as object,
+      cookies: caller.auth.cookies,
+      headers: { ...caller.auth.headers, ...headers },
+    });
+  const overlay = (overrides: Record<string, unknown> = {}) => ({
+    note: NOTE,
+    reminderAt: REMINDER,
+    checklist: [{ text: CHECK, done: false }],
+    ...overrides,
+  });
+
+  it('creates under If-None-Match: *, replaces under If-Match, and never logs the overlay', async () => {
+    const w = await world();
+    const created = await put(w, w.member, overlay(), { 'if-none-match': '*' });
+    expect(created.statusCode).toBe(200);
+    expect(created.headers['cache-control']).toBe('private, no-store');
+    expect(created.json()).toMatchObject({
+      itemId: w.itemPath,
+      tripId: w.tripPath,
+      note: NOTE,
+      reminderAt: REMINDER,
+      checklist: [{ text: CHECK, done: false }],
+      version: 1,
+    });
+    logsNoOverlay(created.headers['x-request-id']);
+
+    const replaced = await put(w, w.member, overlay({ note: null }), { 'if-match': '"1"' });
+    expect(replaced.statusCode).toBe(200);
+    expect(replaced.json()).toMatchObject({ note: null, version: 2 });
+    logsNoOverlay(replaced.headers['x-request-id']);
+  });
+
+  it('answers the design’s precondition codes, each logged by operation and code, none with the overlay', async () => {
+    const w = await world();
+    const none = await put(w, w.member, overlay());
+    expect(none.statusCode).toBe(428);
+    expect(refusalLine(none.headers['x-request-id'])).toMatchObject({
+      operationId: 'overlays.put',
+      problem: 'if_match_required',
+    });
+    expect((await put(w, w.member, overlay(), { 'if-none-match': '*' })).statusCode).toBe(200);
+    const again = await put(w, w.member, overlay(), { 'if-none-match': '*' });
+    expect(again.statusCode).toBe(412);
+    expect(refusalLine(again.headers['x-request-id'])).toMatchObject({
+      operationId: 'overlays.put',
+      problem: 'version_conflict',
+    });
+    const stale = await put(w, w.member, overlay(), { 'if-match': '"5"' });
+    expect(stale.statusCode).toBe(412);
+    // An entity tag in If-None-Match names nothing to create.
+    const tagged = await put(w, w.member, overlay(), { 'if-none-match': '"1"' });
+    expect(tagged.statusCode).toBe(428);
+    for (const res of [none, again, stale, tagged]) {
+      logsNoOverlay(res.headers['x-request-id']);
+      expect(res.body).not.toContain(NOTE);
+    }
+  });
+
+  it('refuses a viewer and a body that is not an overlay, logging neither the note nor the reminder', async () => {
+    const w = await world();
+    const viewer = await put(w, w.viewer, overlay(), { 'if-none-match': '*' });
+    expect(viewer.statusCode).toBe(403);
+    const invalid = await put(w, w.member, overlay({ reminderAt: '2031-02-03 soon' }), {
+      'if-none-match': '*',
+    });
+    expect(invalid.statusCode).toBe(400);
+    expect(refusalLine(invalid.headers['x-request-id'])).toMatchObject({
+      operationId: 'overlays.put',
+      problem: 'validation_failed',
+    });
+    for (const res of [viewer, invalid]) {
+      logsNoOverlay(res.headers['x-request-id']);
+      expect(res.body).not.toContain(NOTE);
+    }
+  });
+});

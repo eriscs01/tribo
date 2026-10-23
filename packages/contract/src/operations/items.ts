@@ -12,7 +12,7 @@ import {
   ItemReveal,
 } from '../item.js';
 import { defineOperation } from '../operation.js';
-import { Overlay } from '../overlay.js';
+import { Overlay, OverlayInput } from '../overlay.js';
 
 export const itemsOperations = [
   defineOperation({
@@ -186,7 +186,9 @@ export const itemsOperations = [
     mcpTool: null,
     notes:
       'Create or replace own overlay; reminderAt feeds due-soon; If-Match when one exists, If-None-Match: * to create (G3); trip_archived on archived trips (R29)',
-    status: 'planned',
+    status: 'implemented',
+    input: OverlayInput,
+    output: Overlay,
   }),
   defineOperation({
     id: 'overlays.delete',

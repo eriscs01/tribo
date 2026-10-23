@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   canCreateItem,
   canGetOverlay,
+  canPutOverlay,
   canDeleteItem,
   canListItems,
   canNarrowVisibility,
@@ -122,5 +123,14 @@ describe('canGetOverlay', () => {
     expect(canGetOverlay('organizer')).toBe(true);
     expect(canGetOverlay('member')).toBe(true);
     expect(canGetOverlay('viewer')).toBe(false);
+  });
+});
+
+describe('canPutOverlay', () => {
+  it('lets owners, organizers and members keep a private overlay, never viewers', () => {
+    expect(canPutOverlay('owner')).toBe(true);
+    expect(canPutOverlay('organizer')).toBe(true);
+    expect(canPutOverlay('member')).toBe(true);
+    expect(canPutOverlay('viewer')).toBe(false);
   });
 });

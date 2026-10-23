@@ -126,7 +126,7 @@
 - [x] `overlays.get` · Drop B · `GET /v1/items/{itemId}/overlay`
   - Caller's private note, reminder, checklist; Always private to caller
   - Roles: self (not viewer). If-Match: `no`. Idempotency: safe to repeat.
-- [ ] `overlays.put` · Drop B · `PUT /v1/items/{itemId}/overlay`
+- [x] `overlays.put` · Drop B · `PUT /v1/items/{itemId}/overlay`
   - Create or replace own overlay; reminderAt feeds due-soon; If-Match when one exists, If-None-Match: * to create (G3); trip_archived on archived trips (R29)
   - Roles: self (not viewer). If-Match: `version_or_new`. Idempotency: safe to repeat.
 - [ ] `overlays.delete` · Drop B · `DELETE /v1/items/{itemId}/overlay`

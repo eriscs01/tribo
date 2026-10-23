@@ -2391,6 +2391,11 @@ export interface components {
             text: string;
             done: boolean;
         };
+        OverlayInput: {
+            note?: string | null;
+            reminderAt?: components["schemas"]["Instant"] | null;
+            checklist?: components["schemas"]["OverlayChecklistEntry"][];
+        };
         PasswordChangeInput: {
             currentPassword: string;
             newPassword: components["schemas"]["NewPassword"];
@@ -4513,17 +4518,34 @@ export interface operations {
             header?: {
                 /** @description Current version (omit to create) as an ETag */
                 "If-Match"?: string;
+                /** @description Send * to create: refused with version_conflict when one already exists */
+                "If-None-Match"?: "*";
             };
             path: {
                 itemId: string;
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OverlayInput"];
+            };
+        };
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            200: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Overlay"];
+                };
+            };
+            /** @description Too many writes in this window (rate_limited) */
+            429: {
+                headers: {
+                    /** @description Seconds until the window resets */
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {

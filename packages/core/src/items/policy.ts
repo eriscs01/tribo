@@ -58,7 +58,8 @@ export const canManageBoard = itemManager;
 export const canReadBoard = anyMember;
 
 /**
- * overlays.get: everyone but a viewer keeps a private note, reminder and checklist of their
- * own (the design's matrix: viewers keep none).
+ * overlays.get and overlays.put: everyone but a viewer keeps a private note, reminder and
+ * checklist of their own (the design's matrix: viewers keep none).
  */
 export const canGetOverlay = contributors;
+export const canPutOverlay = contributors;
