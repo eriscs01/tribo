@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import * as z from 'zod';
 import { defineOperation } from './operation.js';
 import { registry } from './operations/index.js';
 
@@ -31,5 +32,28 @@ describe('defineOperation paths', () => {
     '/v1/__proto__',
   ])('rejects %j', (path) => {
     expect(withPath(path)).toThrow(/unexpected path/);
+  });
+});
+
+describe('defineOperation bodies', () => {
+  const form = z.strictObject({ kind: z.string() });
+  const { output: _output, ...bare } = liveness;
+
+  it('takes a form only on a POST that declares the input its write validates', () => {
+    expect(() =>
+      defineOperation({ ...liveness, method: 'POST', form, input: form.extend({ n: z.int() }) }),
+    ).not.toThrow();
+    expect(() => defineOperation({ ...liveness, method: 'POST', form })).toThrow(/takes a form/);
+    expect(() => defineOperation({ ...liveness, form, input: form })).toThrow(/takes a form/);
+  });
+
+  it('returns a file only from a GET without a JSON output', () => {
+    expect(() => defineOperation({ ...bare, returnsFile: true })).not.toThrow();
+    expect(() => defineOperation({ ...liveness, returnsFile: true, output: z.object({}) })).toThrow(
+      /returns a file/,
+    );
+    expect(() => defineOperation({ ...bare, method: 'POST', returnsFile: true })).toThrow(
+      /returns a file/,
+    );
   });
 });

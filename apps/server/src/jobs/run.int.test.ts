@@ -2,12 +2,21 @@
 // in-process timer, a PostgreSQL advisory lock per job so only one process runs it, and a
 // `job-<uuid>` request id on every line a run logs and every record it writes.
 import { randomBytes } from 'node:crypto';
+import { mkdir, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
 import { registry } from '@tribo/contract';
 import { writePath } from '@tribo/core';
 import { AppKey } from '@tribo/crypto';
 import type { RequestContext } from '@tribo/platform';
-import { createTestDatabase, type TestDatabase } from '@tribo/testkit';
+import {
+  createFile,
+  createTestDatabase,
+  createTrip,
+  createUser,
+  type TestDatabase,
+} from '@tribo/testkit';
 import { sql } from 'kysely';
 import * as z from 'zod';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -202,8 +211,54 @@ describe('job runner', () => {
 describe('daily jobs', () => {
   it('registers each job once, by a unique name', () => {
     const names = dailyJobs(services).map((j) => j.name);
-    expect(names).toContain('idempotency-keys');
+    expect(names).toEqual(['idempotency-keys', 'files-purge']);
     expect(new Set(names).size).toBe(names.length);
+  });
+
+  it('files-purge purges due files under its run’s request id and logs each failure by file id', async () => {
+    const owner = await createUser(tdb.db);
+    const trip = await createTrip(tdb.db, { owner });
+    const file = (filename: string) =>
+      createFile(tdb.db, {
+        tripId: trip.tripId,
+        ownerMembershipId: trip.ownerMembershipId,
+        kind: 'id',
+        filename,
+        deleted: true,
+      });
+    const due = await file('Passport of Ana.pdf');
+    const stuck = await file('Passport of Ben.pdf');
+    await tdb.db
+      .updateTable('tribo.files')
+      .set({ deleted_at: sql<Date>`now() - interval '40 days'` })
+      .where('trip_id', '=', trip.tripId)
+      .execute();
+    // A directory where the blob should be: deleting it fails as a full or broken volume would.
+    const { blob_key: stuckKey } = await tdb.db
+      .selectFrom('tribo.files')
+      .select('blob_key')
+      .where('id', '=', stuck)
+      .executeTakeFirstOrThrow();
+    const stuckPath = join(tmpdir(), 'tribo-uploads', stuckKey);
+    await mkdir(stuckPath, { recursive: true });
+    try {
+      const jobs = dailyJobs(services).filter((j) => j.name === 'files-purge');
+      await createJobRunner({ db: tdb.db, log, jobs }).runAll();
+    } finally {
+      await rm(stuckPath, { recursive: true, force: true });
+    }
+
+    const run = linesOf('files-purge');
+    const requestId = run[0]?.requestId;
+    expect(requestId).toMatch(JOB_ID);
+    expect(run.map((l) => l.msg)).toEqual(['job started', 'file purge failed', 'job finished']);
+    expect(run[1]).toMatchObject({ level: 50, fileId: stuck, requestId });
+    expect(run[2]).toMatchObject({ due: 2, purged: 1, failed: 1, requestId });
+    expect(JSON.stringify(run)).not.toContain('Passport');
+    const events = await services.requestAudit(String(requestId));
+    expect(events.map((e) => [e.action, e.entityType, e.entityId])).toEqual([
+      ['purge', 'file', due],
+    ]);
   });
 
   it('idempotency-keys deletes expired keys only', async () => {
@@ -222,7 +277,7 @@ describe('daily jobs', () => {
       .execute();
     const job = dailyJobs(services).find((j) => j.name === 'idempotency-keys');
 
-    const counts = await job?.run({ requestId: 'job-test', surface: 'system', userId: null });
+    const counts = await job?.run({ requestId: 'job-test', surface: 'system', userId: null }, log);
 
     expect(counts).toEqual({ deleted: 2 });
     const left = await tdb.db.selectFrom('tribo.idempotency_keys').select('key').execute();

@@ -45,6 +45,7 @@ import {
   lockTrip,
   replaceDestinations,
   softDeleteTrip,
+  tripsPastRetention as tripsPastRetentionRows,
   updateTrip,
   type TripFields,
   type TripRow,
@@ -146,6 +147,17 @@ export async function memberTrip(
   if (!row) throw new ApiError('not_found');
   const destinations = await listDestinations(trips, [tripId]);
   return { trip: tripRecord(row, destinations.get(tripId) ?? []), viewer };
+}
+
+/**
+ * The trips the file retention purge acts on, `days` being document_retention_days:
+ * soft-deleted at least that long ago, or ended (end date plus days) before today.
+ */
+export function tripsPastRetention(
+  db: Kysely<DB>,
+  days: number,
+): Promise<{ deleted: string[]; ended: string[] }> {
+  return tripsPastRetentionRows(forModule(db, 'trips'), days);
 }
 
 /** `write` is core's write path (writePath in write-path.ts), passed in to keep imports acyclic. */

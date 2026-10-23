@@ -343,3 +343,12 @@ export function insertInvitedAccount(
     .returning(['id', 'username', 'platform_role', 'status', 'mfa_enabled_at', 'version'])
     .executeTakeFirstOrThrow();
 }
+
+/** platform_settings is a singleton row. */
+export async function documentRetentionDays(db: IdentityDb): Promise<number> {
+  const row = await db
+    .selectFrom('tribo.platform_settings')
+    .select('document_retention_days')
+    .executeTakeFirstOrThrow();
+  return row.document_retention_days;
+}

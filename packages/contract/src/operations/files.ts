@@ -1,6 +1,8 @@
 // Generated from operations.csv by src/scripts/import-operations.ts. A story replaces an
 // entry's status with 'implemented' and adds its input and output schemas.
+import { FileMetadata, FilePage, FilePatch, FileUploadForm, FileUploadInput } from '../file.js';
 import { defineOperation } from '../operation.js';
+import { PageQuery } from '../page.js';
 
 export const filesOperations = [
   defineOperation({
@@ -18,7 +20,9 @@ export const filesOperations = [
     mcpApproval: false,
     mcpTool: null,
     notes: 'File metadata; File visibility AND item_visible(parent)',
-    status: 'planned',
+    status: 'implemented',
+    query: PageQuery,
+    output: FilePage,
   }),
   defineOperation({
     id: 'files.upload',
@@ -36,7 +40,10 @@ export const filesOperations = [
     mcpTool: null,
     notes:
       'Multipart upload ≤ 25 MB; kind, visibility, itemId; file_too_large, file_type_not_allowed; id/ticket/voucher sensitive; trip_archived on archived trips (R29); Owner = callers membership (rule 3)',
-    status: 'planned',
+    status: 'implemented',
+    form: FileUploadForm,
+    input: FileUploadInput,
+    output: FileMetadata,
   }),
   defineOperation({
     id: 'files.get',
@@ -53,7 +60,8 @@ export const filesOperations = [
     mcpApproval: false,
     mcpTool: null,
     notes: 'File metadata; As files.list; purged shows purgedAt',
-    status: 'planned',
+    status: 'implemented',
+    output: FileMetadata,
   }),
   defineOperation({
     id: 'files.update',
@@ -70,7 +78,9 @@ export const filesOperations = [
     mcpApproval: false,
     mcpTool: null,
     notes: 'Rename, relink item, change visibility; trip_archived on archived trips (R29)',
-    status: 'planned',
+    status: 'implemented',
+    input: FilePatch,
+    output: FileMetadata,
   }),
   defineOperation({
     id: 'files.delete',
@@ -88,7 +98,7 @@ export const filesOperations = [
     mcpTool: null,
     notes:
       'Soft-delete file; Blob kept until purge; Blob purged document_retention_days after deletion; trip_archived on archived trips (R29)',
-    status: 'planned',
+    status: 'implemented',
   }),
   defineOperation({
     id: 'files.download',
@@ -105,7 +115,8 @@ export const filesOperations = [
     mcpApproval: false,
     mcpTool: null,
     notes: 'Stream decrypted bytes; Permission re-checked each request; no-store; file_purged',
-    status: 'planned',
+    status: 'implemented',
+    returnsFile: true,
   }),
   defineOperation({
     id: 'files.purge',

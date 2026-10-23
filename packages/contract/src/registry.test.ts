@@ -40,6 +40,8 @@ describe('registry against operations.csv', () => {
       input: _input,
       output: _output,
       etag: _etag,
+      form: _form,
+      returnsFile: _returnsFile,
       ...rest
     } = op ?? {};
     expect(rest).toEqual(row);

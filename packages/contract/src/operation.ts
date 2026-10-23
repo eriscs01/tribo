@@ -38,7 +38,15 @@ export interface Operation {
   /** Query parameters, one per key; GET reads take these instead of a body. */
   query?: z.ZodObject;
   input?: z.ZodType;
+  /**
+   * A multipart/form-data body instead of JSON: these text fields, then one `file` part.
+   * The adapter streams the file and hands the write path `input` (the fields with what it
+   * learnt of the file), so the OpenAPI document shows this form, never `input`.
+   */
+  form?: z.ZodObject;
   output?: z.ZodType;
+  /** The answer is a stored file's bytes under their own Content-Type, not JSON. */
+  returnsFile?: true;
 }
 
 const ID = /^[a-z]+(\.[a-z][a-zA-Z]*)+$/;
@@ -53,6 +61,12 @@ export function defineOperation<const T extends Operation>(op: T): Readonly<T> {
   if (op.auth.length === 0) throw new Error(`operation ${op.id} declares no auth`);
   if (op.etag && op.method !== 'GET') {
     throw new Error(`operation ${op.id} declares an ETag but is not a GET read`);
+  }
+  if (op.form && (op.method !== 'POST' || !op.input)) {
+    throw new Error(`operation ${op.id} takes a form but is not a POST with an input`);
+  }
+  if (op.returnsFile && (op.method !== 'GET' || op.output)) {
+    throw new Error(`operation ${op.id} returns a file but is not a GET without output`);
   }
   return Object.freeze(op);
 }

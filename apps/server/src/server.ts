@@ -17,6 +17,7 @@ import { registerIdempotency } from './idempotency.js';
 import { loggerOptions } from './logger.js';
 import { RequestLog } from './request-log.js';
 import { inRequestScope } from './request-scope.js';
+import { registerMultipart } from './multipart.js';
 import { mountRegistry, type Handlers } from './routes.js';
 import { csrfValid, sessionTokenOf } from './session.js';
 
@@ -66,6 +67,7 @@ export async function buildServer(deps: ServerDeps): Promise<FastifyInstance> {
   });
 
   await app.register(cookie);
+  await registerMultipart(app);
   registerErrorHandling(app);
   if (deps.idempotency) registerIdempotency(app, deps.idempotency);
 

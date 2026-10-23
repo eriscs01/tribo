@@ -23,7 +23,7 @@ export function buildApp(
     handlers?: Handlers;
   },
 ) {
-  const { identity, trips, members, invites, items, itinerary, dashboard, units, library } =
+  const { identity, trips, members, invites, items, itinerary, dashboard, units, library, files } =
     services;
   const csrf = csrfSecret(services.appKey);
   return buildServer({
@@ -42,6 +42,7 @@ export function buildApp(
         dashboard,
         units,
         library,
+        files,
       }),
       ...config.handlers,
     },

@@ -530,3 +530,29 @@ export async function revokePlaceholderInvites(
   const rows = await query.returning('id').execute();
   return rows.map((r) => r.id).sort();
 }
+
+/**
+ * The trips the file retention purge acts on, `days` being document_retention_days:
+ * those soft-deleted at least that long ago, and those whose end date plus that many days
+ * is before today (both by the database's clock).
+ */
+export async function tripsPastRetention(db: TripsDb, days: number) {
+  const rows = await db
+    .selectFrom('tribo.trips')
+    .select((eb) => [
+      'id',
+      eb(sql`deleted_at + make_interval(days => ${days})`, '<=', sql`now()`).as('deleted'),
+      eb(sql`end_date + ${days}::int`, '<', sql`current_date`).as('ended'),
+    ])
+    .where((eb) =>
+      eb.or([
+        eb(sql`deleted_at + make_interval(days => ${days})`, '<=', sql`now()`),
+        eb(sql`end_date + ${days}::int`, '<', sql`current_date`),
+      ]),
+    )
+    .execute();
+  return {
+    deleted: rows.filter((r) => r.deleted === true).map((r) => r.id),
+    ended: rows.filter((r) => r.ended === true).map((r) => r.id),
+  };
+}

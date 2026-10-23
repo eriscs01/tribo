@@ -1992,6 +1992,38 @@ export interface components {
         };
         /** @enum {string} */
         ErrorCode: "unauthenticated" | "mfa_required" | "forbidden" | "not_found" | "validation_failed" | "if_match_required" | "version_conflict" | "idempotency_key_reused" | "capacity_exceeded" | "room_double_booked" | "driver_taken" | "invalid_transition" | "masked_field_write" | "rate_limited" | "file_too_large" | "file_type_not_allowed" | "file_purged" | "username_taken" | "invite_invalid" | "already_member" | "claim_conflict" | "person_has_account" | "owner_transfer_required" | "reset_link_used" | "currency_locked" | "trip_archived" | "trip_retired" | "approval_required" | "approval_not_pending" | "internal_error" | "not_implemented";
+        /** @enum {string} */
+        FileKind: "id" | "ticket" | "voucher" | "photo" | "other";
+        FileMetadata: {
+            id: string;
+            tripId: string;
+            itemId: string | null;
+            ownerMembershipId: string;
+            kind: components["schemas"]["FileKind"];
+            sensitive: boolean;
+            visibility: components["schemas"]["FileVisibility"];
+            filename: string;
+            mimeType: components["schemas"]["FileMimeType"];
+            sizeBytes: number;
+            sha256: string;
+            version: number;
+            createdAt: components["schemas"]["Instant"];
+            updatedAt: components["schemas"]["Instant"];
+            purgedAt: components["schemas"]["Instant"] | null;
+        };
+        /** @enum {string} */
+        FileMimeType: "application/pdf" | "image/jpeg" | "image/png" | "image/heic" | "image/webp";
+        FilePage: {
+            items: components["schemas"]["FileMetadata"][];
+            nextCursor: string | null;
+        };
+        FilePatch: {
+            filename?: string;
+            itemId?: string | null;
+            visibility?: components["schemas"]["FileVisibility"];
+        };
+        /** @enum {string} */
+        FileVisibility: "shared" | "private";
         /** Format: date-time */
         Instant: string;
         Invite: {
@@ -3700,13 +3732,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["FileMetadata"];
                 };
             };
             /** @description Error */
@@ -3734,9 +3766,18 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description No content */
+            204: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too many writes in this window (rate_limited) */
+            429: {
+                headers: {
+                    /** @description Seconds until the window resets */
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -3766,11 +3807,26 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FilePatch"];
+            };
+        };
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            200: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileMetadata"];
+                };
+            };
+            /** @description Too many writes in this window (rate_limited) */
+            429: {
+                headers: {
+                    /** @description Seconds until the window resets */
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -3799,13 +3855,15 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description The file's bytes, under the Content-Type its upload was recognised as */
+            200: {
                 headers: {
+                    /** @description attachment, with the file name (RFC 6266, RFC 8187 for non-ASCII names) */
+                    "Content-Disposition"?: string;
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["Problem"];
+                    "*/*": string;
                 };
             };
             /** @description Error */
@@ -6400,7 +6458,10 @@ export interface operations {
     };
     "files.list": {
         parameters: {
-            query?: never;
+            query?: {
+                limit?: number;
+                cursor?: string;
+            };
             header?: never;
             path: {
                 tripId: string;
@@ -6409,13 +6470,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["FilePage"];
                 };
             };
             /** @description Error */
@@ -6441,11 +6502,32 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    kind: components["schemas"]["FileKind"];
+                    /** @default shared */
+                    visibility?: components["schemas"]["FileVisibility"];
+                    itemId?: string;
+                    file: string;
+                };
+            };
+        };
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            201: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileMetadata"];
+                };
+            };
+            /** @description Too many writes in this window (rate_limited) */
+            429: {
+                headers: {
+                    /** @description Seconds until the window resets */
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {

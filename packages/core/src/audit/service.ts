@@ -9,6 +9,7 @@ import {
 import type { Kysely } from 'kysely';
 import {
   deletedWithLatestDelete,
+  deleteSnapshots,
   eventsOfRequest,
   insertEvent,
   insertSnapshot,
@@ -47,6 +48,15 @@ export async function recordEvent(tx: Tx, ctx: RequestContext, event: EventRecor
   await insertEvent(forModule(tx, 'audit'), ctx, event).catch((error: unknown) =>
     onConstraint(error, { trip_retired: () => new ApiError('trip_retired') }),
   );
+}
+
+/**
+ * Retention's step for one aggregate (Technical design, "Soft delete everywhere": hard
+ * deletion "removes rows and snapshots"): drops every snapshot it has, in the caller's
+ * transaction, before the purge records its tombstone with recordWrite.
+ */
+export async function dropSnapshots(tx: Tx, entityType: string, entityId: string): Promise<void> {
+  await deleteSnapshots(forModule(tx, 'audit'), entityType, entityId);
 }
 
 /**

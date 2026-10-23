@@ -3,6 +3,7 @@ export {
   addAllocation,
   addMember,
   createExpense,
+  createFile,
   createItem,
   createPlace,
   createPlaceholder,

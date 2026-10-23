@@ -32,6 +32,40 @@ const ETAG_HEADER = {
   },
 } as const;
 
+/** A stored file's bytes, under the type sniffed when it was uploaded. */
+const FILE_RESPONSE = {
+  description: "The file's bytes, under the Content-Type its upload was recognised as",
+  headers: {
+    'Content-Disposition': {
+      description: 'attachment, with the file name (RFC 6266, RFC 8187 for non-ASCII names)',
+      schema: { type: 'string' },
+    },
+  },
+  content: { '*/*': { schema: { type: 'string', contentMediaType: 'application/octet-stream' } } },
+};
+
+/**
+ * A form's text fields and its one `file` part. The form itself is inlined, as the part is
+ * not a JSON value, so it carries no id; schemas its fields name still go to components.
+ */
+function formBody(form: z.ZodObject, components: Components): Json {
+  const fields = jsonSchema(form, 'input', components) as Json & {
+    properties?: Json;
+    required?: string[];
+  };
+  if (fields.properties === undefined) throw new Error('a form schema must be inlined (no id)');
+  return {
+    schema: {
+      ...fields,
+      properties: {
+        ...fields.properties,
+        file: { type: 'string', contentMediaType: 'application/octet-stream' },
+      },
+      required: [...(fields.required ?? []), 'file'],
+    },
+  };
+}
+
 /** Named schemas shared through components.schemas, keyed by their Zod `meta({ id })`. */
 type Components = Map<string, Json>;
 
@@ -153,6 +187,8 @@ function operationObject(op: Operation, components: Components): Json {
   const responses: Json = {};
   if (op.status === 'planned') {
     responses['501'] = problemResponse('Registered but not implemented yet (not_implemented)');
+  } else if (op.returnsFile) {
+    responses['200'] = FILE_RESPONSE;
   } else if (op.output) {
     responses[op.method === 'POST' ? '201' : '200'] = {
       description: 'OK',
@@ -187,7 +223,12 @@ function operationObject(op: Operation, components: Components): Json {
   };
   const params = parameters(op, components);
   if (params.length > 0) object.parameters = params;
-  if (op.input) {
+  if (op.form) {
+    object.requestBody = {
+      required: true,
+      content: { 'multipart/form-data': formBody(op.form, components) },
+    };
+  } else if (op.input) {
     object.requestBody = {
       required: true,
       content: { 'application/json': { schema: jsonSchema(op.input, 'input', components) } },

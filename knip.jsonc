@@ -27,7 +27,6 @@
     // The layout's modules whose stories are still to come (Drop B and 1b): the scaffold of
     // service, repo and policy is in place and each file is imported once its first story lands.
     "packages/core/src/audit/policy.ts",
-    "packages/core/src/documents/*.ts",
     "packages/core/src/expenses/policy.ts",
     "packages/core/src/itinerary/*.ts",
   ],

@@ -2,6 +2,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   createBlobStore,
+  createFilesService,
   memberItems,
   createDashboardService,
   createIdentityService,
@@ -39,6 +40,7 @@ export function composeServices(
   /** How authenticator apps name this deployment. */
   const issuer = `Tribo (${publicUrl.host})`;
   const trips = createTripsService(db, write);
+  const blobs = createBlobStore({ root: uploadsDir, keys });
   return {
     appKey,
     issuer,
@@ -52,7 +54,8 @@ export function composeServices(
     dashboard: createDashboardService(db),
     library: createLibraryService(db, write, keys),
     idempotency: createIdempotencyStore(db),
-    blobs: createBlobStore({ root: uploadsDir, keys }),
+    blobs,
+    files: createFilesService(db, write, blobs),
     verifyAudit: (chainKey?: string) => verifyChains(db, chainKey),
     requestAudit: (requestId: string) => requestEvents(db, requestId),
     /** Resolves once the database answers a query. */

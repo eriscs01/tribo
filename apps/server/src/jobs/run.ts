@@ -9,7 +9,8 @@ import { inRequestScope } from '../request-scope.js';
 export interface Job {
   /** Stable and unique: it names the job's log lines and its advisory lock. */
   name: string;
-  run(ctx: RequestContext): Promise<Record<string, number>>;
+  /** `log` carries the run's request id and the job's name; a job adds ids and codes only. */
+  run(ctx: RequestContext, log: FastifyBaseLogger): Promise<Record<string, number>>;
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -51,7 +52,7 @@ export function createJobRunner(deps: {
             const started = performance.now();
             try {
               log.info('job started');
-              const counts = await job.run(ctx);
+              const counts = await job.run(ctx, log);
               log.info(
                 { ...counts, durationMs: Math.round(performance.now() - started) },
                 'job finished',

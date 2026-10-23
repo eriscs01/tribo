@@ -202,23 +202,23 @@
 
 ## Files
 
-- [ ] `files.list` · Drop B · `GET /v1/trips/{tripId}/files`
+- [x] `files.list` · Drop B · `GET /v1/trips/{tripId}/files`
   - File metadata; File visibility AND item_visible(parent)
   - Roles: owner, organizer, member, viewer. If-Match: `no`. Idempotency: safe to repeat.
-- [ ] `files.upload` · Drop B · `POST /v1/trips/{tripId}/files`
+- [x] `files.upload` · Drop B · `POST /v1/trips/{tripId}/files`
   - Multipart upload ≤ 25 MB; kind, visibility, itemId; file_too_large, file_type_not_allowed; id/ticket/voucher sensitive; trip_archived on archived trips (R29); Owner = callers membership (rule 3)
   - Roles: owner, organizer, member. If-Match: `no`. Idempotency: creates (key).
   - Limit: Honours Idempotency-Key: 24 h per caller, the same key with a different body is idempotency_key_reused.
-- [ ] `files.get` · Drop B · `GET /v1/files/{fileId}`
+- [x] `files.get` · Drop B · `GET /v1/files/{fileId}`
   - File metadata; As files.list; purged shows purgedAt
   - Roles: owner, organizer, member, viewer. If-Match: `no`. Idempotency: safe to repeat.
-- [ ] `files.update` · Drop B · `PATCH /v1/files/{fileId}`
+- [x] `files.update` · Drop B · `PATCH /v1/files/{fileId}`
   - Rename, relink item, change visibility; trip_archived on archived trips (R29)
   - Roles: file owner, organizer, owner. If-Match: `version`. Idempotency: safe to repeat.
-- [ ] `files.delete` · Drop B · `DELETE /v1/files/{fileId}`
+- [x] `files.delete` · Drop B · `DELETE /v1/files/{fileId}`
   - Soft-delete file; Blob kept until purge; Blob purged document_retention_days after deletion; trip_archived on archived trips (R29)
   - Roles: file owner, organizer, owner. If-Match: `version`. Idempotency: safe to repeat.
-- [ ] `files.download` · Drop B · `GET /v1/files/{fileId}/content`
+- [x] `files.download` · Drop B · `GET /v1/files/{fileId}/content`
   - Stream decrypted bytes; Permission re-checked each request; no-store; file_purged
   - Roles: owner, organizer, member, viewer. If-Match: `no`. Idempotency: safe to repeat.
 

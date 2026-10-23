@@ -47,6 +47,7 @@ import {
   bumpBoardVersion,
   deleteMemberAllocations,
   findItem,
+  findVisibleItem,
   insertItem,
   insertShares,
   listBoard,
@@ -408,6 +409,18 @@ export function createItemsService(db: Kysely<DB>, write: WritePath, keys: Keyri
       });
     },
   };
+}
+
+/**
+ * The trip of an item this account may see (tribo.item_visible), or null: what a child of
+ * an item kept by another module (a file) checks before attaching to it.
+ */
+export async function visibleItemTrip(
+  db: Kysely<DB>,
+  userId: string,
+  itemId: string,
+): Promise<string | null> {
+  return (await findVisibleItem(forModule(db, 'items'), userId, itemId))?.trip_id ?? null;
 }
 
 /** The items side of members.remove and of a rejoin (R32), as the members service takes it. */

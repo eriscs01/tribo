@@ -18,6 +18,7 @@ import fc from 'fast-check';
 import type { Kysely } from 'kysely';
 import { afterAll, beforeAll, describe, it } from 'vitest';
 import { createTestDatabase, type TestDatabase } from './database.js';
+import { filesService, metadataOnlyBlobs } from './files-world.js';
 import { membersService } from './invite-world.js';
 import { testKeys } from './keys.js';
 import { buildWorld, leakRunOptions, oracle, worldArb, type BuiltWorld } from './leak.js';
@@ -43,6 +44,7 @@ async function readsOf(db: Kysely<DB>, world: BuiltWorld, userId: string): Promi
   const members = membersService(db);
   const itinerary = createItineraryService(db);
   const dashboard = createDashboardService(db);
+  const files = filesService(db, metadataOnlyBlobs);
   const seen: string[] = [];
   for (const trip of world.trips) {
     /* eslint-disable no-await-in-loop -- one read at a time keeps failures readable */
@@ -62,6 +64,9 @@ async function readsOf(db: Kysely<DB>, world: BuiltWorld, userId: string): Promi
       ...(await orNothing(async () => [
         `dashboard:${(await dashboard.get(userId, trip.id)).tripId}`,
       ])),
+      ...(await orNothing(async () =>
+        (await files.list(userId, trip.id, page)).items.map((f) => `file:${f.id}`),
+      )),
     );
     for (const item of trip.items) {
       seen.push(
@@ -92,6 +97,7 @@ function allowed(world: BuiltWorld, userId: string): string[] {
         .filter((i) => i.dated && oracle.itemVisible(world, userId, i.id))
         .map((i) => `itinerary:${i.id}`),
       ...(oracle.tripVisible(world, userId, t.id) ? [`dashboard:${t.id}`] : []),
+      ...t.files.filter((f) => oracle.fileVisible(world, userId, f.id)).map((f) => `file:${f.id}`),
     ])
     .sort();
 }
@@ -153,7 +159,11 @@ describe('members.remove against the oracle', () => {
         const removed = built.persons.find((p) => p.id === target.m.personId)?.userId;
         if (removed) {
           const theirs = await readsOf(tdb.db, world, removed);
-          const ofTrip = [...target.t.items.map((i) => i.id), ...target.t.members.map((m) => m.id)];
+          const ofTrip = [
+            ...target.t.items.map((i) => i.id),
+            ...target.t.members.map((m) => m.id),
+            ...target.t.files.map((f) => f.id),
+          ];
           const leaked = theirs.filter((r) => ofTrip.some((id) => r.includes(id)));
           if (leaked.length > 0)
             throw new Error(`a removed member still reads ${leaked.join(', ')}`);
