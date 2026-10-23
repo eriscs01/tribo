@@ -2377,6 +2377,20 @@ export interface components {
             opens: string;
             closes: string;
         }[];
+        Overlay: {
+            itemId: string;
+            tripId: string;
+            note: string | null;
+            reminderAt: components["schemas"]["Instant"] | null;
+            checklist: components["schemas"]["OverlayChecklistEntry"][];
+            version: number;
+            createdAt: components["schemas"]["Instant"];
+            updatedAt: components["schemas"]["Instant"];
+        };
+        OverlayChecklistEntry: {
+            text: string;
+            done: boolean;
+        };
         PasswordChangeInput: {
             currentPassword: string;
             newPassword: components["schemas"]["NewPassword"];
@@ -4473,13 +4487,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["Overlay"];
                 };
             };
             /** @description Error */

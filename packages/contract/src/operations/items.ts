@@ -12,6 +12,7 @@ import {
   ItemReveal,
 } from '../item.js';
 import { defineOperation } from '../operation.js';
+import { Overlay } from '../overlay.js';
 
 export const itemsOperations = [
   defineOperation({
@@ -166,7 +167,8 @@ export const itemsOperations = [
     mcpApproval: false,
     mcpTool: null,
     notes: "Caller's private note, reminder, checklist; Always private to caller",
-    status: 'planned',
+    status: 'implemented',
+    output: Overlay,
   }),
   defineOperation({
     id: 'overlays.put',

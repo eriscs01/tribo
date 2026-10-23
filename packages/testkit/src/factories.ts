@@ -242,6 +242,35 @@ export async function createItem(
   return id;
 }
 
+/** A member's private overlay on an item, as overlays.put would write it; `deleted` removes it. */
+export async function createOverlay(
+  db: Db,
+  init: {
+    tripId: string;
+    itemId: string;
+    membershipId: string;
+    note?: string | null;
+    reminderAt?: Date | null;
+    checklist?: readonly { text: string; done: boolean }[];
+    deleted?: boolean;
+  },
+): Promise<string> {
+  const { id } = await db
+    .insertInto('tribo.overlays')
+    .values({
+      trip_id: init.tripId,
+      item_id: init.itemId,
+      membership_id: init.membershipId,
+      note: init.note ?? null,
+      reminder_at: init.reminderAt ?? null,
+      checklist: JSON.stringify(init.checklist ?? []),
+      deleted_at: init.deleted ? new Date() : null,
+    })
+    .returning('id')
+    .executeTakeFirstOrThrow();
+  return id;
+}
+
 /** One row of an item's assignment board, as items.assignments.replace would write it. */
 export async function addAllocation(
   db: Db,
@@ -389,7 +418,8 @@ type SoftDeletable =
   | 'tribo.persons'
   | 'tribo.units'
   | 'tribo.files'
-  | 'tribo.expenses';
+  | 'tribo.expenses'
+  | 'tribo.overlays';
 
 /** Soft-deletes one root row (sets deleted_at), as the services' delete operations do. */
 export async function softDelete(db: Db, table: SoftDeletable, id: string): Promise<void> {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   canCreateItem,
+  canGetOverlay,
   canDeleteItem,
   canListItems,
   canNarrowVisibility,
@@ -112,5 +113,14 @@ describe('canReadBoard', () => {
     for (const role of ['owner', 'organizer', 'member', 'viewer'] as const) {
       expect(canReadBoard(role)).toBe(true);
     }
+  });
+});
+
+describe('canGetOverlay', () => {
+  it('lets owners, organizers and members keep a private overlay, never viewers', () => {
+    expect(canGetOverlay('owner')).toBe(true);
+    expect(canGetOverlay('organizer')).toBe(true);
+    expect(canGetOverlay('member')).toBe(true);
+    expect(canGetOverlay('viewer')).toBe(false);
   });
 });

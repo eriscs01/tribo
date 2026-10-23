@@ -64,6 +64,7 @@ import {
 } from './repo.js';
 
 export type { ItemRecord, ItemTimeRecord } from './record.js';
+export { createOverlaysService, type OverlayRecord, type OverlaysService } from './overlays.js';
 export { tripItems, type TripItem } from './trip-items.js';
 export {
   createUnitsService,

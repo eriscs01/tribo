@@ -123,7 +123,7 @@
 - [x] `items.reveal` · Drop A · `POST /v1/items/{itemId}/reveal`
   - Plaintext of bookingRef, cardLast4; Audited reveal (field paths only); never cached offline; write scope (G15); MCP approval (1b); No Idempotency-Key: each call is its own audited reveal (R2); MCP: tool returns approvalId, after approval the client calls again with approvalId within 10 min, single use (R15); Allowed on archived trips (a read, audited); refused with trip_retired after retirement
   - Roles: owner, organizer, member (own items). If-Match: `no`. Idempotency: never replayed.
-- [ ] `overlays.get` · Drop B · `GET /v1/items/{itemId}/overlay`
+- [x] `overlays.get` · Drop B · `GET /v1/items/{itemId}/overlay`
   - Caller's private note, reminder, checklist; Always private to caller
   - Roles: self (not viewer). If-Match: `no`. Idempotency: safe to repeat.
 - [ ] `overlays.put` · Drop B · `PUT /v1/items/{itemId}/overlay`

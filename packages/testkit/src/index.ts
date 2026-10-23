@@ -5,6 +5,7 @@ export {
   createExpense,
   createFile,
   createItem,
+  createOverlay,
   createPlace,
   createPlaceholder,
   createResetLink,

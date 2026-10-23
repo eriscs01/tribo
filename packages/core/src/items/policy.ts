@@ -56,3 +56,9 @@ export const canManageBoard = itemManager;
 
 /** items.assignments.get: every role reads the board of an item it can see. */
 export const canReadBoard = anyMember;
+
+/**
+ * overlays.get: everyone but a viewer keeps a private note, reminder and checklist of their
+ * own (the design's matrix: viewers keep none).
+ */
+export const canGetOverlay = contributors;

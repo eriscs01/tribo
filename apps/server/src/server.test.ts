@@ -22,6 +22,7 @@ import type {
   ItineraryService,
   DashboardService,
   ExpensesService,
+  OverlaysService,
   FilesService,
   LibraryService,
   MembersService,
@@ -160,6 +161,10 @@ const files: FilesService = {
   purgeDue: unused,
 };
 
+const overlays: OverlaysService = {
+  get: unused,
+};
+
 const expenses: ExpensesService = {
   list: unused,
   get: unused,
@@ -196,6 +201,7 @@ async function server(overrides: Partial<ServerDeps> = {}) {
         items,
         itinerary,
         dashboard,
+        overlays,
         units,
         library,
         files,
