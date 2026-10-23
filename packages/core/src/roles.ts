@@ -47,7 +47,7 @@ export function itemManager(editor: ItemEditor): boolean {
   return organizersOrOwningMember(editor);
 }
 
-/** The item's owner, whatever their role is now, or organizers. */
-export function itemOwnerOrOrganizer(editor: Holder): boolean {
+/** Whoever owns the thing, whatever their role is now, or organizers; unlike organizersOrOwningMember, a viewer who owns it counts. */
+export function ownerOrOrganizer(editor: Holder): boolean {
   return editor.owns || organizers(editor.role);
 }
