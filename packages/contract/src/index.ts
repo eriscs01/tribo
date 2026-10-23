@@ -6,6 +6,7 @@ export * from './dashboard.js';
 export * from './drop-limits.js';
 export { MODULE_FILE } from './csv-row.js';
 export * from './errors.js';
+export * from './expense.js';
 export * from './file.js';
 export * from './ids.js';
 export * from './invite.js';

@@ -179,24 +179,24 @@
 
 ## Expenses
 
-- [ ] `expenses.list` · Drop B · `GET /v1/trips/{tripId}/expenses`
+- [x] `expenses.list` · Drop B · `GET /v1/trips/{tripId}/expenses`
   - Trip ledger; All members; itemId nulled if item hidden; amounts masked for viewers w/o canViewCosts; Record only: no balances, debts or settle-up (R36)
   - Roles: owner, organizer, member, viewer. If-Match: `no`. Idempotency: safe to repeat.
-- [ ] `expenses.create` · Drop B · `POST /v1/trips/{tripId}/expenses`
+- [x] `expenses.create` · Drop B · `POST /v1/trips/{tripId}/expenses`
   - Record expense: payer, amount, FX, members included and split equal|weight|itemised (one share per included member); Shares frozen, largest remainder; tripAmountMinor = max(1, round half-up(amount × fxRate × 10^(e_trip − e_orig))), fxRate per major unit, static ISO 4217 exponent table (R8); write path guarantees shares sum to tripAmountMinor (R11, rule 2); trip_archived on archived trips (R29)
   - Roles: owner, organizer, member. If-Match: `no`. Idempotency: creates (key).
   - Limit: Honours Idempotency-Key: 24 h per caller, the same key with a different body is idempotency_key_reused.
   - Limit: Trip currency only: fx_rate = 1; FX entry follows after the trip.
   - Limit: Splits are equal or itemised only; weight follows after the trip.
-- [ ] `expenses.get` · Drop B · `GET /v1/expenses/{expenseId}`
+- [x] `expenses.get` · Drop B · `GET /v1/expenses/{expenseId}`
   - Expense with shares; As expenses.list
   - Roles: owner, organizer, member, viewer. If-Match: `no`. Idempotency: safe to repeat.
-- [ ] `expenses.update` · Drop B · `PATCH /v1/expenses/{expenseId}`
+- [x] `expenses.update` · Drop B · `PATCH /v1/expenses/{expenseId}`
   - Edit expense; shares recomputed; Same FX rule and share-sum check as create; trip_archived on archived trips (R29)
   - Roles: owner, organizer, member (own). If-Match: `version`. Idempotency: safe to repeat.
   - Limit: Trip currency only: fx_rate = 1; FX entry follows after the trip.
   - Limit: Splits are equal or itemised only; weight follows after the trip.
-- [ ] `expenses.void` · Drop B · `DELETE /v1/expenses/{expenseId}`
+- [x] `expenses.void` · Drop B · `DELETE /v1/expenses/{expenseId}`
   - Void (soft delete, audited); trip_archived on archived trips (R29)
   - Roles: owner, organizer, member (own). If-Match: `version`. Idempotency: safe to repeat.
 

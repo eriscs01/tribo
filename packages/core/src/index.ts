@@ -21,6 +21,7 @@ export {
   type MemberItems,
   type MemberRecord,
   type MembersService,
+  type MoneyRecorded,
   type TripCreator,
   type TripRecord,
   type TripsService,
@@ -70,3 +71,11 @@ export {
   type StoredBlob,
   type UploadPart,
 } from './documents/service.js';
+export {
+  createExpensesService,
+  memberShare,
+  moneyRecorded,
+  type Cost,
+  type ExpenseRecord,
+  type ExpensesService,
+} from './expenses/service.js';

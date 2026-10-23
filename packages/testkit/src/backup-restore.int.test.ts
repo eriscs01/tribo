@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import {
   createItemsService,
   createTripsService,
+  moneyRecorded,
   verifyChains,
   writePath,
   type ChainReport,
@@ -54,7 +55,7 @@ async function tripActivity(db: Kysely<DB>): Promise<void> {
   const write = writePath(db);
   const owner = await createUser(db);
   const ctx = { requestId: 'backup-test', surface: 'web' as const, userId: owner.userId };
-  const trip = await createTripsService(db, write).create(
+  const trip = await createTripsService(db, write, moneyRecorded).create(
     ctx,
     { mfaVerified: true },
     {

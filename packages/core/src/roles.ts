@@ -26,19 +26,28 @@ export function ownerOnly(role: TripRole): boolean {
   return role === 'owner';
 }
 
-/** Where the caller stands on one item: their trip role, and whether they own it or are its assignee. */
-export interface ItemEditor {
+/** Where the caller stands on something of the trip: their trip role, and whether it is theirs. */
+export interface Holder {
   role: TripRole;
   owns: boolean;
+}
+
+/** Organizers, or a member on what is theirs; never a viewer, whatever they own. */
+export function organizersOrOwningMember(holder: Holder): boolean {
+  return organizers(holder.role) || (holder.role === 'member' && holder.owns);
+}
+
+/** Where the caller stands on one item: their trip role, and whether they own it or are its assignee. */
+export interface ItemEditor extends Holder {
   assigned: boolean;
 }
 
 /** Organizers, or a member on an item they own; being assigned is not enough, and never a viewer. */
 export function itemManager(editor: ItemEditor): boolean {
-  return organizers(editor.role) || (editor.role === 'member' && editor.owns);
+  return organizersOrOwningMember(editor);
 }
 
 /** The item's owner, whatever their role is now, or organizers. */
-export function itemOwnerOrOrganizer(editor: Pick<ItemEditor, 'role' | 'owns'>): boolean {
+export function itemOwnerOrOrganizer(editor: Holder): boolean {
   return editor.owns || organizers(editor.role);
 }

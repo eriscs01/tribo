@@ -1992,6 +1992,70 @@ export interface components {
         };
         /** @enum {string} */
         ErrorCode: "unauthenticated" | "mfa_required" | "forbidden" | "not_found" | "validation_failed" | "if_match_required" | "version_conflict" | "idempotency_key_reused" | "capacity_exceeded" | "room_double_booked" | "driver_taken" | "invalid_transition" | "masked_field_write" | "rate_limited" | "file_too_large" | "file_type_not_allowed" | "file_purged" | "username_taken" | "invite_invalid" | "already_member" | "claim_conflict" | "person_has_account" | "owner_transfer_required" | "reset_link_used" | "currency_locked" | "trip_archived" | "trip_retired" | "approval_required" | "approval_not_pending" | "internal_error" | "not_implemented";
+        Expense: {
+            id: string;
+            tripId: string;
+            itemId: string | null;
+            category: string;
+            description: string;
+            /** Format: date */
+            spentOn: string;
+            payerMembershipId: string;
+            amount: components["schemas"]["Money"] | components["schemas"]["MaskedValue"];
+            fxRate: string;
+            tripAmount: components["schemas"]["Money"] | components["schemas"]["MaskedValue"];
+            splitMethod: components["schemas"]["SplitMethod"];
+            shares: components["schemas"]["ExpenseShare"][];
+            version: number;
+            createdAt: components["schemas"]["Instant"];
+            updatedAt: components["schemas"]["Instant"];
+        };
+        ExpenseInput: {
+            itemId?: string;
+            category: string;
+            description: string;
+            /** Format: date */
+            spentOn: string;
+            payerMembershipId: string;
+            amount: {
+                amountMinor: number;
+                currency: components["schemas"]["CurrencyCode"];
+            };
+            split: components["schemas"]["ExpenseSplit"];
+        };
+        ExpensePage: {
+            items: components["schemas"]["Expense"][];
+            nextCursor: string | null;
+        };
+        ExpensePatch: {
+            itemId?: string | null;
+            category?: string;
+            description?: string;
+            /** Format: date */
+            spentOn?: string;
+            payerMembershipId?: string;
+            amount?: {
+                amountMinor: number;
+                currency: components["schemas"]["CurrencyCode"];
+            };
+            split?: components["schemas"]["ExpenseSplit"];
+        };
+        ExpenseShare: {
+            membershipId: string;
+            amount: components["schemas"]["Money"] | components["schemas"]["MaskedValue"];
+        };
+        ExpenseSplit: {
+            /** @constant */
+            method: "equal";
+            membershipIds: string[];
+        } | {
+            /** @constant */
+            method: "itemised";
+            shares: {
+                membershipId: string;
+                amountMinor: number;
+            }[];
+        };
         /** @enum {string} */
         FileKind: "id" | "ticket" | "voucher" | "photo" | "other";
         FileMetadata: {
@@ -2395,6 +2459,8 @@ export interface components {
             csrfToken: string;
             expiresAt: components["schemas"]["Instant"];
         };
+        /** @enum {string} */
+        SplitMethod: "equal" | "weight" | "itemised";
         TimeInput: components["schemas"]["WallClockTime"] | components["schemas"]["AllDay"];
         TimeZone: string;
         TotpCode: string;
@@ -3568,13 +3634,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["Expense"];
                 };
             };
             /** @description Error */
@@ -3602,9 +3668,18 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description No content */
+            204: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too many writes in this window (rate_limited) */
+            429: {
+                headers: {
+                    /** @description Seconds until the window resets */
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -3634,11 +3709,26 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExpensePatch"];
+            };
+        };
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            200: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Expense"];
+                };
+            };
+            /** @description Too many writes in this window (rate_limited) */
+            429: {
+                headers: {
+                    /** @description Seconds until the window resets */
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -6393,7 +6483,10 @@ export interface operations {
     };
     "expenses.list": {
         parameters: {
-            query?: never;
+            query?: {
+                limit?: number;
+                cursor?: string;
+            };
             header?: never;
             path: {
                 tripId: string;
@@ -6402,13 +6495,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["ExpensePage"];
                 };
             };
             /** @description Error */
@@ -6434,11 +6527,26 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExpenseInput"];
+            };
+        };
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            201: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Expense"];
+                };
+            };
+            /** @description Too many writes in this window (rate_limited) */
+            429: {
+                headers: {
+                    /** @description Seconds until the window resets */
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {

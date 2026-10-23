@@ -3,7 +3,7 @@
 // selected, some deleted, some priced, some with restricted fields), their units (rooms,
 // some priced, some deleted; vehicles on rentals, some with a driver) and board rows,
 // dated or undated (timed slots on one day, so some overlap), expenses with their shares
-// (some voided), and invite links (some revoked or expired);
+// (some voided, some on an item), and invite links (some revoked or expired);
 // a TypeScript oracle states who may see what;
 // the property checks that the database's tribo.item_visible and tribo.person_visible agree
 // with it for every pair in the world, that each list operation registered here returns each
@@ -68,8 +68,13 @@ export interface WorldSpec {
       /** Board rows by member index, besides drivers. */
       allocations: { member: number; role: 'attendee' | 'assignee' }[];
     }[];
-    /** Expenses by member index: who paid, and each share of it. */
-    expenses: { payer: number; shares: { member: number; amount: number }[]; voided: boolean }[];
+    /** Expenses by member index: who paid, each share of it, and the item of that index it is on (or none). */
+    expenses: {
+      payer: number;
+      shares: { member: number; amount: number }[];
+      voided: boolean;
+      item: number | null;
+    }[];
     /** Invite links the owner made: open ones, revoked ones and expired ones. */
     invites: { revoked: boolean; expired: boolean }[];
     /** Files by member index, on the item of that index (none past the last item) or on none. */
@@ -149,6 +154,7 @@ function tripArb(nUsers: number, nPersons: number) {
           maxLength: 3,
         }),
         voided: sometimes,
+        item: fc.option(fc.nat({ max: 5 })),
       });
       const invite = fc.record({ revoked: sometimes, expired: sometimes });
       const file = fc.record({
@@ -171,7 +177,10 @@ function tripArb(nUsers: number, nPersons: number) {
           deleted: t.deleted,
           members,
           items,
-          expenses,
+          expenses: expenses.map((e) => ({
+            ...e,
+            item: e.item !== null && e.item < items.length ? e.item : null,
+          })),
           invites,
           files: files.map((f) => ({
             ...f,
@@ -232,7 +241,12 @@ export interface BuiltWorld {
       units: { id: string; priced: boolean; deleted: boolean }[];
       allocations: { membershipId: string; role: 'attendee' | 'assignee' | 'driver' }[];
     }[];
-    expenses: { id: string; voided: boolean; shares: { membershipId: string; amount: number }[] }[];
+    expenses: {
+      id: string;
+      voided: boolean;
+      itemId: string | null;
+      shares: { membershipId: string; amount: number }[];
+    }[];
     invites: { id: string }[];
     files: {
       id: string;
@@ -284,6 +298,13 @@ export interface Oracle {
   myShare(world: BuiltWorld, userId: string, tripId: string): number | null;
   /** Whether the caller reads amounts in the trip: every role but a viewer without a cost grant. */
   costsReadable(world: BuiltWorld, userId: string, tripId: string): boolean;
+  /**
+   * An expense shows while it is not voided, to every active member of its live trip: the
+   * ledger stays whole, even for an expense on an item the caller cannot see.
+   */
+  expenseVisible(world: BuiltWorld, userId: string, expenseId: string): boolean;
+  /** The item an expense shows the caller it is on: its item when they see it, null otherwise. */
+  expenseItem(world: BuiltWorld, userId: string, expenseId: string): string | null;
 }
 
 const personOf = (w: BuiltWorld, userId: string) => w.persons.find((p) => p.userId === userId);
@@ -382,6 +403,19 @@ export const oracle: Oracle = {
     const trip = w.trips.find((t) => t.id === tripId);
     const mine = trip?.members.find((m) => m.personId === me?.id && !m.deleted);
     return mine !== undefined && (mine.role !== 'viewer' || mine.canViewCosts);
+  },
+
+  expenseVisible(w, userId, expenseId) {
+    const trip = w.trips.find((t) => t.expenses.some((e) => e.id === expenseId));
+    const expense = trip?.expenses.find((e) => e.id === expenseId);
+    if (!trip || !expense || expense.voided) return false;
+    return oracle.tripVisible(w, userId, trip.id);
+  },
+
+  expenseItem(w, userId, expenseId) {
+    const expense = w.trips.flatMap((t) => t.expenses).find((e) => e.id === expenseId);
+    const itemId = expense?.itemId ?? null;
+    return itemId !== null && oracle.itemVisible(w, userId, itemId) ? itemId : null;
   },
 
   tripVisible(w, userId, tripId) {
@@ -527,13 +561,15 @@ export async function buildWorld(db: Kysely<DB>, spec: WorldSpec): Promise<Built
         membershipId: members[x.member]?.id ?? '',
         amount: x.amount,
       }));
+      const itemId = e.item === null ? null : (items[e.item]?.id ?? null);
       const id = await createExpense(db, {
         tripId,
         payerMembershipId: members[e.payer]?.id ?? '',
         shares,
         voided: e.voided,
+        itemId,
       });
-      expenses.push({ id, voided: e.voided, shares });
+      expenses.push({ id, voided: e.voided, itemId, shares });
     }
     const invites = [];
     for (const inv of t.invites) {

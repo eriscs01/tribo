@@ -1,6 +1,8 @@
 // Generated from operations.csv by src/scripts/import-operations.ts. A story replaces an
 // entry's status with 'implemented' and adds its input and output schemas.
 import { defineOperation } from '../operation.js';
+import { Expense, ExpenseInput, ExpensePage, ExpensePatch } from '../expense.js';
+import { PageQuery } from '../page.js';
 
 export const expensesOperations = [
   defineOperation({
@@ -19,7 +21,9 @@ export const expensesOperations = [
     mcpTool: null,
     notes:
       'Trip ledger; All members; itemId nulled if item hidden; amounts masked for viewers w/o canViewCosts; Record only: no balances, debts or settle-up (R36)',
-    status: 'planned',
+    status: 'implemented',
+    query: PageQuery,
+    output: ExpensePage,
   }),
   defineOperation({
     id: 'expenses.create',
@@ -37,7 +41,9 @@ export const expensesOperations = [
     mcpTool: 'record_expense',
     notes:
       'Record expense: payer, amount, FX, members included and split equal|weight|itemised (one share per included member); Shares frozen, largest remainder; tripAmountMinor = max(1, round half-up(amount × fxRate × 10^(e_trip − e_orig))), fxRate per major unit, static ISO 4217 exponent table (R8); write path guarantees shares sum to tripAmountMinor (R11, rule 2); trip_archived on archived trips (R29)',
-    status: 'planned',
+    status: 'implemented',
+    input: ExpenseInput,
+    output: Expense,
   }),
   defineOperation({
     id: 'expenses.get',
@@ -54,7 +60,8 @@ export const expensesOperations = [
     mcpApproval: false,
     mcpTool: null,
     notes: 'Expense with shares; As expenses.list',
-    status: 'planned',
+    status: 'implemented',
+    output: Expense,
   }),
   defineOperation({
     id: 'expenses.update',
@@ -72,7 +79,9 @@ export const expensesOperations = [
     mcpTool: null,
     notes:
       'Edit expense; shares recomputed; Same FX rule and share-sum check as create; trip_archived on archived trips (R29)',
-    status: 'planned',
+    status: 'implemented',
+    input: ExpensePatch,
+    output: Expense,
   }),
   defineOperation({
     id: 'expenses.void',
@@ -89,7 +98,7 @@ export const expensesOperations = [
     mcpApproval: false,
     mcpTool: null,
     notes: 'Void (soft delete, audited); trip_archived on archived trips (R29)',
-    status: 'planned',
+    status: 'implemented',
   }),
   defineOperation({
     id: 'budget.get',

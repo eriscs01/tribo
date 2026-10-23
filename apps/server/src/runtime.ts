@@ -2,6 +2,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   createBlobStore,
+  createExpensesService,
+  moneyRecorded,
   createFilesService,
   memberItems,
   createDashboardService,
@@ -39,7 +41,7 @@ export function composeServices(
   const keys = keyring(appKey);
   /** How authenticator apps name this deployment. */
   const issuer = `Tribo (${publicUrl.host})`;
-  const trips = createTripsService(db, write);
+  const trips = createTripsService(db, write, moneyRecorded);
   const blobs = createBlobStore({ root: uploadsDir, keys });
   return {
     appKey,
@@ -56,6 +58,7 @@ export function composeServices(
     idempotency: createIdempotencyStore(db),
     blobs,
     files: createFilesService(db, write, blobs),
+    expenses: createExpensesService(db, write),
     verifyAudit: (chainKey?: string) => verifyChains(db, chainKey),
     requestAudit: (requestId: string) => requestEvents(db, requestId),
     /** Resolves once the database answers a query. */

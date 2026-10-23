@@ -20,7 +20,6 @@ import {
   type WritePath,
 } from '@tribo/platform';
 import type { Kysely } from 'kysely';
-import { moneyRecorded } from '../expenses/service.js';
 import { accountPersonId } from '../library/service.js';
 import { writeOperation } from '../write-operation.js';
 import {
@@ -150,6 +149,16 @@ export async function memberTrip(
 }
 
 /**
+ * The trip's currency (R9): what every amount in the trip currency is in. It locks once
+ * money is recorded, so a reader may take it beside the amounts it names.
+ */
+export async function tripCurrency(db: Kysely<DB>, tripId: string): Promise<string> {
+  const row = await findTrip(forModule(db, 'trips'), tripId);
+  if (!row) throw new ApiError('not_found');
+  return row.currency;
+}
+
+/**
  * The trips the file retention purge acts on, `days` being document_retention_days:
  * soft-deleted at least that long ago, or ended (end date plus days) before today.
  */
@@ -160,8 +169,22 @@ export function tripsPastRetention(
   return tripsPastRetentionRows(forModule(db, 'trips'), days);
 }
 
-/** `write` is core's write path (writePath in write-path.ts), passed in to keep imports acyclic. */
-export function createTripsService(db: Kysely<DB>, write: WritePath): TripsService {
+/**
+ * The expenses side of the currency lock (R9), as the trips service takes it: whether the
+ * trip has money recorded. A port, as MemberItems is: expenses reads trips, so trips
+ * importing expenses would be a cycle.
+ */
+export type MoneyRecorded = (db: Kysely<DB>, tripId: string) => Promise<boolean>;
+
+/**
+ * `write` is core's write path (writePath in write-path.ts) and `moneyRecorded` the
+ * expenses service's, passed in to keep imports acyclic.
+ */
+export function createTripsService(
+  db: Kysely<DB>,
+  write: WritePath,
+  moneyRecorded: MoneyRecorded,
+): TripsService {
   return {
     async list(userId, query) {
       const after = query.cursor === undefined ? null : tripCursor(query.cursor);
@@ -197,7 +220,7 @@ export function createTripsService(db: Kysely<DB>, write: WritePath): TripsServi
           return { tripId: row.id, counter: row.version, row };
         },
         mutate: async (tx, c, loaded, patch) => {
-          const fields = await patchedFields(tx, loaded.row, patch);
+          const fields = await patchedFields(tx, loaded.row, patch, moneyRecorded);
           const trips = forModule(tx, 'trips');
           const row = await updateTrip(trips, loaded.tripId, fields, actingUser(c));
           if (patch.destinations) {
@@ -304,7 +327,12 @@ export function createTripsService(db: Kysely<DB>, write: WritePath): TripsServi
  * needs more than the patch: a backward status move, dates out of order, or a currency
  * change once money is recorded in the old one (R9).
  */
-async function patchedFields(tx: Tx, row: TripRow, patch: TripPatch): Promise<TripFields> {
+async function patchedFields(
+  tx: Tx,
+  row: TripRow,
+  patch: TripPatch,
+  moneyRecorded: MoneyRecorded,
+): Promise<TripFields> {
   const current = row.status as TripFields['status'];
   const status = patch.status ?? current;
   const moveRefusal = statusMoveRefusal(current, status);

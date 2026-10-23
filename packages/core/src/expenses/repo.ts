@@ -1,5 +1,6 @@
-import type { ModuleDb } from '@tribo/db';
+import type { ModuleDb, ValueOf } from '@tribo/db';
 import { sql } from 'kysely';
+import type { Share } from './money.js';
 
 /** The expenses module's database handle: only the tables it owns compile. Other modules call service.ts. */
 export type ExpensesDb = ModuleDb<'expenses'>;
@@ -33,4 +34,241 @@ export async function sumShares(
     .where('s.membership_id', '=', membershipId)
     .executeTakeFirstOrThrow();
   return Number(row.total);
+}
+
+export interface NewExpense {
+  tripId: string;
+  itemId: string | null;
+  category: string;
+  description: string;
+  spentOn: string;
+  payerMembershipId: string;
+  amountMinor: number;
+  currency: string;
+  fxRate: string;
+  tripAmountMinor: number;
+  splitMethod: ValueOf<'tribo.expenses.split_method'>;
+  createdBy: string;
+}
+
+/** Records an expense with its shares (owned rows, frozen here); returns its id. */
+export async function insertExpense(
+  db: ExpensesDb,
+  expense: NewExpense,
+  shares: readonly Share[],
+): Promise<string> {
+  const { id } = await db
+    .insertInto('tribo.expenses')
+    .values({
+      trip_id: expense.tripId,
+      item_id: expense.itemId,
+      category: expense.category,
+      description: expense.description,
+      spent_on: expense.spentOn,
+      payer_membership_id: expense.payerMembershipId,
+      amount_minor: expense.amountMinor,
+      currency: expense.currency,
+      fx_rate: expense.fxRate,
+      trip_amount_minor: expense.tripAmountMinor,
+      split_method: expense.splitMethod,
+      created_by: expense.createdBy,
+      updated_by: expense.createdBy,
+    })
+    .returning('id')
+    .executeTakeFirstOrThrow();
+  await insertShares(db, id, expense.tripId, shares);
+  return id;
+}
+
+async function insertShares(
+  db: ExpensesDb,
+  expenseId: string,
+  tripId: string,
+  shares: readonly Share[],
+): Promise<void> {
+  await db
+    .insertInto('tribo.expense_shares')
+    .values(
+      shares.map((s) => ({
+        expense_id: expenseId,
+        trip_id: tripId,
+        membership_id: s.membershipId,
+        share_minor: s.shareMinor,
+      })),
+    )
+    .execute();
+}
+
+/**
+ * An expense's columns as a reader gets them: item_id only when the reader sees that item
+ * (tribo.item_visible), null otherwise. The ledger stays whole, the link does not leak
+ * (Technical design, "The ledger stays whole").
+ */
+function selectExpense(db: ExpensesDb, userId: string) {
+  return db
+    .selectFrom('tribo.expenses as e')
+    .select([
+      'e.id',
+      'e.trip_id',
+      'e.item_id',
+      sql<
+        string | null
+      >`CASE WHEN e.item_id IS NOT NULL AND tribo.item_visible(${userId}, e.item_id) THEN e.item_id END`.as(
+        'shown_item_id',
+      ),
+      'e.category',
+      'e.description',
+      sql<string>`e.spent_on::text`.as('spent_on'),
+      'e.payer_membership_id',
+      'e.amount_minor',
+      'e.currency',
+      sql<string>`e.fx_rate::text`.as('fx_rate'),
+      'e.trip_amount_minor',
+      'e.split_method',
+      'e.version',
+      'e.created_at',
+      'e.updated_at',
+    ]);
+}
+
+export type ExpenseRow = NonNullable<Awaited<ReturnType<typeof findExpense>>>;
+
+/** For the writer that just created or changed it, inside its transaction. */
+export function findExpense(db: ExpensesDb, userId: string, expenseId: string) {
+  return selectExpense(db, userId).where('e.id', '=', expenseId).executeTakeFirst();
+}
+
+/** The shares of these expenses, in membership order within each. */
+export function listShares(db: ExpensesDb, expenseIds: readonly string[]) {
+  if (expenseIds.length === 0) return Promise.resolve([]);
+  return db
+    .selectFrom('tribo.expense_shares')
+    .select(['expense_id', 'membership_id', 'share_minor'])
+    .where('expense_id', 'in', expenseIds)
+    .orderBy('expense_id')
+    .orderBy('membership_id')
+    .execute();
+}
+
+/** The trip an expense row is in, voided or not; undefined when there is no such row. */
+export async function expenseTrip(db: ExpensesDb, expenseId: string): Promise<string | undefined> {
+  const row = await db
+    .selectFrom('tribo.expenses')
+    .select('trip_id')
+    .where('id', '=', expenseId)
+    .executeTakeFirst();
+  return row?.trip_id;
+}
+
+/** The expense unless it is voided, as this reader gets it. */
+export function findLiveExpense(db: ExpensesDb, userId: string, expenseId: string) {
+  return selectExpense(db, userId)
+    .where('e.id', '=', expenseId)
+    .where('e.deleted_at', 'is', null)
+    .executeTakeFirst();
+}
+
+/**
+ * One page of a trip's ledger as this reader gets it: the expenses not voided, by the day
+ * spent then id (UUIDv7: the order recorded). `after` is the last row's sort key.
+ */
+export function listLiveExpenses(
+  db: ExpensesDb,
+  userId: string,
+  tripId: string,
+  page: { limit: number; after: { spentOn: string; id: string } | null },
+) {
+  let query = selectExpense(db, userId)
+    .where('e.trip_id', '=', tripId)
+    .where('e.deleted_at', 'is', null);
+  if (page.after) {
+    query = query.where(
+      sql<boolean>`(e.spent_on, e.id) > (${page.after.spentOn}::date, ${page.after.id}::uuid)`,
+    );
+  }
+  return query.orderBy('e.spent_on').orderBy('e.id').limit(page.limit).execute();
+}
+
+/** The write path's load for one live expense: the row as this writer gets it, locked until commit. */
+export function lockExpense(db: ExpensesDb, userId: string, expenseId: string) {
+  return selectExpense(db, userId)
+    .where('e.id', '=', expenseId)
+    .where('e.deleted_at', 'is', null)
+    .forUpdate()
+    .executeTakeFirst();
+}
+
+export interface ExpenseChanges {
+  itemId?: string | null;
+  category?: string;
+  description?: string;
+  spentOn?: string;
+  payerMembershipId?: string;
+  amountMinor?: number;
+  tripAmountMinor?: number;
+  splitMethod?: ValueOf<'tribo.expenses.split_method'>;
+}
+
+/** Applies a change and bumps the expense's version; returns the new version. */
+export async function updateExpense(
+  db: ExpensesDb,
+  expenseId: string,
+  changes: ExpenseChanges,
+  updatedBy: string,
+): Promise<number> {
+  const { version } = await db
+    .updateTable('tribo.expenses')
+    .set((eb) => ({
+      ...(changes.itemId === undefined ? {} : { item_id: changes.itemId }),
+      ...(changes.category === undefined ? {} : { category: changes.category }),
+      ...(changes.description === undefined ? {} : { description: changes.description }),
+      ...(changes.spentOn === undefined ? {} : { spent_on: changes.spentOn }),
+      ...(changes.payerMembershipId === undefined
+        ? {}
+        : { payer_membership_id: changes.payerMembershipId }),
+      ...(changes.amountMinor === undefined ? {} : { amount_minor: changes.amountMinor }),
+      ...(changes.tripAmountMinor === undefined
+        ? {}
+        : { trip_amount_minor: changes.tripAmountMinor }),
+      ...(changes.splitMethod === undefined ? {} : { split_method: changes.splitMethod }),
+      version: eb('version', '+', 1),
+      updated_at: sql`now()`,
+      updated_by: updatedBy,
+    }))
+    .where('id', '=', expenseId)
+    .returning('version')
+    .executeTakeFirstOrThrow();
+  return version;
+}
+
+/** Replaces an expense's shares whole: owned rows, written only with their root. */
+export async function replaceShares(
+  db: ExpensesDb,
+  expenseId: string,
+  tripId: string,
+  shares: readonly Share[],
+): Promise<void> {
+  await db.deleteFrom('tribo.expense_shares').where('expense_id', '=', expenseId).execute();
+  await insertShares(db, expenseId, tripId, shares);
+}
+
+/** Voids an expense (a soft delete; its shares stay for restore) and bumps its version; returns it. */
+export async function voidExpense(
+  db: ExpensesDb,
+  expenseId: string,
+  voidedBy: string,
+): Promise<number> {
+  const { version } = await db
+    .updateTable('tribo.expenses')
+    .set((eb) => ({
+      deleted_at: sql`now()`,
+      deleted_by: voidedBy,
+      version: eb('version', '+', 1),
+      updated_at: sql`now()`,
+      updated_by: voidedBy,
+    }))
+    .where('id', '=', expenseId)
+    .returning('version')
+    .executeTakeFirstOrThrow();
+  return version;
 }
