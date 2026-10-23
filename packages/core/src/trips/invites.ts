@@ -23,9 +23,10 @@ import {
 } from '@tribo/platform';
 import type { Kysely } from 'kysely';
 import { recordEvent } from '../audit/service.js';
+import type { ClientInfo } from '../identity/service.js';
 import { memberPersons } from '../library/service.js';
 import { writeOperation } from '../write-operation.js';
-import { acceptInvite, type AcceptedInvite, type InviteAccounts, type JoinClient } from './join.js';
+import { acceptInvite, type AcceptedInvite } from './join.js';
 import {
   actingUser,
   activePlaceholder,
@@ -62,7 +63,7 @@ export interface InviteRecord {
 /** invites.create's answer: the invite with its token and link, shown this once. */
 export type CreatedInvite = InviteRecord & { token: string; link: string; redacted: false };
 
-export interface InvitesService<S = unknown> {
+export interface InvitesService {
   /**
    * invites.create: the owner makes a link with a role, an expiry and optionally a use cap,
    * or pre-links it to a placeholder member to claim (single use). The token is returned
@@ -99,7 +100,7 @@ export interface InvitesService<S = unknown> {
    * membership. Refuses username_taken, already_member, claim_conflict and, for every dead
    * link alike, invite_invalid.
    */
-  accept(ctx: RequestContext, body: unknown, client: JoinClient): Promise<AcceptedInvite<S>>;
+  accept(ctx: RequestContext, body: unknown, client: ClientInfo): Promise<AcceptedInvite>;
 }
 
 export interface InvitePreviewRecord {
@@ -112,17 +113,16 @@ const invitesCreate = writeOperation('invites.create', InviteInput);
 const invitesRevoke = writeOperation('invites.revoke', NoBody);
 
 /**
- * `publicUrl` is the configured origin invite links name, never the Host header. `accounts`
- * is identity's side of a join and `memberItems` the items module's side of a rejoin, both
- * passed in to keep imports acyclic.
+ * `publicUrl` is the configured origin invite links name, never the Host header.
+ * `memberItems` is the items module's side of a rejoin, passed in to keep imports acyclic.
  */
-export function createInvitesService<S>(
+export function createInvitesService(
   db: Kysely<DB>,
   publicUrl: URL,
-  ports: { accounts: InviteAccounts<S>; memberItems: MemberItems },
-): InvitesService<S> {
+  memberItems: MemberItems,
+): InvitesService {
   return {
-    accept: acceptInvite(db, ports),
+    accept: acceptInvite(db, memberItems),
 
     async list(userId, tripId, page) {
       await requireRole(db, userId, tripId, canManageInvites);

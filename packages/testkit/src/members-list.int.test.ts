@@ -2,7 +2,6 @@
 // members.list (Drop A): Members, roles, placeholders; Emergency contact masked; reveal per person
 import {
   createLibraryService,
-  accountHasMfa,
   memberItems,
   createMembersService,
   writePath,
@@ -26,7 +25,7 @@ let members: MembersService;
 
 beforeAll(async () => {
   tdb = await createTestDatabase();
-  members = createMembersService(tdb.db, writePath(tdb.db), testKeys(), accountHasMfa, memberItems);
+  members = createMembersService(tdb.db, writePath(tdb.db), testKeys(), memberItems);
 });
 afterAll(() => tdb.destroy());
 

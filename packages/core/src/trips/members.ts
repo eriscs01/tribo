@@ -18,6 +18,7 @@ import {
   type WritePath,
 } from '@tribo/platform';
 import type { Kysely } from 'kysely';
+import { accountHasMfa } from '../identity/service.js';
 import {
   createPlaceholder,
   memberPersons,
@@ -110,19 +111,15 @@ interface MemberAddLoaded {
   counter?: number;
 }
 
-/** Identity's answer to whether an account has MFA on (accountHasMfa in identity/service.ts). */
-export type MfaCheck = (db: Kysely<DB>, userId: string) => Promise<boolean>;
-
 /**
- * `write` is core's write path, `hasMfa` identity's MFA check and `memberItems` the items
- * module's side of a removal and rejoin, all passed in to keep imports acyclic (identity's
- * service reaches the write path, which reaches this one, and so does the items service).
+ * `write` is core's write path and `memberItems` the items module's side of a removal and
+ * rejoin, both passed in to keep imports acyclic (the write path and the items service
+ * reach this module).
  */
 export function createMembersService(
   db: Kysely<DB>,
   write: WritePath,
   keys: Keyring,
-  hasMfa: MfaCheck,
   memberItems: MemberItems,
 ): MembersService {
   return {
@@ -234,7 +231,7 @@ export function createMembersService(
           const refusal = roleChangeRefusal({
             to: role,
             ownMembership,
-            newOwnerHasMfa: handover && (await accountWithMfa(tx, row.person_id, hasMfa)),
+            newOwnerHasMfa: handover && (await accountWithMfa(tx, row.person_id)),
           });
           if (refusal) throw new ApiError(refusal);
           // One owner per trip (memberships_one_owner): the old owner steps down first.
@@ -303,7 +300,7 @@ export function createMembersService(
 }
 
 /** Whether the person is an account with MFA on; a placeholder has neither. */
-async function accountWithMfa(tx: Tx, personId: string, hasMfa: MfaCheck): Promise<boolean> {
+async function accountWithMfa(tx: Tx, personId: string): Promise<boolean> {
   const userId = await personAccountId(tx, personId);
-  return userId !== null && (await hasMfa(tx, userId));
+  return userId !== null && (await accountHasMfa(tx, userId));
 }

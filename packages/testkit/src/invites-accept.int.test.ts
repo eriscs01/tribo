@@ -1,7 +1,7 @@
 // @module-tag drop-a
 // invites.accept (Drop A): Join: new account (username+password) or signed-in; claims placeholder; username_taken, already_member, invite_invalid; Claim is per trip (R28): new account → its own person is created first; then only this trip's placeholder membership moves to the caller's person (tickets, allocations, shares follow the membership id); the placeholder never gains an account and stays in its other trips; when it has no membership rows left it is scrubbed, soft-deleted and mergedInto the caller; claim_conflict if the caller's person already has a row in this trip. Rejoin undeletes the caller's earlier membership in the trip. Anonymous Idempotency-Key caller = invite:<inviteId>; Set-Cookie never replayed
 import { encodeTypeId, ID_PREFIX } from '@tribo/contract';
-import { createIdentityService, type MembersService } from '@tribo/core';
+import { createIdentityService, type MembersService, writePath } from '@tribo/core';
 import { ApiError, type RequestContext } from '@tribo/platform';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { archive, refusal } from './board-world.js';
@@ -98,7 +98,12 @@ describe('invites.accept', () => {
     });
     // The new account is signed in, and the password it chose is the one it signs in with.
     expect(joined.session?.session).toMatchObject({ userId: created?.id, mfaVerified: false });
-    const identity = createIdentityService(tdb.db, testKeys(), 'Tribo (tribo.test)');
+    const identity = createIdentityService(
+      tdb.db,
+      writePath(tdb.db),
+      testKeys(),
+      'Tribo (tribo.test)',
+    );
     await expect(identity.authenticate(joined.session?.token ?? '')).resolves.toMatchObject({
       userId: created?.id,
     });

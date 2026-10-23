@@ -2,7 +2,7 @@
 // me.password.change (Drop A): Change own password; revokes other sessions; Decided (G1); Never replayed (rule 6)
 // Roles (self) at the HTTP edge, where only a signed-in caller gets in: auth-http.int.test.ts.
 import { randomBytes } from 'node:crypto';
-import { createIdentityService, type IdentityService } from '@tribo/core';
+import { createIdentityService, type IdentityService, writePath } from '@tribo/core';
 import { AppKey, keyring } from '@tribo/crypto';
 import { ApiError, type RequestContext } from '@tribo/platform';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -21,6 +21,7 @@ beforeAll(async () => {
   tdb = await createTestDatabase();
   identity = createIdentityService(
     tdb.db,
+    writePath(tdb.db),
     keyring(new AppKey(randomBytes(32))),
     'Tribo (tribo.test)',
   );

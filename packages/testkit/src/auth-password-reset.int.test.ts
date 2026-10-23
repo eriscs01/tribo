@@ -2,7 +2,7 @@
 // auth.passwordReset (Drop A): Use admin reset link {token, newPassword}; revokes all sessions and refresh tokens; Token in body, never URL; Single-use token makes it naturally idempotent: a repeat gets reset_link_used (R2)
 // Refresh tokens are OAuth (1b): none exist in 1a, so sessions are all there is to revoke.
 import { randomBytes } from 'node:crypto';
-import { createIdentityService, type IdentityService } from '@tribo/core';
+import { createIdentityService, type IdentityService, writePath } from '@tribo/core';
 import { AppKey, keyring } from '@tribo/crypto';
 import { ApiError, type RequestContext } from '@tribo/platform';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -21,6 +21,7 @@ beforeAll(async () => {
   tdb = await createTestDatabase();
   identity = createIdentityService(
     tdb.db,
+    writePath(tdb.db),
     keyring(new AppKey(randomBytes(32))),
     'Tribo (tribo.test)',
   );

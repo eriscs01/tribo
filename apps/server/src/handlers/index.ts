@@ -6,7 +6,6 @@ import type {
   ItineraryService,
   LibraryService,
   MembersService,
-  SignedIn,
   TripsService,
   UnitsService,
 } from '@tribo/core';
@@ -29,7 +28,7 @@ export interface HandlerServices {
   csrfSecret: Buffer;
   trips: TripsService;
   members: MembersService;
-  invites: InvitesService<{ token: string; session: SignedIn }>;
+  invites: InvitesService;
   items: ItemsService;
   itinerary: ItineraryService;
   dashboard: DashboardService;

@@ -1,7 +1,12 @@
 // Identity skeleton (s0 task 9): Argon2id, the bootstrap admin with TOTP, sign-in with
 // session rows, and the lockout after 5 failures.
 import { randomBytes } from 'node:crypto';
-import { createIdentityService, startTotpEnrolment, type IdentityService } from '@tribo/core';
+import {
+  createIdentityService,
+  startTotpEnrolment,
+  type IdentityService,
+  writePath,
+} from '@tribo/core';
 import { AppKey, keyring, open } from '@tribo/crypto';
 import type { RequestContext } from '@tribo/platform';
 import { sql } from 'kysely';
@@ -30,7 +35,7 @@ const ctx = (): RequestContext => ({
 
 beforeAll(async () => {
   tdb = await createTestDatabase();
-  identity = createIdentityService(tdb.db, keys, 'Tribo (tribo.test)');
+  identity = createIdentityService(tdb.db, writePath(tdb.db), keys, 'Tribo (tribo.test)');
 });
 afterAll(() => tdb.destroy());
 

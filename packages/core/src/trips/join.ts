@@ -12,6 +12,7 @@ import {
 } from '@tribo/platform';
 import type { Kysely } from 'kysely';
 import { recordEvent, recordWrite } from '../audit/service.js';
+import { invitedAccounts, type ClientInfo, type SignedIn } from '../identity/service.js';
 import { accountPersonId, memberPersons, mergeClaimedPlaceholder } from '../library/service.js';
 import {
   activePlaceholder,
@@ -36,37 +37,11 @@ import {
 } from './repo.js';
 import { guardTrip } from './trip-guard.js';
 
-/** Where a join came from; identity stores it on the session, never in audit. */
-export interface JoinClient {
-  ip: string | null;
-  userAgent: string | null;
-}
-
-/**
- * What a join asks of identity (invitedAccounts in identity/service.ts), passed in because
- * identity's service reaches the write path, which reaches this module. `S` is the session
- * a new account is signed in with.
- */
-export interface InviteAccounts<S> {
-  hashPassword(password: string): Promise<string>;
-  create(
-    tx: Tx,
-    ctx: RequestContext,
-    account: { username: string; passwordHash: string; displayName: string },
-  ): Promise<{ userId: string; personId: string }>;
-  signIn(
-    tx: Tx,
-    ctx: RequestContext,
-    account: { userId: string; username: string },
-    client: JoinClient,
-  ): Promise<S>;
-}
-
 /** invites.accept's answer: the joiner's membership, and a new account's session. */
-export interface AcceptedInvite<S> {
+export interface AcceptedInvite {
   member: MemberRecord;
   /** null for a signed-in joiner: they keep the session they joined with. */
-  session: S | null;
+  session: { token: string; session: SignedIn } | null;
 }
 
 /** The account a join acts as: made by it, or the signed-in caller. */
@@ -91,16 +66,13 @@ interface Placeholder {
  * joiner. The write path is not used: the actor is only known once the account exists, and
  * invites are credentials with no counter of their own.
  */
-export function acceptInvite<S>(
-  db: Kysely<DB>,
-  ports: { accounts: InviteAccounts<S>; memberItems: MemberItems },
-) {
-  const { accounts, memberItems } = ports;
+export function acceptInvite(db: Kysely<DB>, memberItems: MemberItems) {
   return async (
     ctx: RequestContext,
     body: unknown,
-    client: JoinClient,
-  ): Promise<AcceptedInvite<S>> => {
+    // Where a join came from; identity stores it on the session, never in audit.
+    client: ClientInfo,
+  ): Promise<AcceptedInvite> => {
     const input = validate(InviteAcceptInput, body);
     if (input.account && ctx.userId !== null) {
       throw new ApiError('validation_failed', {
@@ -109,7 +81,9 @@ export function acceptInvite<S>(
     }
     if (!input.account && ctx.userId === null) throw new ApiError('unauthenticated');
     // Argon2id is slow: hashed before the transaction, for every token alike.
-    const passwordHash = input.account ? await accounts.hashPassword(input.account.password) : null;
+    const passwordHash = input.account
+      ? await invitedAccounts.hashPassword(input.account.password)
+      : null;
 
     return db.transaction().execute(async (tx) => {
       const invite = await findLiveInvite(forModule(tx, 'trips'), tokenHash(input.token), {
@@ -125,7 +99,7 @@ export function acceptInvite<S>(
       let joiner: Joiner;
       if (input.account && passwordHash !== null) {
         const { username, displayName } = input.account;
-        const made = await accounts.create(tx, ctx, {
+        const made = await invitedAccounts.create(tx, ctx, {
           username,
           passwordHash,
           displayName: displayName ?? placeholder?.displayName ?? username,
@@ -153,7 +127,7 @@ export function acceptInvite<S>(
       const session =
         joiner.username === null
           ? null
-          : await accounts.signIn(
+          : await invitedAccounts.signIn(
               tx,
               as,
               { userId: joiner.userId, username: joiner.username },

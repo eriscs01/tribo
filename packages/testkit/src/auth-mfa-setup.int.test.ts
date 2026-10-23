@@ -2,7 +2,7 @@
 // auth.mfa.setup (Drop A): Start TOTP enrolment (secret); Secret shown once; No Idempotency-Key: each call replaces the pending secret (R2)
 // Roles (self) at the HTTP edge, where only a signed-in caller gets in: auth-http.int.test.ts.
 import { randomBytes } from 'node:crypto';
-import { createIdentityService, type IdentityService, type SignedIn } from '@tribo/core';
+import { createIdentityService, type IdentityService, type SignedIn, writePath } from '@tribo/core';
 import { AppKey, keyring, open, seal } from '@tribo/crypto';
 import { ApiError, type RequestContext } from '@tribo/platform';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -19,7 +19,7 @@ let identity: IdentityService;
 
 beforeAll(async () => {
   tdb = await createTestDatabase();
-  identity = createIdentityService(tdb.db, keys, 'Tribo (tribo.test)');
+  identity = createIdentityService(tdb.db, writePath(tdb.db), keys, 'Tribo (tribo.test)');
 });
 afterAll(() => tdb.destroy());
 

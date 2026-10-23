@@ -2,10 +2,8 @@
 // an outsider, and a placeholder traveller. Each call builds a fresh trip, so tests never
 // share rows.
 import {
-  accountHasMfa,
   createInvitesService,
   createMembersService,
-  invitedAccounts,
   memberItems,
   writePath,
   type MembersService,
@@ -28,14 +26,14 @@ export type Member = UserFixture & { membershipId: string };
 /** Links name this deployment; the token goes in the fragment. */
 const PUBLIC_URL = new URL('https://tribo.test');
 
-/** The invites service as runtime.ts composes it, identity's and items' sides included. */
+/** The invites service as runtime.ts composes it, items' side included. */
 export function invitesService(tdb: TestDatabase | { db: Kysely<DB> }) {
-  return createInvitesService(tdb.db, PUBLIC_URL, { accounts: invitedAccounts, memberItems });
+  return createInvitesService(tdb.db, PUBLIC_URL, memberItems);
 }
 
-/** The members service as runtime.ts composes it, items side and MFA check included. */
+/** The members service as runtime.ts composes it, items side included. */
 export function membersService(db: Kysely<DB>): MembersService {
-  return createMembersService(db, writePath(db), testKeys(), accountHasMfa, memberItems);
+  return createMembersService(db, writePath(db), testKeys(), memberItems);
 }
 
 /** In a day: an expiry every create accepts. */

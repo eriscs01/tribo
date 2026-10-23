@@ -1,9 +1,7 @@
 // Modules expose only their service.ts; see the boundary rule in CLAUDE.md.
 export { writePath } from './write-path.js';
 export {
-  accountHasMfa,
   createIdentityService,
-  invitedAccounts,
   startTotpEnrolment,
   totpMatches,
   type ClientInfo,
@@ -13,8 +11,6 @@ export {
 } from './identity/service.js';
 export {
   type AcceptedInvite,
-  type InviteAccounts,
-  type JoinClient,
   createInvitesService,
   createMembersService,
   createTripsService,
@@ -25,7 +21,6 @@ export {
   type MemberItems,
   type MemberRecord,
   type MembersService,
-  type MfaCheck,
   type TripCreator,
   type TripRecord,
   type TripsService,

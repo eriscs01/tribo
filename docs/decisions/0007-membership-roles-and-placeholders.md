@@ -30,9 +30,12 @@ something else, or how `members.add` names its person.
   destinations, vendor places). A person already active in the trip is `already_member`.
 - **Members show the person behind them**: `Member.person` is the library's `Person`, so the
   emergency contact is masked exactly as `library.people.get` masks it.
-- **Identity's MFA check is passed in.** `createMembersService` takes identity's
-  `accountHasMfa` as an argument, as services already take the write path, because the
-  identity service reaches the write path and the write path reaches the trips service.
+- **Identity's MFA check is imported.** The members service calls identity's
+  `accountHasMfa` from `identity/service.ts` directly, and a join calls its
+  `invitedAccounts` the same way. _Amended in Q2:_ the check was first passed in as an
+  argument, because the identity service built its own write path and so reached the trips
+  service. Identity now takes the write path injected, like every other service, so trips
+  importing identity makes no cycle; dependency-cruiser's `no-circular` rule proves it.
 
 ## Consequences
 

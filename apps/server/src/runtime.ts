@@ -1,5 +1,4 @@
 import {
-  accountHasMfa,
   memberItems,
   createDashboardService,
   createIdentityService,
@@ -10,7 +9,6 @@ import {
   createMembersService,
   createTripsService,
   createUnitsService,
-  invitedAccounts,
   requestEvents,
   verifyChains,
   writePath,
@@ -34,10 +32,10 @@ export function composeServices(db: Kysely<DB>, appKey: AppKey, publicUrl: URL) 
   return {
     appKey,
     issuer,
-    identity: createIdentityService(db, keys, issuer),
+    identity: createIdentityService(db, write, keys, issuer),
     trips,
-    members: createMembersService(db, write, keys, accountHasMfa, memberItems),
-    invites: createInvitesService(db, publicUrl, { accounts: invitedAccounts, memberItems }),
+    members: createMembersService(db, write, keys, memberItems),
+    invites: createInvitesService(db, publicUrl, memberItems),
     items: createItemsService(db, write, keys),
     units: createUnitsService(db, write),
     itinerary: createItineraryService(db),
