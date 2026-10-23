@@ -82,6 +82,17 @@ export async function blobDir(options: { maxBytes?: number } = {}): Promise<Blob
   };
 }
 
+/**
+ * A blob store for worlds whose files have no bytes (the leak world): reads give a few PDF
+ * bytes, writes are refused. For properties of metadata and permission, never content.
+ */
+export const metadataOnlyBlobs: BlobStore = {
+  write: () => Promise.reject(new Error('this world takes no uploads')),
+  read: () => Readable.from([Buffer.from('%PDF-')]),
+  delete: () => Promise.resolve(),
+  check: () => Promise.resolve(),
+};
+
 export function filesService(db: Kysely<DB>, blobs: BlobStore): FilesService {
   return createFilesService(db, writePath(db), blobs);
 }

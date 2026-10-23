@@ -2,13 +2,11 @@
 // files.download against the oracle: of every file in the world, an account gets the
 // content of exactly those the oracle shows it (or file_purged, for a purged one it sees),
 // not_found for every other one, and a reveal event only for sensitive files it got.
-import { Readable } from 'node:stream';
-import type { BlobStore } from '@tribo/core';
 import { ApiError } from '@tribo/platform';
 import fc from 'fast-check';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createTestDatabase, type TestDatabase } from './database.js';
-import { filesService } from './files-world.js';
+import { filesService, metadataOnlyBlobs } from './files-world.js';
 import {
   leakRunOptions,
   listProperty,
@@ -20,19 +18,11 @@ import {
 
 const options = leakRunOptions();
 
-/** World files have no blobs; the content is never what is under test here. */
-const blobs: BlobStore = {
-  write: () => Promise.reject(new Error('no uploads in a leak world')),
-  read: () => Readable.from([Buffer.from('%PDF-')]),
-  delete: () => Promise.resolve(),
-  check: () => Promise.resolve(),
-};
-
 let n = 0;
 
 /** files.download on every file row; the ids it answered with content or file_purged. */
 const downloadRead: ListRead = async (db, userId) => {
-  const files = filesService(db, blobs);
+  const files = filesService(db, metadataOnlyBlobs);
   const rows = await db.selectFrom('tribo.files').select('id').execute();
   const seen: string[] = [];
   for (const row of rows) {
