@@ -26,6 +26,9 @@ host=${TRIBO_BACKUP_HOST:?set TRIBO_BACKUP_HOST (an ssh destination, e.g. tribo-
 dir=${TRIBO_BACKUP_DIR:?set TRIBO_BACKUP_DIR (a directory on a disk you own) in $config}
 keep=${TRIBO_BACKUP_KEEP:-7}
 rsync=${TRIBO_RSYNC:-rsync}
+# An ssh config of its own (TRIBO_SSH_CONFIG) keeps the backup key and its host key out of
+# ~/.ssh; empty means ssh's usual ~/.ssh/config.
+ssh_config=${TRIBO_SSH_CONFIG:-}
 ssh="ssh -o BatchMode=yes -o ServerAliveInterval=30"
 
 say() { echo "$(date '+%Y-%m-%d %H:%M:%S') tribo backup: $*"; }
@@ -35,6 +38,11 @@ fail() {
 }
 
 case $keep in '' | *[!0-9]* | 0) fail "TRIBO_BACKUP_KEEP must be a positive number, not '$keep'" ;; esac
+if [ -n "$ssh_config" ]; then
+  case $ssh_config in *[!A-Za-z0-9_./-]*) fail "TRIBO_SSH_CONFIG must be a plain path, not '$ssh_config'" ;; esac
+  [ -f "$ssh_config" ] || fail "TRIBO_SSH_CONFIG names no file: $ssh_config"
+  ssh="$ssh -F $ssh_config"
+fi
 [ -d "$dir" ] || fail "$dir does not exist; is the backup disk mounted?"
 
 # One run at a time: a slow upload sync must not overlap the next night's run.
