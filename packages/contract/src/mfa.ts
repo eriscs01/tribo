@@ -1,6 +1,7 @@
 // Mfa schemas: request and response shapes of its operations.
 import * as z from 'zod';
 import { TotpCode } from './account.js';
+import { secret } from './secret.js';
 
 /**
  * auth.mfa.setup response: the pending TOTP secret, shown once. Each call replaces the
@@ -29,7 +30,7 @@ export type MfaConfirmInput = z.infer<typeof MfaConfirmInput>;
 export const MfaConfirm = z
   .strictObject({
     /** Single-use codes, each accepted once instead of a TOTP code at sign-in. */
-    recoveryCodes: z.array(z.string()).optional(),
+    recoveryCodes: secret(z.array(z.string())).optional(),
     redacted: z.boolean(),
   })
   .meta({ id: 'MfaConfirm' });

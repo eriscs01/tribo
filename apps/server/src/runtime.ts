@@ -14,6 +14,7 @@ import {
   writePath,
 } from '@tribo/core';
 import { keyring, loadAppKey, type AppKey } from '@tribo/crypto';
+import { createIdempotencyStore } from '@tribo/platform';
 import type { DB } from '@tribo/db';
 import { Kysely, PostgresDialect, sql } from 'kysely';
 import pg from 'pg';
@@ -41,6 +42,7 @@ export function composeServices(db: Kysely<DB>, appKey: AppKey, publicUrl: URL) 
     itinerary: createItineraryService(db),
     dashboard: createDashboardService(db),
     library: createLibraryService(db, write, keys),
+    idempotency: createIdempotencyStore(db),
     verifyAudit: (chainKey?: string) => verifyChains(db, chainKey),
     requestAudit: (requestId: string) => requestEvents(db, requestId),
     /** Resolves once the database answers a query. */

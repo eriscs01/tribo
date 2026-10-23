@@ -600,6 +600,18 @@ describe('registry coverage at start', () => {
       }),
     ).rejects.toThrow(/test.orphan has no handler/);
   });
+
+  it('refuses an operation that honours Idempotency-Key but takes anonymous callers', async () => {
+    const create = registry.find((op) => op.id === 'expenses.create');
+    if (!create) throw new Error('expenses.create missing');
+    const anonymous = { ...create, auth: ['public'] as const };
+    await expect(
+      server({
+        registry: testRegistry.map((op) => (op.id === create.id ? anonymous : op)),
+        idempotency: { storeResponse: unused, deleteExpired: unused },
+      }),
+    ).rejects.toThrow(/expenses.create honours Idempotency-Key but takes anonymous callers/);
+  });
 });
 
 describe('logging', () => {

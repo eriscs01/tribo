@@ -39,21 +39,22 @@ fixed.
 
 ## Index
 
-| No.                                                   | Date        | Decision                                                               | Status   |
-| ----------------------------------------------------- | ----------- | ---------------------------------------------------------------------- | -------- |
-| [0001](0001-trips-delete-stamps-only-the-trip.md)     | 18 Oct 2026 | trips.delete stamps only the trip row                                  | accepted |
-| [0002](0002-items-delete-stamps-only-the-item.md)     | 19 Oct 2026 | items.delete stamps only the item row                                  | accepted |
-| [0003](0003-restricted-fields-masking.md)             | 19 Oct 2026 | Restricted item fields: who sees them, who sets them, who owns the set | accepted |
-| [0004](0004-one-pull-request-per-work-package.md)     | 18 Oct 2026 | One pull request per work package in slice 1a                          | accepted |
-| [0005](0005-drop-a-is-api-only.md)                    | 18 Oct 2026 | Drop A is API only                                                     | accepted |
-| [0006](0006-idempotency-key-only-where-honoured.md)   | 19 Oct 2026 | Idempotency-Key in OpenAPI only where 1a honours it                    | accepted |
-| [0007](0007-membership-roles-and-placeholders.md)     | 22 Oct 2026 | Membership roles, cost grants and placeholders                         | accepted |
-| [0008](0008-rate-limits-and-client-address.md)        | 22 Oct 2026 | Rate limits: what counts, against whom, which client address           | accepted |
-| [0009](0009-units-and-the-assignment-board.md)        | 22 Oct 2026 | Units and the assignment board                                         | accepted |
-| [0010](0010-dependency-graph-submitted-from-ci.md)    | 22 Oct 2026 | The dependency graph is submitted from CI                              | accepted |
-| [0011](0011-invites-joins-and-removals.md)            | 22 Oct 2026 | Invite links, joins, claims and removals                               | accepted |
-| [0012](0012-itinerary-and-dashboard.md)               | 22 Oct 2026 | The itinerary and the dashboard in Drop A                              | accepted |
-| [0013](0013-ci-path-rules-and-single-test-run.md)     | 22 Oct 2026 | CI path rules, step-level skips and one run of the tests               | accepted |
-| [0014](0014-published-images-are-the-scanned-ones.md) | 23 Oct 2026 | Published images are the scanned ones                                  | accepted |
-| [0015](0015-reference-host-uses-acme-http.md)         | 23 Oct 2026 | The reference host uses acme-http                                      | accepted |
-| [0016](0016-drop-b-is-api-only.md)                    | 23 Oct 2026 | Drop B is API only                                                     | accepted |
+| No.                                                   | Date        | Decision                                                                 | Status   |
+| ----------------------------------------------------- | ----------- | ------------------------------------------------------------------------ | -------- |
+| [0001](0001-trips-delete-stamps-only-the-trip.md)     | 18 Oct 2026 | trips.delete stamps only the trip row                                    | accepted |
+| [0002](0002-items-delete-stamps-only-the-item.md)     | 19 Oct 2026 | items.delete stamps only the item row                                    | accepted |
+| [0003](0003-restricted-fields-masking.md)             | 19 Oct 2026 | Restricted item fields: who sees them, who sets them, who owns the set   | accepted |
+| [0004](0004-one-pull-request-per-work-package.md)     | 18 Oct 2026 | One pull request per work package in slice 1a                            | accepted |
+| [0005](0005-drop-a-is-api-only.md)                    | 18 Oct 2026 | Drop A is API only                                                       | accepted |
+| [0006](0006-idempotency-key-only-where-honoured.md)   | 19 Oct 2026 | Idempotency-Key in OpenAPI only where 1a honours it                      | accepted |
+| [0007](0007-membership-roles-and-placeholders.md)     | 22 Oct 2026 | Membership roles, cost grants and placeholders                           | accepted |
+| [0008](0008-rate-limits-and-client-address.md)        | 22 Oct 2026 | Rate limits: what counts, against whom, which client address             | accepted |
+| [0009](0009-units-and-the-assignment-board.md)        | 22 Oct 2026 | Units and the assignment board                                           | accepted |
+| [0010](0010-dependency-graph-submitted-from-ci.md)    | 22 Oct 2026 | The dependency graph is submitted from CI                                | accepted |
+| [0011](0011-invites-joins-and-removals.md)            | 22 Oct 2026 | Invite links, joins, claims and removals                                 | accepted |
+| [0012](0012-itinerary-and-dashboard.md)               | 22 Oct 2026 | The itinerary and the dashboard in Drop A                                | accepted |
+| [0013](0013-ci-path-rules-and-single-test-run.md)     | 22 Oct 2026 | CI path rules, step-level skips and one run of the tests                 | accepted |
+| [0014](0014-published-images-are-the-scanned-ones.md) | 23 Oct 2026 | Published images are the scanned ones                                    | accepted |
+| [0015](0015-reference-host-uses-acme-http.md)         | 23 Oct 2026 | The reference host uses acme-http                                        | accepted |
+| [0016](0016-drop-b-is-api-only.md)                    | 23 Oct 2026 | Drop B is API only                                                       | accepted |
+| [0017](0017-idempotency-key.md)                       | 23 Oct 2026 | Idempotency-Key: where it is claimed, what is kept, how a replay says so | accepted |

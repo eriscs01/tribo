@@ -1,5 +1,6 @@
 import type { ValueOf } from '@tribo/db';
 import { ApiError } from './errors.js';
+import type { IdempotencyClaim } from './idempotency.js';
 
 /**
  * Who is acting and through what, as each adapter resolves it for one request. The write
@@ -17,6 +18,8 @@ export interface RequestContext {
   clientId?: string;
   clientName?: string;
   mcpSession?: string;
+  /** The Idempotency-Key the caller sent, when the operation honours one (decision 0017). */
+  idempotency?: IdempotencyClaim;
 }
 
 /** Writes need an account behind them; only system work runs without one. */

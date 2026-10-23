@@ -1,6 +1,7 @@
 import { problem, PROBLEM_CONTENT_TYPE, type ErrorCode, type Problem } from '@tribo/contract';
-import { ApiError, RateLimited } from '@tribo/platform';
+import { ApiError, IdempotentReplay, RateLimited } from '@tribo/platform';
 import type { FastifyError, FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { sendReplay } from './idempotency.js';
 
 /** The problem code each reply answered with, for the request's log line. */
 const problems = new WeakMap<FastifyReply, ErrorCode>();
@@ -21,7 +22,7 @@ function sendProblem(
 }
 
 /**
- * Every error leaves as application/problem+json: expected ones with their code, request
+ * An Idempotency-Key repeat leaves as the response it replays. Every error leaves as application/problem+json: expected ones with their code, request
  * shape errors as validation_failed, unknown routes as not_found, and anything else as
  * internal_error with no message or stack (those go to the log only).
  */
@@ -29,6 +30,7 @@ export function registerErrorHandling(app: FastifyInstance) {
   app.setNotFoundHandler((request, reply) => sendProblem(reply, request, 'not_found'));
 
   app.setErrorHandler((error: FastifyError, request, reply) => {
+    if (error instanceof IdempotentReplay) return sendReplay(reply, error);
     if (error instanceof RateLimited) reply.header('retry-after', String(error.retryAfterSeconds));
     if (error instanceof ApiError) return sendProblem(reply, request, error.code, error.extra);
     if (error.validation) {

@@ -33,3 +33,4 @@ export * from './unit.js';
 export * from './vendor.js';
 export * from './warning.js';
 export { registry } from './operations/index.js';
+export * from './secret.js';

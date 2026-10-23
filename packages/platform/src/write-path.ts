@@ -4,6 +4,7 @@ import type { Kysely, Transaction } from 'kysely';
 import type * as z from 'zod';
 import type { RequestContext } from './context.js';
 import { ApiError } from './errors.js';
+import { claimKey, requestHash } from './idempotency.js';
 
 /** The one transaction a write runs in. Each module narrows it with forModule() for its repo. */
 export type Tx = Transaction<DB>;
@@ -74,14 +75,18 @@ export type WritePath = <Target, Input, L extends Loaded, R, A = void>(
 
 /**
  * The single write path every mutating operation runs through, in one transaction:
- * authorize → validate → load FOR UPDATE → trip guard → If-Match → mutate → snapshot +
- * audit event → commit. Any failure, the audit insert included, rolls the whole write back.
+ * authorize → validate → claim the Idempotency-Key → load FOR UPDATE → trip guard → If-Match
+ * → mutate → snapshot + audit event → commit. Any failure, the audit insert included, rolls
+ * the whole write back, the key's claim with it.
  */
 export function createWritePath(db: Kysely<DB>, ports: WritePorts): WritePath {
   return (ctx, spec) =>
     db.transaction().execute(async (tx) => {
       const auth = await spec.authorize(tx, ctx, spec.target);
       const input = validate(spec.operation.input, spec.body);
+      if (ctx.idempotency?.operationId === spec.operation.id) {
+        await claimKey(tx, ctx.idempotency, requestHash(spec.target, spec.body));
+      }
       const loaded = await spec.load(tx, spec.target, input, auth);
       if (loaded.tripId !== null) await ports.guardTrip(tx, loaded.tripId, spec.operation.id);
       checkIfMatch(spec.operation.ifMatch, spec.ifMatch, loaded.counter);

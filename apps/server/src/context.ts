@@ -12,7 +12,12 @@ declare module 'fastify' {
 
 /** The request context the REST adapter hands to core. */
 export function requestContext(request: FastifyRequest): RequestContext {
-  return { requestId: request.id, surface: 'web', userId: request.signedIn?.userId ?? null };
+  return {
+    requestId: request.id,
+    surface: 'web',
+    userId: request.signedIn?.userId ?? null,
+    ...(request.idempotency ? { idempotency: request.idempotency } : {}),
+  };
 }
 
 /** The caller of an authenticated operation; authentication has already refused anyone else. */
