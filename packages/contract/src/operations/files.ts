@@ -115,7 +115,8 @@ export const filesOperations = [
     mcpApproval: false,
     mcpTool: null,
     notes: 'Stream decrypted bytes; Permission re-checked each request; no-store; file_purged',
-    status: 'planned',
+    status: 'implemented',
+    returnsFile: true,
   }),
   defineOperation({
     id: 'files.purge',

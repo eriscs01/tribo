@@ -2450,12 +2450,21 @@
           }
         ],
         "responses": {
-          "501": {
-            "description": "Registered but not implemented yet (not_implemented)",
-            "content": {
-              "application/problem+json": {
+          "200": {
+            "description": "The file's bytes, under the Content-Type its upload was recognised as",
+            "headers": {
+              "Content-Disposition": {
+                "description": "attachment, with the file name (RFC 6266, RFC 8187 for non-ASCII names)",
                 "schema": {
-                  "$ref": "#/components/schemas/Problem"
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "contentMediaType": "application/octet-stream"
                 }
               }
             }
@@ -2472,7 +2481,7 @@
           }
         },
         "x-tribo": {
-          "status": "planned",
+          "status": "implemented",
           "slice": "1a",
           "drop": "B",
           "roles": "owner, organizer, member, viewer",

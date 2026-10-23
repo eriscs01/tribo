@@ -5,7 +5,11 @@ import {
   type FileMetadata,
   type FilePage,
 } from '@tribo/contract';
+import { once } from 'node:events';
+import type { Readable } from 'node:stream';
 import type { FileRecord, FilesService } from '@tribo/core';
+import { ApiError } from '@tribo/platform';
+import { attachment } from '../content-disposition.js';
 import { ifMatch, pathId, requestContext, signedIn } from '../context.js';
 import { withUpload } from '../multipart.js';
 import { parsedQuery, type Handlers } from '../routes.js';
@@ -28,6 +32,15 @@ function fileView(file: FileRecord): FileMetadata {
     updatedAt: file.updatedAt.toISOString(),
     purgedAt: file.purgedAt?.toISOString() ?? null,
   };
+}
+
+/**
+ * Resolves once the stream holds its first authenticated chunk (or has ended), rejects if
+ * it fails first (events.once rejects on 'error'): a download answers only once it can
+ * start with real bytes.
+ */
+async function opened(content: Readable): Promise<void> {
+  await once(content, 'readable');
 }
 
 export function filesHandlers(files: FilesService): Handlers {
@@ -59,6 +72,33 @@ export function filesHandlers(files: FilesService): Handlers {
         ifMatch(request),
       );
       return reply.code(204).send();
+    },
+    // Decision 0022: the bytes as an attachment that nothing sniffs, caches or runs.
+    'files.download': async (request, reply) => {
+      const fileId = pathId(request, 'fileId');
+      const { file, content } = await files.download(requestContext(request), fileId);
+      try {
+        await opened(content);
+      } catch (error) {
+        content.destroy();
+        request.log.error({ fileId, err: error }, 'file content unreadable');
+        throw new ApiError('internal_error');
+      }
+      // Past the first chunk the status is sent: a failure can only cut the response short.
+      content.once('error', (error) => {
+        request.log.error({ fileId, err: error }, 'file download failed');
+      });
+      return reply
+        .code(200)
+        .headers({
+          'content-type': file.mimeType,
+          'content-length': String(file.sizeBytes),
+          'content-disposition': attachment(file.filename),
+          'cache-control': 'private, no-store',
+          'x-content-type-options': 'nosniff',
+          'content-security-policy': "default-src 'none'; sandbox",
+        })
+        .send(content);
     },
     'files.upload': async (request, reply) => {
       const tripId = pathId(request, 'tripId');

@@ -6,6 +6,9 @@ export const canListFiles = anyMember;
 /** files.get: as files.list. */
 export const canGetFile = anyMember;
 
+/** files.download: as files.get; a sensitive file's download is audited (decision 0022). */
+export const canDownloadFile = anyMember;
+
 /** files.upload: owner, organizer, member (operations.csv); the owner is the caller's membership. */
 export const canUploadFile = contributors;
 

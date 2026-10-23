@@ -3855,13 +3855,15 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description The file's bytes, under the Content-Type its upload was recognised as */
+            200: {
                 headers: {
+                    /** @description attachment, with the file name (RFC 6266, RFC 8187 for non-ASCII names) */
+                    "Content-Disposition"?: string;
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["Problem"];
+                    "*/*": string;
                 };
             };
             /** @description Error */

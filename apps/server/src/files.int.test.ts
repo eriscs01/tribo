@@ -3,7 +3,7 @@
 // byte of content. The rules behind each operation are proven against the documents
 // service in packages/testkit.
 import { randomBytes } from 'node:crypto';
-import { mkdtemp, readdir, rm } from 'node:fs/promises';
+import { mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
@@ -556,5 +556,103 @@ describe('files.delete over HTTP', () => {
     expect(await blobs()).toEqual(stored);
     const gone = await app.inject({ method: 'GET', url: `/v1/files/${id}`, ...w.member.auth });
     expect(gone.statusCode).toBe(404);
+  });
+});
+
+describe('files.download over HTTP', () => {
+  const download = (caller: Caller, id: string) =>
+    app.inject({ method: 'GET', url: `/v1/files/${id}/content`, ...caller.auth });
+
+  async function uploaded(w: World, kind: string, filename: string, data: Buffer) {
+    const res = await upload(
+      w,
+      w.member,
+      form([['kind', kind]], { filename, type: 'image/png', data }),
+    );
+    expect(res.statusCode).toBe(201);
+    const { id } = res.json<{ id: string }>();
+    const row = await tdb.db
+      .selectFrom('tribo.files')
+      .select('blob_key')
+      .where('trip_id', '=', w.trip.tripId)
+      .orderBy('id', 'desc')
+      .executeTakeFirstOrThrow();
+    return { id, path: join(uploads, row.blob_key) };
+  }
+
+  it('sends the bytes as an attachment nothing sniffs, caches or runs', async () => {
+    const w = await world();
+    const data = png(100_000);
+    const { id } = await uploaded(w, 'id', 'Passport “Ana”.png', data);
+    const res = await download(w.viewer, id);
+    expect(res.statusCode).toBe(200);
+    expect(res.rawPayload.equals(data)).toBe(true);
+    expect(res.headers).toMatchObject({
+      'content-type': 'image/png',
+      'content-length': String(data.length),
+      'cache-control': 'private, no-store',
+      'x-content-type-options': 'nosniff',
+      'content-security-policy': "default-src 'none'; sandbox",
+      'content-disposition': `attachment; filename="Passport _Ana_.png"; filename*=UTF-8''Passport%20%E2%80%9CAna%E2%80%9D.png`,
+    });
+    logsNothingOf(res.headers['x-request-id'], 'Passport', data);
+  });
+
+  it('answers 404 to a stranger and 410 file_purged for a purged file, each logged by code', async () => {
+    const w = await world();
+    const { id } = await uploaded(w, 'photo', 'a.png', png());
+    const stranger = await signedInUser();
+    const refused = await download(stranger, id);
+    expect(refused.statusCode).toBe(404);
+    expect(refusalLine(refused.headers['x-request-id'])).toMatchObject({
+      operationId: 'files.download',
+      problem: 'not_found',
+    });
+    await tdb.db
+      .updateTable('tribo.files')
+      .set({ purged_at: new Date(), filename: 'purged' })
+      .where('trip_id', '=', w.trip.tripId)
+      .execute();
+    const purged = await download(w.member, id);
+    expect(purged.statusCode).toBe(410);
+    expect(purged.json()).toMatchObject({ code: 'file_purged' });
+  });
+
+  it('answers 500 with a logged line, never bytes, when the blob is missing or damaged at its start', async () => {
+    const w = await world();
+    const damaged = await uploaded(w, 'photo', 'a.png', png());
+    const blob = await readFile(damaged.path);
+    blob[20] = 255 - (blob[20] ?? 0);
+    await writeFile(damaged.path, blob);
+    const res = await download(w.member, damaged.id);
+    expect(res.statusCode).toBe(500);
+    expect(res.json()).toMatchObject({ code: 'internal_error' });
+    expect(
+      linesOf(res.headers['x-request-id']).find((l) => l.msg === 'file content unreadable'),
+    ).toMatchObject({
+      operationId: 'files.download',
+    });
+    const missing = await uploaded(w, 'photo', 'b.png', png());
+    await rm(missing.path);
+    const gone = await download(w.member, missing.id);
+    expect(gone.statusCode).toBe(500);
+    expect(
+      linesOf(gone.headers['x-request-id']).some((l) => l.msg === 'file content unreadable'),
+    ).toBe(true);
+  });
+
+  it('cuts the response short and logs it when a later chunk does not authenticate', async () => {
+    const w = await world();
+    const data = png(300_000);
+    const { id, path } = await uploaded(w, 'photo', 'big.png', data);
+    const blob = await readFile(path);
+    blob[blob.length - 30] = 255 - (blob[blob.length - 30] ?? 0);
+    await writeFile(path, blob);
+    const res = await download(w.member, id).catch((error: unknown) => error as Error);
+    if (!(res instanceof Error)) {
+      expect(res.rawPayload.length).toBeLessThan(data.length);
+      expect(res.rawPayload.equals(data.subarray(0, res.rawPayload.length))).toBe(true);
+    }
+    await expect.poll(() => lines.some((l) => l.msg === 'file download failed')).toBe(true);
   });
 });

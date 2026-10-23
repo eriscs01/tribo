@@ -22,11 +22,19 @@ import {
   type WritePath,
 } from '@tribo/platform';
 import type { Kysely } from 'kysely';
+import { recordEvent } from '../audit/service.js';
 import { visibleItemTrip } from '../items/service.js';
 import { callerMembership, memberTrip, type CallerMembership } from '../trips/service.js';
 import { writeOperation } from '../write-operation.js';
 import type { BlobStore, StoredBlob } from './blobs.js';
-import { canDeleteFile, canGetFile, canListFiles, canUpdateFile, canUploadFile } from './policy.js';
+import {
+  canDeleteFile,
+  canDownloadFile,
+  canGetFile,
+  canListFiles,
+  canUpdateFile,
+  canUploadFile,
+} from './policy.js';
 import {
   fileTrip,
   findFile,
@@ -97,6 +105,13 @@ export interface FilesService {
     body: unknown,
     ifMatch: number | undefined,
   ): Promise<FileRecord>;
+  /**
+   * files.download: the file's bytes, to whoever may see it at this moment (looked up afresh
+   * on every call), as a stream that fails rather than yield bytes that do not authenticate.
+   * A purged file is file_purged; a sensitive one is recorded as a reveal of its content
+   * before the stream is opened.
+   */
+  download(ctx: RequestContext, fileId: string): Promise<{ file: FileRecord; content: Readable }>;
   /** files.delete: a soft delete under If-Match; the blob stays until the retention purge. */
   delete(
     ctx: RequestContext,
@@ -162,6 +177,11 @@ async function attachableItem(
     });
   }
   return id;
+}
+
+/** Runs `work` in the caller's transaction when it is one, or in a new one. */
+function inTransaction<T>(db: Kysely<DB>, work: (tx: Tx) => Promise<T>): Promise<T> {
+  return db.isTransaction ? work(db as Tx) : db.transaction().execute(work);
 }
 
 /** Stands in for the trip of a file that does not exist, so its lookup still runs. */
@@ -346,6 +366,26 @@ export function createFilesService(
           };
         },
       });
+    },
+
+    async download(ctx, fileId) {
+      const userId = actingUser(ctx);
+      const row = await inTransaction(db, async (tx) => {
+        const found = (await readableFile(tx, userId, fileId, canDownloadFile)).row;
+        if (found.purged_at !== null) throw new ApiError('file_purged');
+        if (found.sensitive === true) {
+          // As a reveal of a sensitive field: what was read, never what it said (decision 0022).
+          await recordEvent(tx, ctx, {
+            action: 'reveal',
+            entityType: 'file',
+            entityId: found.id,
+            tripId: found.trip_id,
+            reason: 'content',
+          });
+        }
+        return found;
+      });
+      return { file: fileRecord(row), content: blobs.read(row.id, row.blob_key) };
     },
 
     async upload(ctx, tripId, form, file) {

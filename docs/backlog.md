@@ -218,7 +218,7 @@
 - [x] `files.delete` · Drop B · `DELETE /v1/files/{fileId}`
   - Soft-delete file; Blob kept until purge; Blob purged document_retention_days after deletion; trip_archived on archived trips (R29)
   - Roles: file owner, organizer, owner. If-Match: `version`. Idempotency: safe to repeat.
-- [ ] `files.download` · Drop B · `GET /v1/files/{fileId}/content`
+- [x] `files.download` · Drop B · `GET /v1/files/{fileId}/content`
   - Stream decrypted bytes; Permission re-checked each request; no-store; file_purged
   - Roles: owner, organizer, member, viewer. If-Match: `no`. Idempotency: safe to repeat.
 
