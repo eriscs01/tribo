@@ -83,3 +83,17 @@ export function replaceOverlay(db: ItemsDb, overlayId: string, content: OverlayC
     .returning(OVERLAY_COLUMNS)
     .executeTakeFirstOrThrow();
 }
+
+/** Stamps deleted_at and bumps the version; a new overlay may follow, the unique index counts live rows only. */
+export function softDeleteOverlay(db: ItemsDb, overlayId: string) {
+  return db
+    .updateTable('tribo.overlays')
+    .set((eb) => ({
+      deleted_at: sql<Date>`now()`,
+      version: eb('version', '+', 1),
+      updated_at: sql<Date>`now()`,
+    }))
+    .where('id', '=', overlayId)
+    .returning(OVERLAY_COLUMNS)
+    .executeTakeFirstOrThrow();
+}

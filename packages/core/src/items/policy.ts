@@ -63,3 +63,9 @@ export const canReadBoard = anyMember;
  */
 export const canGetOverlay = contributors;
 export const canPutOverlay = contributors;
+
+/**
+ * overlays.delete: every role removes its own overlay, a viewer's too, since one kept from
+ * before a demotion is theirs to clear even though they can no longer read or write it.
+ */
+export const canDeleteOverlay = anyMember;

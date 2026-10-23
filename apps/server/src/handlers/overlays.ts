@@ -36,5 +36,15 @@ export function overlayHandlers(overlays: OverlaysService): Handlers {
       );
       return reply.header('cache-control', 'private, no-store').send(overlayView(overlay));
     },
+
+    'overlays.delete': async (request, reply) => {
+      await overlays.delete(
+        requestContext(request),
+        pathId(request, 'itemId'),
+        request.body,
+        ifMatch(request),
+      );
+      return reply.code(204).send();
+    },
   };
 }

@@ -164,6 +164,7 @@ const files: FilesService = {
 const overlays: OverlaysService = {
   get: unused,
   put: unused,
+  delete: unused,
 };
 
 const expenses: ExpensesService = {

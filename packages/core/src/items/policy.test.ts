@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   canCreateItem,
+  canDeleteOverlay,
   canGetOverlay,
   canPutOverlay,
   canDeleteItem,
@@ -132,5 +133,13 @@ describe('canPutOverlay', () => {
     expect(canPutOverlay('organizer')).toBe(true);
     expect(canPutOverlay('member')).toBe(true);
     expect(canPutOverlay('viewer')).toBe(false);
+  });
+});
+
+describe('canDeleteOverlay', () => {
+  it('lets every trip role remove its own overlay, a viewer’s stale one included', () => {
+    for (const role of ['owner', 'organizer', 'member', 'viewer'] as const) {
+      expect(canDeleteOverlay(role)).toBe(true);
+    }
   });
 });

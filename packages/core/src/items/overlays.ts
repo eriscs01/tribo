@@ -1,8 +1,8 @@
 // The caller's own overlay on an item: a private note, reminder and checklist (Technical
 // design, "Who sees what"). An overlay belongs to one membership and is read and written by
 // it alone; every query takes the caller's membership, so no other member's can be reached.
-import { OverlayInput, type OverlayChecklistEntry } from '@tribo/contract';
-import { forModule, type DB } from '@tribo/db';
+import { NoBody, OverlayInput, type OverlayChecklistEntry } from '@tribo/contract';
+import { forModule, type DB, type TripRole } from '@tribo/db';
 import {
   actingUser,
   ApiError,
@@ -19,9 +19,10 @@ import {
   insertOverlay,
   lockOverlay,
   replaceOverlay,
+  softDeleteOverlay,
   type OverlayRow,
 } from './overlay-repo.js';
-import { canGetOverlay, canPutOverlay } from './policy.js';
+import { canDeleteOverlay, canGetOverlay, canPutOverlay } from './policy.js';
 
 /** The caller's overlay on one item. */
 export interface OverlayRecord {
@@ -63,9 +64,21 @@ export interface OverlaysService {
     body: unknown,
     precondition: OverlayPrecondition,
   ): Promise<OverlayRecord>;
+  /**
+   * overlays.delete: removes the caller's own overlay under If-Match = its version; a new
+   * one may follow. Every role may, a viewer's stale one included. The caller with no
+   * overlay, another member's never reached, is not_found, as is an item they cannot see.
+   */
+  delete(
+    ctx: RequestContext,
+    itemId: string,
+    body: unknown,
+    ifMatch: number | undefined,
+  ): Promise<void>;
 }
 
 const overlaysPut = writeOperation('overlays.put', OverlayInput);
+const overlaysDelete = writeOperation('overlays.delete', NoBody);
 
 function overlayRecord(row: OverlayRow): OverlayRecord {
   return {
@@ -97,7 +110,7 @@ async function actingOnItem(
   tx: Tx,
   ctx: RequestContext,
   itemId: string,
-  allowed: (role: Parameters<typeof canPutOverlay>[0]) => boolean,
+  allowed: (role: TripRole) => boolean,
 ) {
   const userId = actingUser(ctx);
   // The item first: one the caller cannot see does not exist for them, whatever their role.
@@ -167,6 +180,33 @@ export function createOverlaysService(db: Kysely<DB>, write: WritePath): Overlay
             version: row.version,
             snapshot: overlaySnapshot(row),
             result: overlayRecord(row),
+          };
+        },
+      });
+    },
+
+    delete(ctx, itemId, body, ifMatch) {
+      return write(ctx, {
+        operation: overlaysDelete,
+        target: { itemId },
+        body,
+        ifMatch,
+        authorize: (tx, c, target) => actingOnItem(tx, c, target.itemId, canDeleteOverlay),
+        load: async (tx, target, _input, { tripId, membership }) => {
+          const row = await lockOverlay(forModule(tx, 'items'), target.itemId, membership.id);
+          if (!row) throw new ApiError('not_found');
+          return { tripId, counter: row.version, row };
+        },
+        mutate: async (tx, _c, { row }, _input, { tripId }) => {
+          const removed = await softDeleteOverlay(forModule(tx, 'items'), row.id);
+          return {
+            action: 'delete',
+            aggregate: 'overlay',
+            entityId: removed.id,
+            tripId,
+            version: removed.version,
+            snapshot: overlaySnapshot(removed),
+            result: undefined,
           };
         },
       });

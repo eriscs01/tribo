@@ -259,3 +259,41 @@ describe('overlays.put over HTTP', () => {
     }
   });
 });
+
+describe('overlays.delete over HTTP', () => {
+  const remove = (w: World, caller: Caller, headers: Record<string, string> = {}) =>
+    app.inject({
+      method: 'DELETE',
+      url: overlayUrl(w),
+      cookies: caller.auth.cookies,
+      headers: { ...caller.auth.headers, ...headers },
+    });
+
+  it('answers 204 under If-Match, then 404, logging neither the note nor the reminder', async () => {
+    const w = await world();
+    await createOverlay(tdb.db, {
+      tripId: w.trip.tripId,
+      itemId: w.itemId,
+      membershipId: w.memberMembershipId,
+      note: NOTE,
+      reminderAt: new Date(REMINDER),
+      checklist: [{ text: CHECK, done: false }],
+    });
+    const missing = await remove(w, w.member);
+    expect(missing.statusCode).toBe(428);
+    expect(refusalLine(missing.headers['x-request-id'])).toMatchObject({
+      operationId: 'overlays.delete',
+      problem: 'if_match_required',
+    });
+    const removed = await remove(w, w.member, { 'if-match': '"1"' });
+    expect(removed.statusCode).toBe(204);
+    expect(removed.body).toBe('');
+    const again = await remove(w, w.member, { 'if-match': '"2"' });
+    expect(again.statusCode).toBe(404);
+    expect(refusalLine(again.headers['x-request-id'])).toMatchObject({
+      operationId: 'overlays.delete',
+      problem: 'not_found',
+    });
+    for (const res of [missing, removed, again]) logsNoOverlay(res.headers['x-request-id']);
+  });
+});

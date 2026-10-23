@@ -205,7 +205,7 @@ export const itemsOperations = [
     mcpApproval: false,
     mcpTool: null,
     notes: 'Remove own overlay; trip_archived on archived trips (R29)',
-    status: 'planned',
+    status: 'implemented',
   }),
   defineOperation({
     id: 'checklist.list',
