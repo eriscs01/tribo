@@ -30,6 +30,7 @@ export {
 export {
   createItemsService,
   createOverlaysService,
+  createTicketsService,
   createUnitsService,
   memberItems,
   type AllocationRecord,
@@ -39,6 +40,9 @@ export {
   type ItemTimeRecord,
   type OverlayRecord,
   type OverlaysService,
+  type BaggageRecord,
+  type TicketRecord,
+  type TicketsService,
   type UnitRecord,
   type UnitsService,
 } from './items/service.js';

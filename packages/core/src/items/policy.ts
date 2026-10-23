@@ -1,9 +1,12 @@
+import type { TripRole } from '@tribo/db';
 import {
   anyMember,
   contributors,
   itemManager,
+  organizersOrOwningMember,
   ownerOrOrganizer,
   organizers,
+  type Holder,
   type ItemEditor,
 } from '../roles.js';
 
@@ -69,3 +72,41 @@ export const canPutOverlay = contributors;
  * before a demotion is theirs to clear even though they can no longer read or write it.
  */
 export const canDeleteOverlay = anyMember;
+
+/** tickets.list: every role reads the tickets of an item it can see; the ticket number stays masked for all. */
+export const canListTicket = anyMember;
+
+/**
+ * tickets.create and tickets.delete: the item's owner and the trip's owners and organizers
+ * manage its tickets (G4); being a passenger or assigned is not enough, and never a viewer.
+ * The holder is where the caller stands on the item.
+ */
+export const canManageTickets = organizersOrOwningMember;
+
+/** What a caller may change of a ticket they can see. */
+export type TicketEdit = 'everything' | 'seat_and_baggage' | null;
+
+/**
+ * tickets.update (G4): whoever manages the item's tickets changes everything; a member
+ * changes only the seat and baggage of their own ticket, never who it is for or its number.
+ * `onItem` is where the caller stands on the ticket's item, `ownTicket` whether it is theirs.
+ */
+export function ticketEdit(onItem: Holder, ownTicket: boolean): TicketEdit {
+  if (canManageTickets(onItem)) return 'everything';
+  return organizersOrOwningMember({ role: onItem.role, owns: ownTicket })
+    ? 'seat_and_baggage'
+    : null;
+}
+
+/** What a caller gets for tickets.reveal: the number, a refusal by role, or the answer for a ticket that is not theirs. */
+export type RevealOutcome = 'allowed' | 'forbidden' | 'hidden';
+
+/**
+ * tickets.reveal: the trip's owners and organizers reveal any ticket's number, a member only
+ * their own (owning the item is not enough); a viewer never does, and is told so. A member's
+ * reach ends at their own ticket, so another's is as unknown to them as one that is not there.
+ */
+export function ticketReveal(role: TripRole, ownTicket: boolean): RevealOutcome {
+  if (organizersOrOwningMember({ role, owns: ownTicket })) return 'allowed';
+  return role === 'viewer' ? 'forbidden' : 'hidden';
+}

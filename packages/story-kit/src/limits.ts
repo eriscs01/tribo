@@ -15,7 +15,7 @@ export function dropLimits(op: Operation): string[] {
     limits.push(
       honoursIdempotencyKey(op)
         ? 'Honours Idempotency-Key: 24 h per caller, the same key with a different body is idempotency_key_reused.'
-        : `Takes no Idempotency-Key in 1a: only ${IDEMPOTENCY_KEY_OPERATIONS.join(' and ')} honour it; this create follows in 1b.`,
+        : `Takes no Idempotency-Key in 1a: only ${listed(IDEMPOTENCY_KEY_OPERATIONS)} honour it; this create follows in 1b.`,
     );
   }
   if (EXPENSE_WRITES.includes(op.id)) {
@@ -25,4 +25,11 @@ export function dropLimits(op: Operation): string[] {
     );
   }
   return limits;
+}
+
+/** "a", "a and b", "a, b and c". */
+function listed(names: readonly string[]): string {
+  return names.length < 2
+    ? names.join('')
+    : `${names.slice(0, -1).join(', ')} and ${names.at(-1) ?? ''}`;
 }

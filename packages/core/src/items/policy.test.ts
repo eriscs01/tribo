@@ -3,6 +3,10 @@ import {
   canCreateItem,
   canDeleteOverlay,
   canGetOverlay,
+  canListTicket,
+  canManageTickets,
+  ticketEdit,
+  ticketReveal,
   canPutOverlay,
   canDeleteItem,
   canListItems,
@@ -141,5 +145,48 @@ describe('canDeleteOverlay', () => {
     for (const role of ['owner', 'organizer', 'member', 'viewer'] as const) {
       expect(canDeleteOverlay(role)).toBe(true);
     }
+  });
+});
+
+describe('canListTicket', () => {
+  it('lets every trip role list the tickets of an item it may see', () => {
+    for (const role of ['owner', 'organizer', 'member', 'viewer'] as const) {
+      expect(canListTicket(role)).toBe(true);
+    }
+  });
+});
+
+describe('canManageTickets', () => {
+  it("lets owners and organizers manage any item's tickets, members only on items they own, never viewers", () => {
+    expect(canManageTickets(editor('owner'))).toBe(true);
+    expect(canManageTickets(editor('organizer'))).toBe(true);
+    expect(canManageTickets(editor('member', true))).toBe(true);
+    expect(canManageTickets(editor('member'))).toBe(false);
+    expect(canManageTickets(editor('member', false, true))).toBe(false);
+    expect(canManageTickets(editor('viewer', true))).toBe(false);
+  });
+});
+
+describe('ticketEdit', () => {
+  it('lets whoever manages the tickets change everything, a member their own seat and baggage only', () => {
+    expect(ticketEdit(editor('owner'), false)).toBe('everything');
+    expect(ticketEdit(editor('organizer'), false)).toBe('everything');
+    expect(ticketEdit(editor('member', true), false)).toBe('everything');
+    expect(ticketEdit(editor('member'), true)).toBe('seat_and_baggage');
+    expect(ticketEdit(editor('member', false, true), false)).toBeNull();
+    expect(ticketEdit(editor('member'), false)).toBeNull();
+    expect(ticketEdit(editor('viewer'), true)).toBeNull();
+    expect(ticketEdit(editor('viewer', true), true)).toBeNull();
+  });
+});
+
+describe('ticketReveal', () => {
+  it("lets owners and organizers reveal any ticket and a member their own, tells a viewer so, and hides another's from a member", () => {
+    expect(ticketReveal('owner', false)).toBe('allowed');
+    expect(ticketReveal('organizer', false)).toBe('allowed');
+    expect(ticketReveal('member', true)).toBe('allowed');
+    expect(ticketReveal('member', false)).toBe('hidden');
+    expect(ticketReveal('viewer', true)).toBe('forbidden');
+    expect(ticketReveal('viewer', false)).toBe('forbidden');
   });
 });

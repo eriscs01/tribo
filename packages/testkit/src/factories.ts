@@ -3,8 +3,9 @@
 // test a write path.
 import { createHash, randomBytes } from 'node:crypto';
 import { hash } from '@node-rs/argon2';
+import { seal, type Keyring } from '@tribo/crypto';
 import type { DB, TripRole, ValueOf } from '@tribo/db';
-import type { Kysely } from 'kysely';
+import { sql, type Kysely } from 'kysely';
 
 type Db = Kysely<DB>;
 export type { TripRole } from '@tribo/db';
@@ -271,6 +272,45 @@ export async function createOverlay(
   return id;
 }
 
+/**
+ * A passenger's ticket on an item, as tickets.create would write it: the ticket number sealed
+ * under the keys the service under test opens with; `deleted` removes it.
+ */
+export async function createTicket(
+  db: Db,
+  keys: Keyring,
+  init: {
+    tripId: string;
+    itemId: string;
+    membershipId: string;
+    seat?: string | null;
+    ticketNo?: string | null;
+    baggage?: { checked_kg?: number; cabin_kg?: number; add_ons?: string[] };
+    deleted?: boolean;
+  },
+): Promise<string> {
+  const { id } = await sql<{ id: string }>`SELECT uuidv7() AS id`
+    .execute(db)
+    .then((r) => r.rows[0] ?? { id: '' });
+  await db
+    .insertInto('tribo.tickets')
+    .values({
+      id,
+      trip_id: init.tripId,
+      item_id: init.itemId,
+      membership_id: init.membershipId,
+      seat: init.seat ?? null,
+      ticket_no_enc:
+        init.ticketNo === undefined || init.ticketNo === null
+          ? null
+          : seal(keys, { table: 'tickets', column: 'ticket_no_enc', rowId: id }, init.ticketNo),
+      baggage: JSON.stringify(init.baggage ?? {}),
+      deleted_at: init.deleted ? new Date() : null,
+    })
+    .execute();
+  return id;
+}
+
 /** One row of an item's assignment board, as items.assignments.replace would write it. */
 export async function addAllocation(
   db: Db,
@@ -419,7 +459,8 @@ type SoftDeletable =
   | 'tribo.units'
   | 'tribo.files'
   | 'tribo.expenses'
-  | 'tribo.overlays';
+  | 'tribo.overlays'
+  | 'tribo.tickets';
 
 /** Soft-deletes one root row (sets deleted_at), as the services' delete operations do. */
 export async function softDelete(db: Db, table: SoftDeletable, id: string): Promise<void> {

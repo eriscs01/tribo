@@ -44,7 +44,8 @@ Run one drop's tests with `pnpm vitest run --tags-filter drop-b`.
 Slice 1a ships some operations narrower than their CSV row. Each limit is written into the
 stories it binds, in the backlog and in the scaffolded tests:
 
-- **Idempotency-Key** is honoured only on `expenses.create` and `files.upload`. The other
+- **Idempotency-Key** is honoured only on `expenses.create`, `files.upload` and
+  `tickets.create`. The other
   creates the CSV marks `key` take no Idempotency-Key in 1a; they get it in 1b.
 - **FX:** expenses are in the trip currency only, so `fx_rate` = 1.
 - **Splits** are equal or itemised only; weight splits come after the trip.

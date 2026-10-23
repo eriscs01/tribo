@@ -62,6 +62,7 @@ export {
 export type { AcceptedInvite } from './join.js';
 export { createMembersService, type MembersService } from './members.js';
 export {
+  activeMembershipSet,
   allActiveMemberships,
   callerMembership,
   licensedMemberships,

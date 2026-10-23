@@ -18,6 +18,7 @@ import {
   type PersonRecord,
 } from '../library/service.js';
 import {
+  activeMembershipIds,
   countActiveMemberships,
   findActiveMembership,
   findMembershipPersons,
@@ -55,6 +56,17 @@ export async function allActiveMemberships(
 ): Promise<boolean> {
   const unique = [...new Set(membershipIds)];
   return (await countActiveMemberships(forModule(db, 'trips'), tripId, unique)) === unique.length;
+}
+
+/** Which of these are active memberships of the trip: removed and foreign ones are left out. */
+export async function activeMembershipSet(
+  db: Kysely<DB>,
+  tripId: string,
+  membershipIds: readonly string[],
+): Promise<Set<string>> {
+  return new Set(
+    await activeMembershipIds(forModule(db, 'trips'), tripId, [...new Set(membershipIds)]),
+  );
 }
 
 /**

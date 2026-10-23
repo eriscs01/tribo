@@ -172,7 +172,7 @@ describe('invites.create', () => {
     expect(code).toBe('trip_archived');
   });
 
-  it('Takes no Idempotency-Key in 1a: only expenses.create and files.upload honour it; this create follows in 1b.', async () => {
+  it('Takes no Idempotency-Key in 1a: only expenses.create, files.upload and tickets.create honour it; this create follows in 1b.', async () => {
     const w = await inviteWorld(tdb);
     const body = { role: 'member', expiresAt: tomorrow() };
     const ctx = as(w.owner);

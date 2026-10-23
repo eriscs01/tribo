@@ -23,6 +23,7 @@ import type {
   DashboardService,
   ExpensesService,
   OverlaysService,
+  TicketsService,
   MyTasksService,
   FilesService,
   LibraryService,
@@ -131,6 +132,14 @@ const items: ItemsService = {
   rsvp: unused,
   reveal: unused,
 };
+const tickets: TicketsService = {
+  list: unused,
+  create: unused,
+  update: unused,
+  delete: unused,
+  reveal: unused,
+};
+
 const units: UnitsService = {
   list: unused,
   create: unused,
@@ -210,6 +219,7 @@ async function server(overrides: Partial<ServerDeps> = {}) {
         dashboard,
         myTasks,
         overlays,
+        tickets,
         units,
         library,
         files,

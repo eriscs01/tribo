@@ -7,7 +7,11 @@ import type { Operation } from './operation.js';
  */
 
 /** The only creates that honour Idempotency-Key in 1a; the others the CSV marks `key` follow in 1b. */
-export const IDEMPOTENCY_KEY_OPERATIONS: readonly string[] = ['expenses.create', 'files.upload'];
+export const IDEMPOTENCY_KEY_OPERATIONS: readonly string[] = [
+  'expenses.create',
+  'files.upload',
+  'tickets.create',
+];
 
 /** Writes that set an expense's amount and shares. */
 export const EXPENSE_WRITES: readonly string[] = ['expenses.create', 'expenses.update'];

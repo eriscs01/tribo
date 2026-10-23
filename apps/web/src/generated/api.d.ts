@@ -1958,6 +1958,11 @@ export interface components {
             token: string;
             newPassword: components["schemas"]["NewPassword"];
         };
+        Baggage: {
+            checkedKg: number | null;
+            cabinKg: number | null;
+            addOns: string[];
+        };
         Contacts: {
             phone?: string;
             /** Format: email */
@@ -2489,6 +2494,49 @@ export interface components {
         };
         /** @enum {string} */
         SplitMethod: "equal" | "weight" | "itemised";
+        Ticket: {
+            id: string;
+            itemId: string;
+            passenger: string;
+            seat: string | null;
+            ticketNo: components["schemas"]["MaskedValue"] | null;
+            baggage: components["schemas"]["Baggage"];
+            version: number;
+            createdAt: components["schemas"]["Instant"];
+            updatedAt: components["schemas"]["Instant"];
+        };
+        TicketInput: {
+            passenger: string;
+            seat?: string | null;
+            ticketNo?: string | null;
+            baggage?: {
+                checkedKg?: number | null;
+                cabinKg?: number | null;
+                addOns?: string[];
+            };
+        };
+        TicketPage: {
+            items: components["schemas"]["Ticket"][];
+            nextCursor: string | null;
+        };
+        TicketPatch: {
+            passenger?: string;
+            seat?: string | null;
+            ticketNo?: (components["schemas"]["MaskedValue"] | string) | null;
+            baggage?: {
+                checkedKg?: number | null;
+                cabinKg?: number | null;
+                addOns?: string[];
+            };
+        };
+        TicketReveal: {
+            ticketNo?: string | null;
+        };
+        /** @enum {string} */
+        TicketRevealField: "ticketNo";
+        TicketRevealInput: {
+            fields: components["schemas"]["TicketRevealField"][];
+        };
         TimeInput: components["schemas"]["WallClockTime"] | components["schemas"]["AllDay"];
         TimeZone: string;
         TotpCode: string;
@@ -4743,7 +4791,10 @@ export interface operations {
     };
     "tickets.list": {
         parameters: {
-            query?: never;
+            query?: {
+                limit?: number;
+                cursor?: string;
+            };
             header?: never;
             path: {
                 itemId: string;
@@ -4752,13 +4803,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["TicketPage"];
                 };
             };
             /** @description Error */
@@ -4775,17 +4826,35 @@ export interface operations {
     "tickets.create": {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Replays the stored response for 24 hours per caller */
+                "Idempotency-Key"?: string;
+            };
             path: {
                 itemId: string;
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TicketInput"];
+            };
+        };
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            201: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ticket"];
+                };
+            };
+            /** @description Too many writes in this window (rate_limited) */
+            429: {
+                headers: {
+                    /** @description Seconds until the window resets */
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -6066,9 +6135,18 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description No content */
+            204: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too many writes in this window (rate_limited) */
+            429: {
+                headers: {
+                    /** @description Seconds until the window resets */
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -6098,11 +6176,26 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TicketPatch"];
+            };
+        };
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            200: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ticket"];
+                };
+            };
+            /** @description Too many writes in this window (rate_limited) */
+            429: {
+                headers: {
+                    /** @description Seconds until the window resets */
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -6129,11 +6222,26 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TicketRevealInput"];
+            };
+        };
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            201: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TicketReveal"];
+                };
+            };
+            /** @description Too many writes in this window (rate_limited) */
+            429: {
+                headers: {
+                    /** @description Seconds until the window resets */
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {
