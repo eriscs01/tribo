@@ -389,14 +389,15 @@ jobs:
         if: needs.changes.outputs.code != 'false'
         run: cat .trivy-db/metadata.json
       # Only an image that passed the scan is passed on. gzip -1: fast, and the layers are
-      # compressed already. Its id goes into the run summary, for Publish's to be compared with.
+      # compressed already. Its id goes into the log and the run summary, for Publish's to be
+      # compared with (the summary shows only to signed-in viewers; the log reaches `gh run view`).
       - name: Save the scanned image
         if: needs.changes.outputs.code != 'false'
         env:
           IMAGE: ghcr.io/eriscs01/tribo-${{ matrix.image }}:ci
         run: |
           docker save "$IMAGE" | gzip -1 >image.tar.gz
-          echo "Scanned \`$IMAGE\`: id \`$(docker image inspect --format '{{.Id}}' "$IMAGE")\`" >>"$GITHUB_STEP_SUMMARY"
+          echo "Scanned \`$IMAGE\`: id \`$(docker image inspect --format '{{.Id}}' "$IMAGE")\`" | tee -a "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: needs.changes.outputs.code != 'false'
         with:
@@ -564,9 +565,11 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      # The digests go into the run summary, for the release notes and the runbook's table, beside
-      # each image's id, which matches the one the scan job recorded.
+      # The digests go into the log and the run summary, for the release notes and the runbook's
+      # table, beside each image's id, which matches the one the scan job recorded. Bash with
+      # pipefail, so a failed push fails the step although its output goes through tee.
       - name: Push the scanned images
+        shell: bash
         env:
           TAG: ${{ github.ref_name }}
         run: |
@@ -581,5 +584,5 @@ jobs:
             digest=$(grep -o 'digest: sha256:[0-9a-f]*' push.log | cut -d' ' -f2)
             [ -n "$digest" ]
             id=$(docker image inspect --format '{{.Id}}' "$REGISTRY/tribo-$image:$TAG")
-            echo "| $REGISTRY/tribo-$image:$TAG | \`$id\` | \`$digest\` |" >>"$GITHUB_STEP_SUMMARY"
+            echo "| $REGISTRY/tribo-$image:$TAG | \`$id\` | \`$digest\` |" | tee -a "$GITHUB_STEP_SUMMARY"
           done
