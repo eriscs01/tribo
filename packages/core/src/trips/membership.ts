@@ -1,12 +1,9 @@
 // What the trips module's services share about memberships: who the caller is inside a trip,
 // the role check every trips-module operation makes, and how a membership is recorded and
 // shown. Private to the module; service.ts, members.ts and invites.ts build on it.
-import { Uuid } from '@tribo/contract';
 import { forModule, type DB } from '@tribo/db';
 import {
   ApiError,
-  decodeCursor,
-  invalidCursor,
   type Change,
   type RequestContext,
   type Tx,
@@ -111,20 +108,6 @@ export async function activePlaceholder(
   return { membership, person };
 }
 
-/** A cursor over rows in id order (memberships, invites); anything else is refused before SQL. */
-export function idCursor(cursor: string): string {
-  const [id] = decodeCursor(cursor, 1);
-  const key = Uuid.safeParse(id);
-  if (!key.success) throw invalidCursor();
-  return key.data;
-}
-
-/** Writes need an account behind them; only system work runs without one. */
-export function actingUser(ctx: RequestContext): string {
-  if (ctx.userId === null) throw new ApiError('unauthenticated');
-  return ctx.userId;
-}
-
 /** A membership with the person behind it, as members.list shows it. */
 export interface MemberRecord {
   id: string;
@@ -186,7 +169,7 @@ export function membershipWrite(action: MembershipAction, row: MembershipRow) {
 }
 
 /** A membership leaving or rejoining its trip, and the account acting on it. */
-interface MemberMove {
+export interface MemberMove {
   tripId: string;
   membershipId: string;
   userId: string;

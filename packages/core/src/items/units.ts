@@ -14,7 +14,9 @@ import {
 import { forModule, type DB, type ValueOf } from '@tribo/db';
 import {
   ApiError,
-  encodeCursor,
+  onConstraint,
+  page,
+  uuidCursor,
   type RequestContext,
   type Tx,
   type WritePath,
@@ -29,7 +31,6 @@ import { writeOperation } from '../write-operation.js';
 import {
   actingEditor,
   boardSnapshot,
-  idCursor,
   invalid,
   lockedItem,
   moneyView,
@@ -147,16 +148,14 @@ export function createUnitsService(db: Kysely<DB>, write: WritePath): UnitsServi
     async list(userId, itemId, query) {
       const { row: item, viewer } = await visibleItem(db, userId, itemId);
       if (!canListUnit(viewer.role)) throw new ApiError('forbidden');
-      // One extra row says whether another page follows.
       const rows = await listUnits(forModule(db, 'items'), itemId, {
         limit: query.limit + 1,
-        after: query.cursor === undefined ? null : idCursor(query.cursor),
+        after: query.cursor === undefined ? null : uuidCursor(query.cursor),
       });
-      const units = rows.slice(0, query.limit).map((row) => unitRecord(row, item, viewer));
-      const last = units.at(-1);
+      const shown = page(rows, query.limit, (row) => [row.id]);
       return {
-        items: units,
-        nextCursor: rows.length > query.limit && last ? encodeCursor([last.id]) : null,
+        items: shown.rows.map((row) => unitRecord(row, item, viewer)),
+        nextCursor: shown.nextCursor,
       };
     },
 
@@ -400,19 +399,12 @@ function unmaskedRate<T extends object>(rate: T | MaskedValue | null): T | null 
 }
 
 /** A label another live unit of the item holds is the caller's to change, not a conflict. */
-async function uniqueLabel<T>(write: () => Promise<T>): Promise<T> {
-  try {
-    return await write();
-  } catch (error) {
-    if (
-      error instanceof Error &&
-      'constraint' in error &&
-      error.constraint === 'units_item_label_key'
-    ) {
-      throw invalid('/label', 'another unit of this item has this label');
-    }
-    throw error;
-  }
+function uniqueLabel<T>(write: () => Promise<T>): Promise<T> {
+  return write().catch((error: unknown) =>
+    onConstraint(error, {
+      units_item_label_key: () => invalid('/label', 'another unit of this item has this label'),
+    }),
+  );
 }
 
 /** Every stored field of the unit (Audit and versioning). */

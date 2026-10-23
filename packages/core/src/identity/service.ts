@@ -9,7 +9,14 @@ import {
 } from '@tribo/contract';
 import { newToken, open, seal, tokenHash, type FieldRef, type Keyring } from '@tribo/crypto';
 import { forModule, type DB, type ValueOf } from '@tribo/db';
-import { ApiError, validate, type RequestContext, type Tx, type WritePath } from '@tribo/platform';
+import {
+  ApiError,
+  onConstraint,
+  validate,
+  type RequestContext,
+  type Tx,
+  type WritePath,
+} from '@tribo/platform';
 import type { Kysely } from 'kysely';
 import { recordEvent, recordWrite } from '../audit/service.js';
 import { createAccountPerson } from '../library/service.js';
@@ -421,19 +428,10 @@ export function createIdentityService(
 }
 
 /** Two concurrent creates of one username: the unique index decides, as username_taken. */
-async function uniqueUsername<T>(insert: () => Promise<T>): Promise<T> {
-  try {
-    return await insert();
-  } catch (error) {
-    if (
-      error instanceof Error &&
-      'constraint' in error &&
-      error.constraint === 'users_username_key'
-    ) {
-      throw new ApiError('username_taken');
-    }
-    throw error;
-  }
+function uniqueUsername<T>(insert: () => Promise<T>): Promise<T> {
+  return insert().catch((error: unknown) =>
+    onConstraint(error, { users_username_key: () => new ApiError('username_taken') }),
+  );
 }
 
 /** What history shows of an account: never a hash, a secret or login bookkeeping. */

@@ -1,3 +1,4 @@
+import { Uuid } from '@tribo/contract';
 import { ApiError } from './errors.js';
 
 /**
@@ -27,4 +28,29 @@ export function invalidCursor(): ApiError {
   return new ApiError('validation_failed', {
     errors: [{ path: '/cursor', message: 'not a cursor from this list' }],
   });
+}
+
+/** A cursor over rows in id order; anything but a UUID is refused before it reaches SQL. */
+export function uuidCursor(cursor: string): string {
+  const [id] = decodeCursor(cursor, 1);
+  const key = Uuid.safeParse(id);
+  if (!key.success) throw invalidCursor();
+  return key.data;
+}
+
+/**
+ * One page of a keyset read that asked for `limit + 1` rows: one extra row says whether
+ * another page follows, and the cursor names the last row shown.
+ */
+export function page<R>(
+  rows: readonly R[],
+  limit: number,
+  keyOf: (row: R) => readonly string[],
+): { rows: R[]; nextCursor: string | null } {
+  const shown = rows.slice(0, limit);
+  const last = shown.at(-1);
+  return {
+    rows: shown,
+    nextCursor: rows.length > limit && last !== undefined ? encodeCursor(keyOf(last)) : null,
+  };
 }

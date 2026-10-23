@@ -13,8 +13,10 @@ import {
 import { newToken, tokenHash } from '@tribo/crypto';
 import { forModule, type DB } from '@tribo/db';
 import {
+  actingUser,
   ApiError,
-  encodeCursor,
+  page,
+  uuidCursor,
   validate,
   type Loaded,
   type RequestContext,
@@ -27,13 +29,7 @@ import type { ClientInfo } from '../identity/service.js';
 import { memberPersons } from '../library/service.js';
 import { writeOperation } from '../write-operation.js';
 import { acceptInvite, type AcceptedInvite } from './join.js';
-import {
-  actingUser,
-  activePlaceholder,
-  idCursor,
-  requireRole,
-  type MemberItems,
-} from './membership.js';
+import { activePlaceholder, requireRole, type MemberItems } from './membership.js';
 import { canManageInvites, inviteStatus } from './policy.js';
 import {
   findLiveInvite,
@@ -124,19 +120,17 @@ export function createInvitesService(
   return {
     accept: acceptInvite(db, memberItems),
 
-    async list(userId, tripId, page) {
+    async list(userId, tripId, query) {
       await requireRole(db, userId, tripId, canManageInvites);
-      // One extra row says whether another page follows.
       const rows = await listInvites(forModule(db, 'trips'), tripId, {
-        limit: page.limit + 1,
-        after: page.cursor === undefined ? null : idCursor(page.cursor),
+        limit: query.limit + 1,
+        after: query.cursor === undefined ? null : uuidCursor(query.cursor),
       });
       const now = new Date();
-      const items = rows.slice(0, page.limit).map((row) => inviteRecord(row, now));
-      const last = items.at(-1);
+      const shown = page(rows, query.limit, (row) => [row.id]);
       return {
-        items,
-        nextCursor: rows.length > page.limit && last ? encodeCursor([last.id]) : null,
+        items: shown.rows.map((row) => inviteRecord(row, now)),
+        nextCursor: shown.nextCursor,
       };
     },
 

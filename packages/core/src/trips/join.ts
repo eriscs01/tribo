@@ -4,6 +4,7 @@ import { InviteAcceptInput } from '@tribo/contract';
 import { tokenHash } from '@tribo/crypto';
 import { forModule, type DB } from '@tribo/db';
 import {
+  actingUser,
   ApiError,
   validate,
   type RequestContext,
@@ -240,8 +241,8 @@ async function join(
 
 /** The signed-in caller as a joiner; every account has its own person. */
 async function signedInJoiner(tx: Tx, ctx: RequestContext): Promise<Joiner> {
-  if (ctx.userId === null) throw new ApiError('unauthenticated');
-  const personId = await accountPersonId(tx, ctx.userId);
+  const userId = actingUser(ctx);
+  const personId = await accountPersonId(tx, userId);
   if (personId === null) throw new ApiError('forbidden');
-  return { userId: ctx.userId, personId, username: null };
+  return { userId, personId, username: null };
 }

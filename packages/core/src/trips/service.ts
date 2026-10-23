@@ -9,10 +9,12 @@ import {
 } from '@tribo/contract';
 import { forModule, type DB, type ValueOf } from '@tribo/db';
 import {
+  actingUser,
   ApiError,
   decodeCursor,
-  encodeCursor,
   invalidCursor,
+  onConstraint,
+  page,
   type RequestContext,
   type Tx,
   type WritePath,
@@ -21,7 +23,7 @@ import type { Kysely } from 'kysely';
 import { moneyRecorded } from '../expenses/service.js';
 import { accountPersonId } from '../library/service.js';
 import { writeOperation } from '../write-operation.js';
-import { actingUser, membershipSnapshot, requireRole } from './membership.js';
+import { membershipSnapshot, requireRole } from './membership.js';
 import {
   canDeleteTrip,
   canGetTrip,
@@ -59,6 +61,7 @@ export {
   licensedMemberships,
   type CallerMembership,
   type MemberItems,
+  type MemberMove,
   type MemberRecord,
 } from './membership.js';
 
@@ -121,24 +124,20 @@ const tripsDelete = writeOperation('trips.delete', NoBody);
 /** `write` is core's write path (writePath in write-path.ts), passed in to keep imports acyclic. */
 export function createTripsService(db: Kysely<DB>, write: WritePath): TripsService {
   return {
-    async list(userId, page) {
-      const after = page.cursor === undefined ? null : tripCursor(page.cursor);
-      // One extra row says whether another page follows.
+    async list(userId, query) {
+      const after = query.cursor === undefined ? null : tripCursor(query.cursor);
       const rows = await listMemberTrips(forModule(db, 'trips'), userId, {
-        limit: page.limit + 1,
+        limit: query.limit + 1,
         after,
       });
-      const shown = rows.slice(0, page.limit);
+      const shown = page(rows, query.limit, (r) => [r.start_date, r.id]);
       const destinations = await listDestinations(
         forModule(db, 'trips'),
-        shown.map((r) => r.id),
+        shown.rows.map((r) => r.id),
       );
-      const items = shown.map((r) => tripRecord(r, destinations.get(r.id) ?? []));
-      const last = items.at(-1);
       return {
-        items,
-        nextCursor:
-          rows.length > page.limit && last ? encodeCursor([last.startDate, last.id]) : null,
+        items: shown.rows.map((r) => tripRecord(r, destinations.get(r.id) ?? [])),
+        nextCursor: shown.nextCursor,
       };
     },
 
@@ -298,21 +297,15 @@ async function patchedFields(tx: Tx, row: TripRow, patch: TripPatch): Promise<Tr
 }
 
 /** A destination must name a place in the library; the foreign key is what knows. */
-async function placesChecked(write: () => Promise<void>): Promise<void> {
-  try {
-    await write();
-  } catch (error) {
-    if (
-      error instanceof Error &&
-      'constraint' in error &&
-      error.constraint === 'trip_destinations_place_id_fkey'
-    ) {
-      throw new ApiError('validation_failed', {
-        errors: [{ path: '/destinations', message: 'not a place in the library' }],
-      });
-    }
-    throw error;
-  }
+function placesChecked(write: () => Promise<void>): Promise<void> {
+  return write().catch((error: unknown) =>
+    onConstraint(error, {
+      trip_destinations_place_id_fkey: () =>
+        new ApiError('validation_failed', {
+          errors: [{ path: '/destinations', message: 'not a place in the library' }],
+        }),
+    }),
+  );
 }
 
 /** A trips.list cursor's sort key; anything else is refused before it reaches SQL. */

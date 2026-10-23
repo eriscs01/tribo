@@ -11,8 +11,10 @@ import {
 import type { Keyring } from '@tribo/crypto';
 import { forModule, type DB } from '@tribo/db';
 import {
+  actingUser,
   ApiError,
-  encodeCursor,
+  page,
+  uuidCursor,
   type RequestContext,
   type Tx,
   type WritePath,
@@ -27,9 +29,7 @@ import {
 } from '../library/service.js';
 import { writeOperation } from '../write-operation.js';
 import {
-  actingUser,
   callerMembership,
-  idCursor,
   memberRecord,
   membershipChange,
   membershipWrite,
@@ -123,24 +123,21 @@ export function createMembersService(
   memberItems: MemberItems,
 ): MembersService {
   return {
-    async list(userId, tripId, page) {
+    async list(userId, tripId, query) {
       await requireRole(db, userId, tripId, canListMembers);
-      const after = page.cursor === undefined ? null : idCursor(page.cursor);
-      // One extra row says whether another page follows.
+      const after = query.cursor === undefined ? null : uuidCursor(query.cursor);
       const rows = await listMemberships(forModule(db, 'trips'), tripId, {
-        limit: page.limit + 1,
+        limit: query.limit + 1,
         after,
       });
-      const shown = rows.slice(0, page.limit);
+      const shown = page(rows, query.limit, (r) => [r.id]);
       const persons = await memberPersons(
         db,
-        shown.map((r) => r.person_id),
+        shown.rows.map((r) => r.person_id),
       );
-      const items = shown.map((r) => memberRecord(r, persons));
-      const last = items.at(-1);
       return {
-        items,
-        nextCursor: rows.length > page.limit && last ? encodeCursor([last.id]) : null,
+        items: shown.rows.map((r) => memberRecord(r, persons)),
+        nextCursor: shown.nextCursor,
       };
     },
 
