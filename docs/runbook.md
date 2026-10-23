@@ -288,6 +288,7 @@ Pushing a tag `vX.Y.Z` on `main` runs CI. Once every job passes, its "Publish" j
 | -------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `v0.1.0` | 2026-10-18 | First release: Sprint 0 foundation (tasks 1–15 and 19), first images published to GHCR                                                                                                     |
 | `v0.2.0` | 2026-10-18 | Tasks 17–18, secrets fix, Docker minimums; first deploy on the reference host; walking skeleton checked by hand on 2026-10-18; first nightly backup and restore check passed on 2026-10-18 |
+| `v0.3.0` | 2026-10-23 | Drop A of slice 1a: 46 REST operations; rate limits; R1 fixes; migrations 0002–0003; fresh reference host                                                                                  |
 
 ## Backups and restore (steps 10–11)
 
