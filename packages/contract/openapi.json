@@ -7654,12 +7654,31 @@
           }
         ],
         "responses": {
-          "501": {
-            "description": "Registered but not implemented yet (not_implemented)",
+          "201": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileMetadata"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many writes in this window (rate_limited)",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the window resets",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
                 }
               }
             }
@@ -7676,7 +7695,7 @@
           }
         },
         "x-tribo": {
-          "status": "planned",
+          "status": "implemented",
           "slice": "1a",
           "drop": "B",
           "roles": "owner, organizer, member",
@@ -7706,7 +7725,39 @@
               "maxLength": 255
             }
           }
-        ]
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "$ref": "#/components/schemas/FileKind"
+                  },
+                  "visibility": {
+                    "default": "shared",
+                    "$ref": "#/components/schemas/FileVisibility"
+                  },
+                  "itemId": {
+                    "type": "string",
+                    "pattern": "^itm_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+                  },
+                  "file": {
+                    "type": "string",
+                    "contentMediaType": "application/octet-stream"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "file"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
       }
     },
     "/v1/trips/{tripId}/history": {
@@ -9348,6 +9399,124 @@
           "approval_not_pending",
           "internal_error",
           "not_implemented"
+        ]
+      },
+      "FileKind": {
+        "type": "string",
+        "enum": [
+          "id",
+          "ticket",
+          "voucher",
+          "photo",
+          "other"
+        ]
+      },
+      "FileMetadata": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^fil_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+          },
+          "tripId": {
+            "type": "string",
+            "pattern": "^trp_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+          },
+          "itemId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^itm_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ownerMembershipId": {
+            "type": "string",
+            "pattern": "^mem_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/FileKind"
+          },
+          "sensitive": {
+            "type": "boolean"
+          },
+          "visibility": {
+            "$ref": "#/components/schemas/FileVisibility"
+          },
+          "filename": {
+            "type": "string"
+          },
+          "mimeType": {
+            "$ref": "#/components/schemas/FileMimeType"
+          },
+          "sizeBytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "createdAt": {
+            "$ref": "#/components/schemas/Instant"
+          },
+          "updatedAt": {
+            "$ref": "#/components/schemas/Instant"
+          },
+          "purgedAt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Instant"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "tripId",
+          "itemId",
+          "ownerMembershipId",
+          "kind",
+          "sensitive",
+          "visibility",
+          "filename",
+          "mimeType",
+          "sizeBytes",
+          "sha256",
+          "version",
+          "createdAt",
+          "updatedAt",
+          "purgedAt"
+        ],
+        "additionalProperties": false
+      },
+      "FileMimeType": {
+        "type": "string",
+        "enum": [
+          "application/pdf",
+          "image/jpeg",
+          "image/png",
+          "image/heic",
+          "image/webp"
+        ]
+      },
+      "FileVisibility": {
+        "type": "string",
+        "enum": [
+          "shared",
+          "private"
         ]
       },
       "Instant": {

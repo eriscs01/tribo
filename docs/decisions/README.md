@@ -61,3 +61,4 @@ fixed.
 | [0018](0018-file-envelope.md)                         | 23 Oct 2026 | The file envelope: chunks of 64 KiB, AAD bound to file, index and end    | accepted |
 | [0019](0019-blob-store-and-upload-ceiling.md)         | 23 Oct 2026 | The blob store and the upload ceiling                                    | accepted |
 | [0020](0020-daily-job-runner.md)                      | 23 Oct 2026 | The daily job runner                                                     | accepted |
+| [0021](0021-file-uploads.md)                          | 23 Oct 2026 | File uploads: the form, the type allowlist, names and no orphan blobs    | accepted |

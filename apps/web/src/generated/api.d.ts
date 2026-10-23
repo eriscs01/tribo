@@ -1992,6 +1992,29 @@ export interface components {
         };
         /** @enum {string} */
         ErrorCode: "unauthenticated" | "mfa_required" | "forbidden" | "not_found" | "validation_failed" | "if_match_required" | "version_conflict" | "idempotency_key_reused" | "capacity_exceeded" | "room_double_booked" | "driver_taken" | "invalid_transition" | "masked_field_write" | "rate_limited" | "file_too_large" | "file_type_not_allowed" | "file_purged" | "username_taken" | "invite_invalid" | "already_member" | "claim_conflict" | "person_has_account" | "owner_transfer_required" | "reset_link_used" | "currency_locked" | "trip_archived" | "trip_retired" | "approval_required" | "approval_not_pending" | "internal_error" | "not_implemented";
+        /** @enum {string} */
+        FileKind: "id" | "ticket" | "voucher" | "photo" | "other";
+        FileMetadata: {
+            id: string;
+            tripId: string;
+            itemId: string | null;
+            ownerMembershipId: string;
+            kind: components["schemas"]["FileKind"];
+            sensitive: boolean;
+            visibility: components["schemas"]["FileVisibility"];
+            filename: string;
+            mimeType: components["schemas"]["FileMimeType"];
+            sizeBytes: number;
+            sha256: string;
+            version: number;
+            createdAt: components["schemas"]["Instant"];
+            updatedAt: components["schemas"]["Instant"];
+            purgedAt: components["schemas"]["Instant"] | null;
+        };
+        /** @enum {string} */
+        FileMimeType: "application/pdf" | "image/jpeg" | "image/png" | "image/heic" | "image/webp";
+        /** @enum {string} */
+        FileVisibility: "shared" | "private";
         /** Format: date-time */
         Instant: string;
         Invite: {
@@ -6441,11 +6464,32 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    kind: components["schemas"]["FileKind"];
+                    /** @default shared */
+                    visibility?: components["schemas"]["FileVisibility"];
+                    itemId?: string;
+                    file: string;
+                };
+            };
+        };
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            201: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileMetadata"];
+                };
+            };
+            /** @description Too many writes in this window (rate_limited) */
+            429: {
+                headers: {
+                    /** @description Seconds until the window resets */
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {

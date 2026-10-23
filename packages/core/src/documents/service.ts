@@ -1,1 +1,229 @@
+// The documents module: files of a trip, their metadata in tribo.files and their bytes in
+// the blob store (Technical design, "Documents, encryption and retention").
+import { pipeline as pipe, type Readable } from 'node:stream';
+import { decodeTypeId, FileUploadForm, FileUploadInput, ID_PREFIX } from '@tribo/contract';
+import { forModule, type DB, type ValueOf } from '@tribo/db';
+import {
+  actingUser,
+  ApiError,
+  validate,
+  type RequestContext,
+  type Tx,
+  type WritePath,
+} from '@tribo/platform';
+import type { Kysely } from 'kysely';
+import { visibleItemTrip } from '../items/service.js';
+import { callerMembership, memberTrip, type CallerMembership } from '../trips/service.js';
+import { writeOperation } from '../write-operation.js';
+import type { BlobStore, StoredBlob } from './blobs.js';
+import { canUploadFile } from './policy.js';
+import { findFile, insertFile, newFileId, type FileRow } from './repo.js';
+import { displayName, sniffer, typeRefusal } from './sniff.js';
+
 export { createBlobStore, type BlobStore, type StoredBlob } from './blobs.js';
+
+/** A file's metadata as the documents service answers it. */
+export interface FileRecord {
+  id: string;
+  tripId: string;
+  itemId: string | null;
+  ownerMembershipId: string;
+  kind: ValueOf<'tribo.files.kind'>;
+  sensitive: boolean;
+  visibility: ValueOf<'tribo.files.visibility'>;
+  filename: string;
+  mimeType: ValueOf<'tribo.files.mime_type'>;
+  sizeBytes: number;
+  /** Of the plaintext, in hex. */
+  sha256: string;
+  version: number;
+  createdAt: Date;
+  updatedAt: Date;
+  purgedAt: Date | null;
+}
+
+/** The file part of an upload as the adapter receives it: what the client claims, and the bytes. */
+export interface UploadPart {
+  /** The client's name for it; only a label, never trusted for a path or a type. */
+  filename: string;
+  /** The part's declared Content-Type; refused only when the bytes contradict it. */
+  contentType: string;
+  content: Readable;
+}
+
+export interface FilesService {
+  /**
+   * files.upload: checks the form, the caller and the item before reading a byte, then
+   * streams the bytes through the type sniffer into the blob store and records the row.
+   * A write that does not commit (a refusal, a replayed Idempotency-Key) removes the blob.
+   */
+  upload(ctx: RequestContext, tripId: string, form: unknown, file: UploadPart): Promise<FileRecord>;
+}
+
+const filesUpload = writeOperation('files.upload', FileUploadInput);
+
+function fileRecord(row: FileRow): FileRecord {
+  return {
+    id: row.id,
+    tripId: row.trip_id,
+    itemId: row.item_id,
+    ownerMembershipId: row.owner_membership_id,
+    kind: row.kind as FileRecord['kind'],
+    sensitive: row.sensitive === true,
+    visibility: row.visibility as FileRecord['visibility'],
+    filename: row.filename,
+    mimeType: row.mime_type as FileRecord['mimeType'],
+    sizeBytes: Number(row.size_bytes),
+    sha256: row.sha256.toString('hex'),
+    version: row.version,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    purgedAt: row.purged_at,
+  };
+}
+
+/** The file aggregate's snapshot: its metadata as restore would copy it (never the blob key). */
+function fileSnapshot(row: FileRow) {
+  return {
+    tripId: row.trip_id,
+    itemId: row.item_id,
+    ownerMembershipId: row.owner_membership_id,
+    kind: row.kind,
+    visibility: row.visibility,
+    filename: row.filename,
+    mimeType: row.mime_type,
+    sizeBytes: Number(row.size_bytes),
+    sha256: row.sha256.toString('hex'),
+  };
+}
+
+/**
+ * The item a file attaches to: one the caller sees (tribo.item_visible) in the file's trip.
+ * A hidden item, one of another trip and one that does not exist are refused alike.
+ */
+async function attachableItem(
+  db: Kysely<DB>,
+  userId: string,
+  tripId: string,
+  itemId: string,
+): Promise<string> {
+  const id = decodeTypeId(ID_PREFIX.item, itemId);
+  if ((await visibleItemTrip(db, userId, id)) !== tripId) {
+    throw new ApiError('validation_failed', {
+      errors: [{ path: '/itemId', message: 'no such item in this trip' }],
+    });
+  }
+  return id;
+}
+
+/** The caller adding a file to the trip: their active membership, which a viewer's is not. */
+async function uploader(tx: Tx, userId: string, tripId: string): Promise<CallerMembership> {
+  const membership = await callerMembership(tx, userId, tripId);
+  if (membership === null) throw new ApiError('not_found');
+  if (!canUploadFile(membership.role)) throw new ApiError('forbidden');
+  return membership;
+}
+
+/** Removes the blob of an upload whose write did not commit; failing that, says which blob is left. */
+async function discard(blobs: BlobStore, fileId: string, stored: StoredBlob, cause: unknown) {
+  try {
+    await blobs.delete(stored.blobKey);
+  } catch (error) {
+    const why = cause instanceof ApiError ? cause.code : 'an error';
+    throw new Error(
+      `file ${fileId} did not commit (${why}) and its blob ${stored.blobKey} is left`,
+      { cause: error },
+    );
+  }
+}
+
+/** `write` is core's write path (writePath in write-path.ts), passed in to keep imports acyclic. */
+export function createFilesService(
+  db: Kysely<DB>,
+  write: WritePath,
+  blobs: BlobStore,
+): FilesService {
+  return {
+    async upload(ctx, tripId, form, file) {
+      const userId = actingUser(ctx);
+      const fields = validate(FileUploadForm, form);
+      // Everything that can be refused without the bytes is, before a byte is read.
+      const { trip } = await memberTrip(db, userId, tripId, canUploadFile);
+      if (trip.status === 'archived') throw new ApiError('trip_archived');
+      if (fields.itemId !== undefined) await attachableItem(db, userId, tripId, fields.itemId);
+
+      const fileId = await newFileId(forModule(db, 'documents'));
+      const sniff = sniffer((type) =>
+        typeRefusal(type, {
+          contentType: file.contentType,
+          filename: displayName(file.filename, type),
+        }),
+      );
+      const stored = await blobs.write(
+        fileId,
+        pipe(file.content, sniff, () => {
+          // Errors reach blobs.write through the returned stream.
+        }),
+      );
+      const mimeType = sniff.type();
+      try {
+        return await write(ctx, {
+          operation: filesUpload,
+          target: { tripId },
+          // What the Idempotency-Key hashes: the form as sent and the file as stored.
+          body: {
+            ...(form as object),
+            file: {
+              filename: displayName(file.filename, mimeType),
+              mimeType,
+              sizeBytes: stored.sizeBytes,
+              sha256: stored.sha256,
+            },
+          },
+          ifMatch: undefined,
+          authorize: (tx, c, target) => uploader(tx, actingUser(c), target.tripId),
+          // The item is checked again: it may have changed while the bytes arrived.
+          load: async (tx, target, input) => ({
+            tripId: target.tripId,
+            itemId:
+              input.itemId === undefined
+                ? null
+                : await attachableItem(tx, userId, target.tripId, input.itemId),
+          }),
+          mutate: async (tx, _c, loaded, input, membership) => {
+            const documents = forModule(tx, 'documents');
+            await insertFile(documents, {
+              id: fileId,
+              tripId: loaded.tripId,
+              itemId: loaded.itemId,
+              ownerMembershipId: membership.id,
+              kind: input.kind,
+              visibility: input.visibility,
+              filename: input.file.filename,
+              mimeType: input.file.mimeType,
+              sizeBytes: input.file.sizeBytes,
+              blobKey: stored.blobKey,
+              sha256: input.file.sha256,
+              keyVersion: stored.keyVersion,
+              createdBy: userId,
+            });
+            const row = await findFile(documents, fileId);
+            if (!row) throw new Error(`file ${fileId} vanished inside its own write`);
+            return {
+              action: 'create',
+              aggregate: 'file',
+              entityId: fileId,
+              tripId: loaded.tripId,
+              version: row.version,
+              snapshot: fileSnapshot(row),
+              result: fileRecord(row),
+            };
+          },
+        });
+      } catch (error) {
+        await discard(blobs, fileId, stored, error);
+        throw error;
+      }
+    },
+  };
+}

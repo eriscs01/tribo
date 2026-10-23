@@ -108,6 +108,63 @@ describe('toOpenApi', () => {
     expect(paths['/v1/auth/logout']?.post?.responses).toHaveProperty('204');
   });
 
+  it('renders a form as multipart/form-data with its file part, never the write input', async () => {
+    const base = registry[0];
+    if (!base) throw new Error('empty registry');
+    const op = defineOperation({
+      ...base,
+      id: 'test.upload',
+      method: 'POST',
+      path: '/v1/test',
+      status: 'implemented',
+      form: z.strictObject({ kind: z.enum(['a', 'b']) }),
+      input: z.strictObject({ kind: z.enum(['a', 'b']), internal: z.string() }),
+      output: z.object({ ok: z.boolean() }),
+    });
+    const single = toOpenApi([op]);
+    expect((await new Validator().validate(single)).valid).toBe(true);
+    const body = (single.paths as Record<string, Record<string, { requestBody: unknown }>>)[
+      '/v1/test'
+    ]?.post?.requestBody;
+    expect(body).toEqual({
+      required: true,
+      content: {
+        'multipart/form-data': {
+          schema: {
+            type: 'object',
+            properties: {
+              kind: { type: 'string', enum: ['a', 'b'] },
+              file: { type: 'string', contentMediaType: 'application/octet-stream' },
+            },
+            required: ['kind', 'file'],
+            additionalProperties: false,
+          },
+        },
+      },
+    });
+  });
+
+  it('renders a file answer as 200 with any content type and its attachment header', async () => {
+    const base = registry.find((o) => o.id === 'auth.logout');
+    if (!base) throw new Error('auth.logout missing');
+    const op = defineOperation({
+      ...base,
+      id: 'test.download',
+      method: 'GET',
+      path: '/v1/test',
+      status: 'implemented',
+      returnsFile: true,
+    });
+    const single = toOpenApi([op]);
+    expect((await new Validator().validate(single)).valid).toBe(true);
+    const responses = (single.paths as Record<string, Record<string, { responses: object }>>)[
+      '/v1/test'
+    ]?.get?.responses;
+    expect(responses).not.toHaveProperty('204');
+    expect(responses).toHaveProperty(['200', 'content', '*/*']);
+    expect(responses).toHaveProperty(['200', 'headers', 'Content-Disposition']);
+  });
+
   it('keeps a path named __proto__ as its own entry, never reaching Object.prototype', () => {
     const liveness = registry.find((op) => op.id === 'meta.liveness');
     if (!liveness) throw new Error('meta.liveness missing');

@@ -205,7 +205,7 @@
 - [ ] `files.list` · Drop B · `GET /v1/trips/{tripId}/files`
   - File metadata; File visibility AND item_visible(parent)
   - Roles: owner, organizer, member, viewer. If-Match: `no`. Idempotency: safe to repeat.
-- [ ] `files.upload` · Drop B · `POST /v1/trips/{tripId}/files`
+- [x] `files.upload` · Drop B · `POST /v1/trips/{tripId}/files`
   - Multipart upload ≤ 25 MB; kind, visibility, itemId; file_too_large, file_type_not_allowed; id/ticket/voucher sensitive; trip_archived on archived trips (R29); Owner = callers membership (rule 3)
   - Roles: owner, organizer, member. If-Match: `no`. Idempotency: creates (key).
   - Limit: Honours Idempotency-Key: 24 h per caller, the same key with a different body is idempotency_key_reused.

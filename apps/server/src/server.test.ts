@@ -21,6 +21,7 @@ import type {
   ItemsService,
   ItineraryService,
   DashboardService,
+  FilesService,
   LibraryService,
   MembersService,
   SignedIn,
@@ -148,6 +149,10 @@ const library: LibraryService = {
   createVendor: unused,
 };
 
+const files: FilesService = {
+  upload: unused,
+};
+
 let app: FastifyInstance | undefined;
 let lines: Record<string, unknown>[] = [];
 
@@ -178,6 +183,7 @@ async function server(overrides: Partial<ServerDeps> = {}) {
         dashboard,
         units,
         library,
+        files,
       }),
       'test.ip': (request) => {
         request.log.info('handler ran');

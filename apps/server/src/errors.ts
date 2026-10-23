@@ -34,7 +34,7 @@ export function registerErrorHandling(app: FastifyInstance) {
     if (error instanceof RateLimited) reply.header('retry-after', String(error.retryAfterSeconds));
     if (error instanceof ApiError) return sendProblem(reply, request, error.code, error.extra);
     // A body over the server's limit; uploads hit the same ceiling while streaming (decision 0019).
-    if (error.code === 'FST_ERR_CTP_BODY_TOO_LARGE')
+    if (error.code === 'FST_ERR_CTP_BODY_TOO_LARGE' || error.code === 'FST_REQ_FILE_TOO_LARGE')
       return sendProblem(reply, request, 'file_too_large');
     if (error.validation) {
       return sendProblem(reply, request, 'validation_failed', {
