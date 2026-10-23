@@ -40,6 +40,16 @@ export async function ticketsWorld(tdb: TestDatabase) {
 
 export type TicketsWorld = Awaited<ReturnType<typeof ticketsWorld>>;
 
+/** The ticket rows an item has, live or not, oldest first. */
+export function ticketRows(tdb: TestDatabase, itemId: string) {
+  return tdb.db
+    .selectFrom('tribo.tickets')
+    .selectAll()
+    .where('item_id', '=', itemId)
+    .orderBy('id')
+    .execute();
+}
+
 /** What a seeded ticket says in its seat and number, so a read that shows one wrongly is caught by value. */
 const ticketSeat = (membershipId: string, itemId: string) => `tkt-seat:${membershipId}:${itemId}`;
 export const ticketNumber = (membershipId: string, itemId: string) =>

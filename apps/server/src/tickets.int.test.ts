@@ -203,3 +203,117 @@ describe('tickets.list over HTTP', () => {
     expect(malformed.statusCode).toBe(404);
   });
 });
+
+describe('tickets.create over HTTP', () => {
+  const create = (w: World, caller: Caller, body: unknown, headers: Record<string, string> = {}) =>
+    app.inject({
+      method: 'POST',
+      url: ticketsUrl(w),
+      payload: body as object,
+      cookies: caller.auth.cookies,
+      headers: { ...caller.auth.headers, ...headers },
+    });
+  const ticket = (w: World, overrides: Record<string, unknown> = {}) => ({
+    passenger: w.memberPath,
+    seat: SEAT,
+    ticketNo: TICKET_NO,
+    baggage: { checkedKg: 23, addOns: [ADD_ON] },
+    ...overrides,
+  });
+
+  it('answers 201 with the ticket, the number masked, and never logs the ticket', async () => {
+    const w = await world();
+    const res = await create(w, w.owner, ticket(w));
+    expect(res.statusCode).toBe(201);
+    expect(res.headers['cache-control']).toBe('private, no-store');
+    expect(res.json()).toMatchObject({
+      itemId: w.itemPath,
+      passenger: w.memberPath,
+      seat: SEAT,
+      ticketNo: { masked: true },
+      baggage: { checkedKg: 23, cabinKg: null, addOns: [ADD_ON] },
+      version: 1,
+    });
+    expect(res.body).not.toContain(TICKET_NO);
+    logsNoTicket(res.headers['x-request-id']);
+    const [row] = await tdb.db
+      .selectFrom('tribo.tickets')
+      .select('ticket_no_enc')
+      .where('item_id', '=', w.itemId)
+      .execute();
+    expect(row?.ticket_no_enc?.toString('utf8')).not.toContain(TICKET_NO);
+  });
+
+  it('logs each refusal by operation and code, and never the ticket', async () => {
+    const w = await world();
+    const cases: [Caller, unknown, number, string][] = [
+      [w.viewer, ticket(w), 403, 'forbidden'],
+      [w.member, ticket(w), 403, 'forbidden'],
+      [w.owner, ticket(w, { passenger: w.otherPath, ticketNo: '' }), 400, 'validation_failed'],
+      [
+        w.owner,
+        ticket(w, { passenger: 'mem_01h455vb4pex5vsknk084sn02q' }),
+        400,
+        'validation_failed',
+      ],
+      [await signedInUser(), ticket(w), 404, 'not_found'],
+    ];
+    for (const [caller, body, status, problem] of cases) {
+      // eslint-disable-next-line no-await-in-loop -- each refusal is checked on its own
+      const res = await create(w, caller, body);
+      expect(res.statusCode, problem).toBe(status);
+      expect(refusalLine(res.headers['x-request-id'])).toMatchObject({
+        operationId: 'tickets.create',
+        problem,
+      });
+      logsNoTicket(res.headers['x-request-id']);
+    }
+    const duplicate = await create(w, w.owner, ticket(w));
+    expect(duplicate.statusCode).toBe(201);
+    const again = await create(w, w.owner, ticket(w));
+    expect(again.statusCode).toBe(400);
+    expect(refusalLine(again.headers['x-request-id'])).toMatchObject({
+      problem: 'validation_failed',
+    });
+    logsNoTicket(again.headers['x-request-id']);
+  });
+
+  it('replays a repeat under the same Idempotency-Key, writing one ticket', async () => {
+    const w = await world();
+    const key = { 'idempotency-key': 'ferry-seat-12a' };
+    const first = await create(w, w.owner, ticket(w), key);
+    expect(first.statusCode).toBe(201);
+    const again = await create(w, w.owner, ticket(w), key);
+    expect(again.statusCode).toBe(201);
+    expect(again.headers['idempotent-replayed']).toBe('true');
+    expect(again.json()).toEqual(first.json());
+    expect(again.body).not.toContain(TICKET_NO);
+    const rows = await tdb.db
+      .selectFrom('tribo.tickets')
+      .select('id')
+      .where('item_id', '=', w.itemId)
+      .execute();
+    expect(rows).toHaveLength(1);
+    logsNoTicket(again.headers['x-request-id']);
+
+    // Another body under the same key is refused, and writes nothing.
+    const other = await create(w, w.owner, ticket(w, { seat: 'Row 2' }), key);
+    expect(other.statusCode).toBe(422);
+    expect(other.json()).toMatchObject({ code: 'idempotency_key_reused' });
+  });
+
+  it('checks access again on a replay: an organizer demoted since gets 403, not the stored answer', async () => {
+    const w = await world();
+    const key = { 'idempotency-key': 'before-demotion' };
+    expect((await create(w, w.owner, ticket(w), key)).statusCode).toBe(201);
+    await tdb.db
+      .updateTable('tribo.memberships')
+      .set({ trip_role: 'viewer' })
+      .where('id', '=', w.trip.ownerMembershipId)
+      .execute();
+    const replay = await create(w, w.owner, ticket(w), key);
+    expect(replay.statusCode).toBe(403);
+    expect(replay.headers['idempotent-replayed']).toBeUndefined();
+    expect(replay.body).not.toContain(SEAT);
+  });
+});

@@ -21,7 +21,7 @@
 - [x] `auth.mfa.confirm` · Drop A · `POST /v1/auth/mfa/totp/confirm`
   - Confirm TOTP; returns 10 recovery codes; Codes shown once; Codes never stored for replay; a replay returns 200 with codes omitted and redacted = true (R2)
   - Roles: self. If-Match: `no`. Idempotency: creates (key).
-  - Limit: Takes no Idempotency-Key in 1a: only expenses.create and files.upload honour it; this create follows in 1b.
+  - Limit: Takes no Idempotency-Key in 1a: only expenses.create, files.upload and tickets.create honour it; this create follows in 1b.
 - [x] `auth.passwordReset` · Drop A · `POST /v1/auth/password-reset`
   - Use admin reset link {token, newPassword}; revokes all sessions and refresh tokens; Token in body, never URL; Single-use token makes it naturally idempotent: a repeat gets reset_link_used (R2)
   - Roles: anyone with link. If-Match: `no`. Idempotency: safe to repeat.
@@ -49,7 +49,7 @@
 - [x] `trips.create` · Drop A · `POST /v1/trips`
   - Create trip: dates, currency, tz, destinations; mfa_required if caller has no TOTP
   - Roles: self (MFA on; becomes owner). If-Match: `no`. Idempotency: creates (key).
-  - Limit: Takes no Idempotency-Key in 1a: only expenses.create and files.upload honour it; this create follows in 1b.
+  - Limit: Takes no Idempotency-Key in 1a: only expenses.create, files.upload and tickets.create honour it; this create follows in 1b.
 - [x] `trips.get` · Drop A · `GET /v1/trips/{tripId}`
   - Trip detail incl. destinations; Members only; ETag = SHA-256 of the representation (rule 4)
   - Roles: owner, organizer, member, viewer. If-Match: `no`. Idempotency: safe to repeat.
@@ -74,7 +74,7 @@
 - [x] `members.add` · Drop A · `POST /v1/trips/{tripId}/members`
   - Add placeholder traveller (new or visible library person); person_visible on personId; Person must have no account: person_has_account → send an invite (R4); A removed placeholder is undeleted rather than re-added; trip_archived on archived trips (R29)
   - Roles: owner. If-Match: `no`. Idempotency: creates (key).
-  - Limit: Takes no Idempotency-Key in 1a: only expenses.create and files.upload honour it; this create follows in 1b.
+  - Limit: Takes no Idempotency-Key in 1a: only expenses.create, files.upload and tickets.create honour it; this create follows in 1b.
 - [x] `members.setRole` · Drop A · `PATCH /v1/trips/{tripId}/members/{membershipId}`
   - Change role or canViewCosts; Owner transfer to an MFA member demotes the old owner to organizer in the same write (G14); MCP approval; trip_archived on archived trips (R29)
   - Roles: owner. If-Match: `version`. Idempotency: safe to repeat.
@@ -87,7 +87,7 @@
 - [x] `invites.create` · Drop A · `POST /v1/trips/{tripId}/invites`
   - Create link: role, expiry, maxUses, optional placeholder; Token shown once; placeholder invite single use; Secret omitted on idempotent replay (redacted = true): revoke and recreate (R2); Link format /join#<token> (fragment, never in proxy logs); Pre-linked person must be an active placeholder member of this trip (FK + check), else invite_invalid (R28); trip_archived on archived trips (R29)
   - Roles: owner. If-Match: `no`. Idempotency: creates (key).
-  - Limit: Takes no Idempotency-Key in 1a: only expenses.create and files.upload honour it; this create follows in 1b.
+  - Limit: Takes no Idempotency-Key in 1a: only expenses.create, files.upload and tickets.create honour it; this create follows in 1b.
 - [x] `invites.revoke` · Drop A · `POST /v1/trips/{tripId}/invites/{inviteId}/revoke`
   - Revoke an invite link; Invites carry no version; trip_archived on archived trips (R29)
   - Roles: owner. If-Match: `no`. Idempotency: safe to repeat.
@@ -97,7 +97,7 @@
 - [x] `invites.accept` · Drop A · `POST /v1/invites/accept`
   - Join: new account (username+password) or signed-in; claims placeholder; username_taken, already_member, invite_invalid; Claim is per trip (R28): new account → its own person is created first; then only this trip's placeholder membership moves to the caller's person (tickets, allocations, shares follow the membership id); the placeholder never gains an account and stays in its other trips; when it has no membership rows left it is scrubbed, soft-deleted and mergedInto the caller; claim_conflict if the caller's person already has a row in this trip. Rejoin undeletes the caller's earlier membership in the trip. Anonymous Idempotency-Key caller = invite:<inviteId>; Set-Cookie never replayed
   - Roles: anyone with link. If-Match: `no`. Idempotency: creates (key).
-  - Limit: Takes no Idempotency-Key in 1a: only expenses.create and files.upload honour it; this create follows in 1b.
+  - Limit: Takes no Idempotency-Key in 1a: only expenses.create, files.upload and tickets.create honour it; this create follows in 1b.
 
 ## Items
 
@@ -107,7 +107,7 @@
 - [x] `items.create` · Drop A · `POST /v1/trips/{tripId}/items`
   - Create any item type; visibility + sharedWith; Wall-clock + tz input; warnings[] returned; trip_archived on archived trips (R29); sharedWith = membership ids of the trip; owner = callers membership (rule 3)
   - Roles: owner, organizer, member (owns it). If-Match: `no`. Idempotency: creates (key).
-  - Limit: Takes no Idempotency-Key in 1a: only expenses.create and files.upload honour it; this create follows in 1b.
+  - Limit: Takes no Idempotency-Key in 1a: only expenses.create, files.upload and tickets.create honour it; this create follows in 1b.
 - [x] `items.get` · Drop A · `GET /v1/items/{itemId}`
   - Item detail (?view=summary|full); bookingRef, cardLast4 masked for all; restrictedFields
   - Roles: owner, organizer, member, viewer. If-Match: `no`. Idempotency: safe to repeat.
@@ -141,7 +141,7 @@
 - [x] `units.create` · Drop A · `POST /v1/items/{itemId}/units`
   - Add room or vehicle: label, capacity, rate; trip_archived on archived trips (R29)
   - Roles: item owner, organizer, owner. If-Match: `no`. Idempotency: creates (key).
-  - Limit: Takes no Idempotency-Key in 1a: only expenses.create and files.upload honour it; this create follows in 1b.
+  - Limit: Takes no Idempotency-Key in 1a: only expenses.create, files.upload and tickets.create honour it; this create follows in 1b.
 - [x] `units.update` · Drop A · `PATCH /v1/units/{unitId}`
   - Edit unit; capacity_exceeded if below occupants; trip_archived on archived trips (R29)
   - Roles: item owner, organizer, owner. If-Match: `version`. Idempotency: safe to repeat.
@@ -157,10 +157,10 @@
 - [x] `tickets.list` · Drop B · `GET /v1/items/{itemId}/tickets`
   - Per-passenger tickets of a transport item; ticketNo masked for all; follows item_visible
   - Roles: owner, organizer, member, viewer. If-Match: `no`. Idempotency: safe to repeat.
-- [ ] `tickets.create` · Drop B · `POST /v1/items/{itemId}/tickets`
+- [x] `tickets.create` · Drop B · `POST /v1/items/{itemId}/tickets`
   - Add ticket: passenger, seat, ticketNo, baggage; trip_archived on archived trips (R29)
   - Roles: item owner, organizer, owner (G4). If-Match: `no`. Idempotency: creates (key).
-  - Limit: Takes no Idempotency-Key in 1a: only expenses.create and files.upload honour it; this create follows in 1b.
+  - Limit: Honours Idempotency-Key: 24 h per caller, the same key with a different body is idempotency_key_reused.
 - [ ] `tickets.update` · Drop B · `PATCH /v1/tickets/{ticketId}`
   - Edit ticket; masked_field_write; trip_archived on archived trips (R29)
   - Roles: item owner, organizer, owner; member own seat/baggage (G4). If-Match: `version`. Idempotency: safe to repeat.
@@ -230,7 +230,7 @@
 - [x] `library.people.create` · Drop A · `POST /v1/library/people`
   - Create placeholder person
   - Roles: any signed-in user. If-Match: `no`. Idempotency: creates (key).
-  - Limit: Takes no Idempotency-Key in 1a: only expenses.create and files.upload honour it; this create follows in 1b.
+  - Limit: Takes no Idempotency-Key in 1a: only expenses.create, files.upload and tickets.create honour it; this create follows in 1b.
 - [x] `library.people.get` · Drop A · `GET /v1/library/people/{personId}`
   - Person detail; person_visible; emergency contact masked; Merged id resolves to the survivor
   - Roles: any signed-in user. If-Match: `no`. Idempotency: safe to repeat.
@@ -240,11 +240,11 @@
 - [x] `library.places.create` · Drop A · `POST /v1/library/places`
   - Add place (kind, lat/lng, hours, links); Audited on platform chain (G11)
   - Roles: any signed-in user. If-Match: `no`. Idempotency: creates (key).
-  - Limit: Takes no Idempotency-Key in 1a: only expenses.create and files.upload honour it; this create follows in 1b.
+  - Limit: Takes no Idempotency-Key in 1a: only expenses.create, files.upload and tickets.create honour it; this create follows in 1b.
 - [x] `library.vendors.create` · Drop A · `POST /v1/library/vendors`
   - Add vendor (kind, contacts, links); Audited on platform chain (G11)
   - Roles: any signed-in user. If-Match: `no`. Idempotency: creates (key).
-  - Limit: Takes no Idempotency-Key in 1a: only expenses.create and files.upload honour it; this create follows in 1b.
+  - Limit: Takes no Idempotency-Key in 1a: only expenses.create, files.upload and tickets.create honour it; this create follows in 1b.
 - [ ] `library.people.reveal` · Drop B · `POST /v1/library/people/{personId}/reveal`
   - Plaintext emergency contact; ID/passport in 1b; Audited reveal; write scope (G15); MCP approval (1b); No Idempotency-Key: each call is its own audited reveal (R2); MCP: tool returns approvalId, after approval the client calls again with approvalId within 10 min, single use (R15); Moved to Drop B so organizers can reach emergency contacts during the trip
   - Roles: self; owner, organizer of a shared trip. If-Match: `no`. Idempotency: never replayed.

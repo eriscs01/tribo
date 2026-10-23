@@ -7,7 +7,7 @@ import {
   type TicketPage,
 } from '@tribo/contract';
 import type { TicketRecord, TicketsService } from '@tribo/core';
-import { pathId, signedIn } from '../context.js';
+import { pathId, requestContext, signedIn } from '../context.js';
 import { parsedQuery, type Handlers } from '../routes.js';
 
 /** Names ids and times as the API does; the ticket number is only ever shown as masked. */
@@ -36,6 +36,15 @@ export function ticketsHandlers(tickets: TicketsService): Handlers {
       );
       const answer: TicketPage = { items: page.items.map(ticketView), nextCursor: page.nextCursor };
       return reply.header('cache-control', 'private, no-store').send(answer);
+    },
+
+    'tickets.create': async (request, reply) => {
+      const ticket = await tickets.create(
+        requestContext(request),
+        pathId(request, 'itemId'),
+        request.body,
+      );
+      return reply.code(201).header('cache-control', 'private, no-store').send(ticketView(ticket));
     },
   };
 }

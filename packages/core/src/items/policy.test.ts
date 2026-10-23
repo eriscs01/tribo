@@ -4,6 +4,7 @@ import {
   canDeleteOverlay,
   canGetOverlay,
   canListTicket,
+  canManageTickets,
   canPutOverlay,
   canDeleteItem,
   canListItems,
@@ -150,5 +151,16 @@ describe('canListTicket', () => {
     for (const role of ['owner', 'organizer', 'member', 'viewer'] as const) {
       expect(canListTicket(role)).toBe(true);
     }
+  });
+});
+
+describe('canManageTickets', () => {
+  it("lets owners and organizers manage any item's tickets, members only on items they own, never viewers", () => {
+    expect(canManageTickets(editor('owner'))).toBe(true);
+    expect(canManageTickets(editor('organizer'))).toBe(true);
+    expect(canManageTickets(editor('member', true))).toBe(true);
+    expect(canManageTickets(editor('member'))).toBe(false);
+    expect(canManageTickets(editor('member', false, true))).toBe(false);
+    expect(canManageTickets(editor('viewer', true))).toBe(false);
   });
 });

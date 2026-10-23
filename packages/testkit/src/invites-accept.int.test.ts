@@ -491,7 +491,7 @@ describe('invites.accept', () => {
     expect((await storedInvite(tdb, invite.id)).uses).toBe(1);
   });
 
-  it('Takes no Idempotency-Key in 1a: only expenses.create and files.upload honour it; this create follows in 1b.', async () => {
+  it('Takes no Idempotency-Key in 1a: only expenses.create, files.upload and tickets.create honour it; this create follows in 1b.', async () => {
     const w = await inviteWorld(tdb);
     const invite = await openInvite(w);
     const ctx = as(w.outsider);

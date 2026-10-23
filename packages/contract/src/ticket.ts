@@ -42,3 +42,28 @@ export type Ticket = z.infer<typeof Ticket>;
 export const TicketPage = page(Ticket, 'TicketPage');
 
 export type TicketPage = z.infer<typeof TicketPage>;
+
+/** Baggage as written: weights in kilograms, add-ons by name; what is left out stays empty. */
+const BaggageInput = z.strictObject({
+  checkedKg: z.number().min(0).max(100).nullable().optional(),
+  cabinKg: z.number().min(0).max(100).nullable().optional(),
+  addOns: z.array(z.string().trim().min(1).max(100)).max(20).optional(),
+});
+
+const SeatInput = z.string().trim().min(1).max(20);
+const TicketNoInput = z.string().trim().min(1).max(100);
+
+/**
+ * tickets.create. The passenger is an active membership of the item's trip, a placeholder's
+ * too; a passenger holds one live ticket per item. The item must be a transport item.
+ */
+export const TicketInput = z
+  .strictObject({
+    passenger: typeId(ID_PREFIX.membership),
+    seat: SeatInput.nullable().optional(),
+    ticketNo: TicketNoInput.nullable().optional(),
+    baggage: BaggageInput.optional(),
+  })
+  .meta({ id: 'TicketInput' });
+
+export type TicketInput = z.infer<typeof TicketInput>;

@@ -72,3 +72,9 @@ export const canDeleteOverlay = anyMember;
 
 /** tickets.list: every role reads the tickets of an item it can see; the ticket number stays masked for all. */
 export const canListTicket = anyMember;
+
+/**
+ * tickets.create and tickets.delete: the item's owner and the trip's owners and organizers
+ * manage its tickets (G4); being a passenger or assigned is not enough, and never a viewer.
+ */
+export const canManageTickets = itemManager;
