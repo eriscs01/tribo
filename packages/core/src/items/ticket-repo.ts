@@ -51,6 +51,16 @@ export function listTickets(
   return query.orderBy('t.id').limit(page.limit).execute();
 }
 
+/** The live ticket, whether or not the caller sees its item: that is not asked here. */
+export function findTicket(db: ItemsDb, ticketId: string) {
+  return selectTicket(db).where('t.id', '=', ticketId).executeTakeFirst();
+}
+
+/** The live ticket with its sealed number, locked FOR UPDATE until the write commits. */
+export function lockSealedTicket(db: ItemsDb, ticketId: string) {
+  return selectSealedTicket(db).where('t.id', '=', ticketId).forUpdate().executeTakeFirst();
+}
+
 /** The live ticket with its sealed number, for the writer that just changed it, inside its transaction. */
 export function findSealedTicket(db: ItemsDb, ticketId: string) {
   return selectSealedTicket(db).where('t.id', '=', ticketId).executeTakeFirst();
@@ -88,5 +98,35 @@ export async function insertTicket(db: ItemsDb, ticket: NewTicket): Promise<void
       created_by: ticket.createdBy,
       updated_by: ticket.createdBy,
     })
+    .execute();
+}
+
+/** What a tickets.update changes; an absent key keeps its column. */
+export interface TicketChanges {
+  membershipId?: string;
+  seat?: string | null;
+  ticketNoEnc?: Buffer | null;
+  baggage?: StoredBaggage;
+}
+
+/** Applies the changes and bumps the ticket's version. */
+export async function updateTicket(
+  db: ItemsDb,
+  ticketId: string,
+  changes: TicketChanges,
+  updatedBy: string,
+): Promise<void> {
+  await db
+    .updateTable('tribo.tickets')
+    .set((eb) => ({
+      ...(changes.membershipId === undefined ? {} : { membership_id: changes.membershipId }),
+      ...(changes.seat === undefined ? {} : { seat: changes.seat }),
+      ...(changes.ticketNoEnc === undefined ? {} : { ticket_no_enc: changes.ticketNoEnc }),
+      ...(changes.baggage === undefined ? {} : { baggage: JSON.stringify(changes.baggage) }),
+      version: eb('version', '+', 1),
+      updated_at: sql<Date>`now()`,
+      updated_by: updatedBy,
+    }))
+    .where('id', '=', ticketId)
     .execute();
 }

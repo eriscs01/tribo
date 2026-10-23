@@ -26,6 +26,7 @@ const TICKET_NO = 'PNR-ORCHID-4471';
 const SEAT = 'Row 41 Seat K';
 const ADD_ON = 'surfboard in the hold';
 const NEW_TICKET_NO = 'PNR-LANTERN-9082';
+const NEW_SEAT = 'Row 7 Seat Q';
 
 let tdb: TestDatabase;
 let app: FastifyInstance;
@@ -132,7 +133,17 @@ function logsNoTicket(requestId: unknown) {
   const mine = raw.filter((l) => l.includes(String(requestId)));
   expect(mine.length).toBeGreaterThan(0);
   for (const line of mine) {
-    for (const secret of [TICKET_NO, 'ORCHID', NEW_TICKET_NO, 'LANTERN', SEAT, 'Seat K', ADD_ON]) {
+    for (const secret of [
+      TICKET_NO,
+      'ORCHID',
+      NEW_TICKET_NO,
+      'LANTERN',
+      SEAT,
+      'Seat K',
+      NEW_SEAT,
+      'Seat Q',
+      ADD_ON,
+    ]) {
       expect(line).not.toContain(secret);
     }
   }
@@ -315,5 +326,77 @@ describe('tickets.create over HTTP', () => {
     expect(replay.statusCode).toBe(403);
     expect(replay.headers['idempotent-replayed']).toBeUndefined();
     expect(replay.body).not.toContain(SEAT);
+  });
+});
+
+describe('tickets.update over HTTP', () => {
+  const patch = (
+    caller: Caller,
+    ticketPath: string,
+    body: unknown,
+    headers: Record<string, string> = { 'if-match': '"1"' },
+  ) =>
+    app.inject({
+      method: 'PATCH',
+      url: `/v1/tickets/${ticketPath}`,
+      payload: body as object,
+      cookies: caller.auth.cookies,
+      headers: { ...caller.auth.headers, ...headers },
+    });
+
+  it("reads If-Match, edits a member's own seat and baggage, and never logs the ticket", async () => {
+    const w = await world();
+    const ticketPath = encodeTypeId(ID_PREFIX.ticket, await memberTicket(w));
+    const res = await patch(w.member, ticketPath, { seat: NEW_SEAT, baggage: { cabinKg: 6 } });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['cache-control']).toBe('private, no-store');
+    expect(res.json()).toMatchObject({
+      id: ticketPath,
+      passenger: w.memberPath,
+      seat: NEW_SEAT,
+      ticketNo: { masked: true },
+      baggage: { checkedKg: 23, cabinKg: 6, addOns: [ADD_ON] },
+      version: 2,
+    });
+    expect(res.body).not.toContain(TICKET_NO);
+    logsNoTicket(res.headers['x-request-id']);
+    // The organizer changes the number; the answer still holds only the mask.
+    const renumbered = await patch(
+      w.owner,
+      ticketPath,
+      { ticketNo: NEW_TICKET_NO },
+      { 'if-match': '"2"' },
+    );
+    expect(renumbered.statusCode).toBe(200);
+    expect(renumbered.body).not.toContain(NEW_TICKET_NO);
+    logsNoTicket(renumbered.headers['x-request-id']);
+  });
+
+  it('logs each refusal by operation and code, and never the ticket', async () => {
+    const w = await world();
+    const ticketPath = encodeTypeId(ID_PREFIX.ticket, await memberTicket(w));
+    const stranger = await signedInUser();
+    const cases: [Caller, unknown, Record<string, string> | undefined, number, string][] = [
+      [w.member, { ticketNo: NEW_TICKET_NO }, undefined, 409, 'masked_field_write'],
+      [w.owner, { ticketNo: { masked: true } }, undefined, 409, 'masked_field_write'],
+      [w.other, { seat: NEW_SEAT }, undefined, 403, 'forbidden'],
+      [w.viewer, { seat: NEW_SEAT }, undefined, 403, 'forbidden'],
+      [w.owner, { seat: NEW_SEAT }, {}, 428, 'if_match_required'],
+      [w.owner, { seat: NEW_SEAT }, { 'if-match': '"9"' }, 412, 'version_conflict'],
+      [w.owner, { seat: '' }, undefined, 400, 'validation_failed'],
+      [stranger, { seat: NEW_SEAT }, undefined, 404, 'not_found'],
+    ];
+    for (const [caller, body, headers, status, problem] of cases) {
+      // eslint-disable-next-line no-await-in-loop -- each refusal is checked on its own
+      const res = await patch(caller, ticketPath, body, headers);
+      expect(res.statusCode, problem).toBe(status);
+      expect(refusalLine(res.headers['x-request-id'])).toMatchObject({
+        operationId: 'tickets.update',
+        problem,
+      });
+      logsNoTicket(res.headers['x-request-id']);
+    }
+    const malformed = await patch(w.owner, 'not-an-id', { seat: NEW_SEAT });
+    expect(malformed.statusCode).toBe(404);
   });
 });

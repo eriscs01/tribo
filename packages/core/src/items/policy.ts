@@ -2,8 +2,10 @@ import {
   anyMember,
   contributors,
   itemManager,
+  organizersOrOwningMember,
   ownerOrOrganizer,
   organizers,
+  type Holder,
   type ItemEditor,
 } from '../roles.js';
 
@@ -76,5 +78,21 @@ export const canListTicket = anyMember;
 /**
  * tickets.create and tickets.delete: the item's owner and the trip's owners and organizers
  * manage its tickets (G4); being a passenger or assigned is not enough, and never a viewer.
+ * The holder is where the caller stands on the item.
  */
-export const canManageTickets = itemManager;
+export const canManageTickets = organizersOrOwningMember;
+
+/** What a caller may change of a ticket they can see. */
+export type TicketEdit = 'everything' | 'seat_and_baggage' | null;
+
+/**
+ * tickets.update (G4): whoever manages the item's tickets changes everything; a member
+ * changes only the seat and baggage of their own ticket, never who it is for or its number.
+ * `onItem` is where the caller stands on the ticket's item, `ownTicket` whether it is theirs.
+ */
+export function ticketEdit(onItem: Holder, ownTicket: boolean): TicketEdit {
+  if (canManageTickets(onItem)) return 'everything';
+  return organizersOrOwningMember({ role: onItem.role, owns: ownTicket })
+    ? 'seat_and_baggage'
+    : null;
+}

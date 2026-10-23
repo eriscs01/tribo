@@ -2519,6 +2519,16 @@ export interface components {
             items: components["schemas"]["Ticket"][];
             nextCursor: string | null;
         };
+        TicketPatch: {
+            passenger?: string;
+            seat?: string | null;
+            ticketNo?: (components["schemas"]["MaskedValue"] | string) | null;
+            baggage?: {
+                checkedKg?: number | null;
+                cabinKg?: number | null;
+                addOns?: string[];
+            };
+        };
         TimeInput: components["schemas"]["WallClockTime"] | components["schemas"]["AllDay"];
         TimeZone: string;
         TotpCode: string;
@@ -6149,11 +6159,26 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TicketPatch"];
+            };
+        };
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            200: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ticket"];
+                };
+            };
+            /** @description Too many writes in this window (rate_limited) */
+            429: {
+                headers: {
+                    /** @description Seconds until the window resets */
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {

@@ -161,7 +161,7 @@
   - Add ticket: passenger, seat, ticketNo, baggage; trip_archived on archived trips (R29)
   - Roles: item owner, organizer, owner (G4). If-Match: `no`. Idempotency: creates (key).
   - Limit: Honours Idempotency-Key: 24 h per caller, the same key with a different body is idempotency_key_reused.
-- [ ] `tickets.update` · Drop B · `PATCH /v1/tickets/{ticketId}`
+- [x] `tickets.update` · Drop B · `PATCH /v1/tickets/{ticketId}`
   - Edit ticket; masked_field_write; trip_archived on archived trips (R29)
   - Roles: item owner, organizer, owner; member own seat/baggage (G4). If-Match: `version`. Idempotency: safe to repeat.
 - [ ] `tickets.delete` · Drop B · `DELETE /v1/tickets/{ticketId}`

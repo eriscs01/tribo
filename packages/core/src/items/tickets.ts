@@ -2,27 +2,34 @@
 // ticket number and baggage, edited apart from the assignment board. A ticket follows its
 // item's visibility (children follow their item); its number is masked on every read and
 // leaves the database only through tickets.reveal.
-import { decodeTypeId, ID_PREFIX, TicketInput, type PageQuery } from '@tribo/contract';
+import { decodeTypeId, ID_PREFIX, TicketInput, TicketPatch, type PageQuery } from '@tribo/contract';
 import { seal, type Keyring } from '@tribo/crypto';
 import { forModule, type DB } from '@tribo/db';
 import {
+  actingUser,
   ApiError,
   onConstraint,
   page,
   uuidCursor,
   type RequestContext,
+  type Tx,
   type WritePath,
 } from '@tribo/platform';
 import type { Kysely } from 'kysely';
-import { activeMembershipSet } from '../trips/service.js';
+import { activeMembershipSet, callerMembership } from '../trips/service.js';
 import { writeOperation } from '../write-operation.js';
 import { actingEditor, invalid, lockedItem, visibleItem } from './acting.js';
-import { canListTicket, canManageTickets } from './policy.js';
+import { canListTicket, canManageTickets, ticketEdit } from './policy.js';
+import { findVisibleItem, lockItem } from './repo.js';
 import {
   findSealedTicket,
+  findTicket,
   insertTicket,
   listTickets,
+  lockSealedTicket,
   newTicketId,
+  updateTicket,
+  type TicketChanges,
   type SealedTicketRow,
   type StoredBaggage,
   type TicketRow,
@@ -66,9 +73,25 @@ export interface TicketsService {
    * trip holding no live ticket on the item, else validation_failed at /passenger.
    */
   create(ctx: RequestContext, itemId: string, body: unknown): Promise<TicketRecord>;
+  /**
+   * tickets.update: merge-patches the ticket under If-Match = its version. Whoever manages
+   * the item's tickets changes everything; a member changes only the seat and baggage of
+   * their own ticket (masked_field_write for a passenger or number). A ticket the caller
+   * cannot see (its item hidden, deleted, its passenger gone, or unknown) is not_found.
+   */
+  update(
+    ctx: RequestContext,
+    ticketId: string,
+    body: unknown,
+    ifMatch: number | undefined,
+  ): Promise<TicketRecord>;
 }
 
 const ticketsCreate = writeOperation('tickets.create', TicketInput);
+const ticketsUpdate = writeOperation('tickets.update', TicketPatch);
+
+/** Stands in for the item or trip of a ticket that does not exist, so its lookups still run. */
+const NO_ROW = '00000000-0000-0000-0000-000000000000';
 
 /** Where one ticket's sealed number lives: it opens only for that row and column (AAD). */
 const sealedNumber = (ticketId: string) => ({
@@ -76,15 +99,6 @@ const sealedNumber = (ticketId: string) => ({
   column: 'ticket_no_enc',
   rowId: ticketId,
 });
-
-/** Baggage as stored: only what was given, in the column's own key style. */
-function storedBaggage(input: NonNullable<TicketInput['baggage']>): StoredBaggage {
-  return {
-    ...(input.checkedKg == null ? {} : { checked_kg: input.checkedKg }),
-    ...(input.cabinKg == null ? {} : { cabin_kg: input.cabinKg }),
-    ...(input.addOns === undefined || input.addOns.length === 0 ? {} : { add_ons: input.addOns }),
-  };
-}
 
 /** Every stored field of the ticket (Audit and versioning); the number only as the sealed bytes. */
 function ticketSnapshot(row: SealedTicketRow) {
@@ -94,6 +108,72 @@ function ticketSnapshot(row: SealedTicketRow) {
     seat: row.seat,
     baggage: { ...baggageRecord(row.baggage) },
     ticketNoEnc: row.ticket_no_enc?.toString('base64') ?? null,
+  };
+}
+
+/**
+ * A ticket the caller may know exists, with its item and their membership, or not_found.
+ * The item comes first (children follow their item): a ticket of an item the caller cannot
+ * see, of a deleted one, of a passenger who has left, deleted or unknown is one answer, and
+ * the same queries run for each, so neither the answer nor its cost tells them apart.
+ */
+async function readableTicket(db: Kysely<DB>, userId: string, ticketId: string) {
+  const items = forModule(db, 'items');
+  const ticket = await findTicket(items, ticketId);
+  const item = await findVisibleItem(items, userId, ticket?.item_id ?? NO_ROW);
+  const tripId = item?.trip_id ?? NO_ROW;
+  const membership = await callerMembership(db, userId, tripId);
+  const present = await activeMembershipSet(db, tripId, [ticket?.membership_id ?? NO_ROW]);
+  if (!ticket || !item || !membership || !present.has(ticket.membership_id)) {
+    throw new ApiError('not_found');
+  }
+  return { ticket, item, membership };
+}
+
+/** The caller's ticket changes, as ticketEdit decides: what they may change, or forbidden. */
+async function actingOnTicket(tx: Tx, ctx: RequestContext, ticketId: string) {
+  const userId = actingUser(ctx);
+  const { ticket, item, membership } = await readableTicket(tx, userId, ticketId);
+  const edit = ticketEdit(
+    { role: membership.role, owns: item.owner_membership_id === membership.id },
+    ticket.membership_id === membership.id,
+  );
+  if (edit === null) throw new ApiError('forbidden');
+  return { userId, edit, itemId: item.id };
+}
+
+type ActingTicket = Awaited<ReturnType<typeof actingOnTicket>>;
+
+/** The write path's load for one ticket: its item, then the ticket, both locked until commit. */
+async function lockedTicket(tx: Tx, target: { ticketId: string }, auth: ActingTicket) {
+  const items = forModule(tx, 'items');
+  const item = await lockItem(items, auth.itemId);
+  const ticket = item ? await lockSealedTicket(items, target.ticketId) : undefined;
+  if (!item || !ticket) throw new ApiError('not_found');
+  return { tripId: item.trip_id, counter: ticket.version, item, ticket };
+}
+
+/** A merge patch's value for one key: absent keeps what is stored, null clears it. */
+function patched<T>(given: T | null | undefined, stored: T | undefined): T | undefined {
+  if (given === undefined) return stored;
+  return given ?? undefined;
+}
+
+/**
+ * The baggage after a merge patch: what was given replaces it key by key, null or an empty
+ * list clears one, and only what is set is stored (in the column's own key style).
+ */
+function mergedBaggage(
+  stored: StoredBaggage,
+  patch: NonNullable<TicketPatch['baggage']>,
+): StoredBaggage {
+  const checked = patched(patch.checkedKg, stored.checked_kg);
+  const cabin = patched(patch.cabinKg, stored.cabin_kg);
+  const addOns = patched(patch.addOns, stored.add_ons);
+  return {
+    ...(checked === undefined ? {} : { checked_kg: checked }),
+    ...(cabin === undefined ? {} : { cabin_kg: cabin }),
+    ...(addOns === undefined || addOns.length === 0 ? {} : { add_ons: addOns }),
   };
 }
 
@@ -197,7 +277,7 @@ export function createTicketsService(
               seat: input.seat ?? null,
               ticketNoEnc:
                 input.ticketNo == null ? null : seal(keys, sealedNumber(id), input.ticketNo),
-              baggage: storedBaggage(input.baggage ?? {}),
+              baggage: mergedBaggage({}, input.baggage ?? {}),
               createdBy: userId,
             }),
           );
@@ -207,6 +287,61 @@ export function createTicketsService(
             action: 'create',
             aggregate: 'ticket',
             entityId: id,
+            tripId: item.trip_id,
+            version: row.version,
+            snapshot: ticketSnapshot(row),
+            result: ticketRecord(row),
+          };
+        },
+      });
+    },
+
+    update(ctx, ticketId, body, ifMatch) {
+      return write(ctx, {
+        operation: ticketsUpdate,
+        target: { ticketId },
+        body,
+        ifMatch,
+        authorize: (tx, c, target) => actingOnTicket(tx, c, target.ticketId),
+        load: (tx, target, _input, auth) => lockedTicket(tx, target, auth),
+        mutate: async (tx, _c, { item, ticket }, patch, { userId, edit }) => {
+          // Who a ticket is for and its number are not a passenger's to change, and a masked
+          // number sent back would overwrite the real one.
+          const touchesRestricted = patch.passenger !== undefined || patch.ticketNo !== undefined;
+          if (edit === 'seat_and_baggage' && touchesRestricted) {
+            throw new ApiError('masked_field_write');
+          }
+          const { ticketNo } = patch;
+          if (typeof ticketNo === 'object' && ticketNo !== null) {
+            throw new ApiError('masked_field_write');
+          }
+          const membershipId =
+            patch.passenger === undefined
+              ? undefined
+              : await checkedPassenger(tx, item.trip_id, patch.passenger);
+          const changes: TicketChanges = {
+            ...(membershipId === undefined || membershipId === ticket.membership_id
+              ? {}
+              : { membershipId }),
+            ...(patch.seat === undefined ? {} : { seat: patch.seat }),
+            ...(ticketNo === undefined
+              ? {}
+              : {
+                  ticketNoEnc:
+                    ticketNo === null ? null : seal(keys, sealedNumber(ticket.id), ticketNo),
+                }),
+            ...(patch.baggage === undefined
+              ? {}
+              : { baggage: mergedBaggage(ticket.baggage as StoredBaggage, patch.baggage) }),
+          };
+          const items = forModule(tx, 'items');
+          await onePerPassenger(() => updateTicket(items, ticket.id, changes, userId));
+          const row = await findSealedTicket(items, ticket.id);
+          if (!row) throw new Error(`ticket ${ticket.id} vanished inside its own write`);
+          return {
+            action: 'update',
+            aggregate: 'ticket',
+            entityId: ticket.id,
             tripId: item.trip_id,
             version: row.version,
             snapshot: ticketSnapshot(row),

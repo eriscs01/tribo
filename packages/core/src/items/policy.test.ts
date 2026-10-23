@@ -5,6 +5,7 @@ import {
   canGetOverlay,
   canListTicket,
   canManageTickets,
+  ticketEdit,
   canPutOverlay,
   canDeleteItem,
   canListItems,
@@ -162,5 +163,18 @@ describe('canManageTickets', () => {
     expect(canManageTickets(editor('member'))).toBe(false);
     expect(canManageTickets(editor('member', false, true))).toBe(false);
     expect(canManageTickets(editor('viewer', true))).toBe(false);
+  });
+});
+
+describe('ticketEdit', () => {
+  it('lets whoever manages the tickets change everything, a member their own seat and baggage only', () => {
+    expect(ticketEdit(editor('owner'), false)).toBe('everything');
+    expect(ticketEdit(editor('organizer'), false)).toBe('everything');
+    expect(ticketEdit(editor('member', true), false)).toBe('everything');
+    expect(ticketEdit(editor('member'), true)).toBe('seat_and_baggage');
+    expect(ticketEdit(editor('member', false, true), false)).toBeNull();
+    expect(ticketEdit(editor('member'), false)).toBeNull();
+    expect(ticketEdit(editor('viewer'), true)).toBeNull();
+    expect(ticketEdit(editor('viewer', true), true)).toBeNull();
   });
 });

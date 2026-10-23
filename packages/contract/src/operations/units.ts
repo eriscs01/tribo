@@ -4,7 +4,7 @@ import { defineOperation } from '../operation.js';
 import { UnitPage, Unit, UnitInput, UnitPatch } from '../unit.js';
 import { PageQuery } from '../page.js';
 import { ItemBoard, ItemBoardInput } from '../assignment.js';
-import { TicketPage, Ticket, TicketInput } from '../ticket.js';
+import { TicketPage, Ticket, TicketInput, TicketPatch } from '../ticket.js';
 
 export const unitsOperations = [
   defineOperation({
@@ -176,7 +176,9 @@ export const unitsOperations = [
     mcpApproval: false,
     mcpTool: null,
     notes: 'Edit ticket; masked_field_write; trip_archived on archived trips (R29)',
-    status: 'planned',
+    status: 'implemented',
+    input: TicketPatch,
+    output: Ticket,
   }),
   defineOperation({
     id: 'tickets.delete',

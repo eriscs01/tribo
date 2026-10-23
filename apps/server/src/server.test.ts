@@ -135,6 +135,7 @@ const items: ItemsService = {
 const tickets: TicketsService = {
   list: unused,
   create: unused,
+  update: unused,
 };
 
 const units: UnitsService = {

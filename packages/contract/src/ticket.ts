@@ -67,3 +67,20 @@ export const TicketInput = z
   .meta({ id: 'TicketInput' });
 
 export type TicketInput = z.infer<typeof TicketInput>;
+
+/**
+ * tickets.update: JSON Merge Patch of a ticket; absent keys stay, null clears (baggage merges
+ * key by key). A member changes only the seat and baggage of their own ticket; a passenger
+ * or number sent by anyone else's hand is masked_field_write, and so is a masked number sent
+ * back, so echoing a read never overwrites the real one.
+ */
+export const TicketPatch = z
+  .strictObject({
+    passenger: typeId(ID_PREFIX.membership).optional(),
+    seat: SeatInput.nullable().optional(),
+    ticketNo: z.union([MaskedValue, TicketNoInput]).nullable().optional(),
+    baggage: BaggageInput.optional(),
+  })
+  .meta({ id: 'TicketPatch' });
+
+export type TicketPatch = z.infer<typeof TicketPatch>;
