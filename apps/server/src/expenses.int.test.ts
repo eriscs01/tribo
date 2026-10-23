@@ -8,6 +8,7 @@ import { CSRF_HEADER, encodeTypeId, ID_PREFIX, SESSION_COOKIE } from '@tribo/con
 import { AppKey } from '@tribo/crypto';
 import {
   addMember,
+  createItem,
   createTestDatabase,
   createTrip,
   createUser,
@@ -165,6 +166,19 @@ describe('expenses.create over HTTP', () => {
       [w.trip.ownerMembershipId, w.memberMembershipId, w.viewerMembershipId].sort().map(w.mem),
     );
     logsNoMoney(res.headers['x-request-id']);
+  });
+
+  it('names the item an expense is on as the API names items', async () => {
+    const w = await world();
+    const itemId = await createItem(tdb.db, {
+      tripId: w.trip.tripId,
+      ownerMembershipId: w.trip.ownerMembershipId,
+      title: 'Coco Grove',
+    });
+    const itemPath = encodeTypeId(ID_PREFIX.item, itemId);
+    const res = await create(w, w.member, dinner(w, { itemId: itemPath }));
+    expect(res.statusCode).toBe(201);
+    expect(res.json()).toMatchObject({ itemId: itemPath });
   });
 
   it('logs a refusal by operation and code, and never the description or the amount', async () => {
@@ -393,5 +407,34 @@ describe('expenses.void over HTTP', () => {
       headers: w.member.auth.headers,
     });
     expect(read.statusCode).toBe(404);
+  });
+});
+
+describe('expenses through the other modules that read them', () => {
+  it('a recorded expense counts in the dashboard’s my share and locks the trip currency', async () => {
+    const w = await world();
+    const created = (await create(w, w.member, dinner(w))).json<{
+      shares: { membershipId: string; amount: { amountMinor: number } }[];
+    }>();
+    const mine = created.shares.find((s) => s.membershipId === w.mem(w.memberMembershipId));
+    const dashboard = await app.inject({
+      method: 'GET',
+      url: `/v1/trips/${w.tripPath}/dashboard`,
+      cookies: w.member.auth.cookies,
+      headers: w.member.auth.headers,
+    });
+    expect(dashboard.json()).toMatchObject({
+      myShare: { amountMinor: mine?.amount.amountMinor, currency: 'PHP' },
+    });
+
+    const recurrency = await app.inject({
+      method: 'PATCH',
+      url: `/v1/trips/${w.tripPath}`,
+      payload: { currency: 'EUR' },
+      cookies: w.owner.auth.cookies,
+      headers: { ...w.owner.auth.headers, 'if-match': '"1"' },
+    });
+    expect(recurrency.statusCode).toBe(409);
+    expect(recurrency.json()).toMatchObject({ code: 'currency_locked' });
   });
 });

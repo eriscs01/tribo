@@ -50,6 +50,15 @@ describe('tripAmountMinor (R8)', () => {
     expect(tripAmountMinor(1, '0.00000001', 'KWD', 'JPY')).toBe(1);
   });
 
+  it('refuses a trip amount past the safe integers with validation_failed at /amount/amountMinor', () => {
+    expect(() => tripAmountMinor(Number.MAX_SAFE_INTEGER, '2', 'PHP', 'PHP')).toThrow(
+      expect.objectContaining({
+        code: 'validation_failed',
+        extra: { errors: [expect.objectContaining({ path: '/amount/amountMinor' })] },
+      }),
+    );
+  });
+
   it('refuses a rate that is not a positive decimal of at most 8 places', () => {
     for (const rate of ['0', '-1', '1e3', '1.123456789', 'abc', '', '12345678901']) {
       expect(() => tripAmountMinor(100, rate, 'PHP', 'PHP')).toThrow(/rate/);

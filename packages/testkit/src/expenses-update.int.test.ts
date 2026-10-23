@@ -194,6 +194,53 @@ describe('expenses.update', () => {
     ).toBe('forbidden');
   });
 
+  it('moves the expense to its new payer: the old one may no longer edit it, the new one may', async () => {
+    const w = await expensesWorld(tdb);
+    const created = await memberDinner(w);
+    const moved = await expenses.update(
+      as(w.organizer),
+      created.id,
+      { payerMembershipId: mem(w.other.membershipId) },
+      1,
+    );
+    expect(moved.payerMembershipId).toBe(w.other.membershipId);
+    expect(await refusal(expenses.update(as(w.member), created.id, { description: 'x' }, 2))).toBe(
+      'forbidden',
+    );
+    await expenses.update(as(w.other), created.id, { description: 'mine now' }, 2);
+  });
+
+  it('asks for a new split with a new amount on an expense split by weight', async () => {
+    const w = await expensesWorld(tdb);
+    const created = await memberDinner(w);
+    // Weight splits are written after the trip; one stored that way is refrozen only when sent.
+    await tdb.db
+      .updateTable('tribo.expenses')
+      .set({ split_method: 'weight' })
+      .where('id', '=', created.id)
+      .execute();
+    expect(
+      await refusal(
+        expenses.update(
+          as(w.member),
+          created.id,
+          { amount: { amountMinor: 5_000, currency: 'PHP' } },
+          1,
+        ),
+      ),
+    ).toBe('validation_failed');
+    const resplit = await expenses.update(
+      as(w.member),
+      created.id,
+      {
+        amount: { amountMinor: 5_000, currency: 'PHP' },
+        split: { method: 'equal', membershipIds: [mem(w.member.membershipId)] },
+      },
+      1,
+    );
+    expect(resplit.splitMethod).toBe('equal');
+  });
+
   it('answers not_found outside the trip, to a removed member, on a deleted trip and once voided', async () => {
     const w = await expensesWorld(tdb);
     const created = await memberDinner(w);
