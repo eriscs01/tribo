@@ -466,3 +466,42 @@ describe('files.list over HTTP', () => {
     });
   });
 });
+
+describe('files.get over HTTP', () => {
+  it('answers the file to a member, and the same 404 for a private file as for none', async () => {
+    const w = await world();
+    const shared = await upload(
+      w,
+      w.member,
+      form([['kind', 'photo']], { filename: 'beach.png', type: 'image/png', data: png() }),
+    );
+    const secret = await upload(
+      w,
+      w.member,
+      form(
+        [
+          ['kind', 'photo'],
+          ['visibility', 'private'],
+        ],
+        { filename: 'mine.png', type: 'image/png', data: png() },
+      ),
+    );
+    const get = (caller: Caller, id: string) =>
+      app.inject({ method: 'GET', url: `/v1/files/${id}`, ...caller.auth });
+    const ok = await get(w.viewer, shared.json<{ id: string }>().id);
+    expect(ok.statusCode).toBe(200);
+    expect(ok.json()).toEqual(shared.json());
+    const hidden = await get(w.owner, secret.json<{ id: string }>().id);
+    const none = await get(
+      w.owner,
+      encodeTypeId(ID_PREFIX.file, '019a0f3c-5b2e-7c41-9d3a-6e8f1a2b3c4d'),
+    );
+    expect([hidden.statusCode, none.statusCode]).toEqual([404, 404]);
+    const strip = (body: Record<string, unknown>) => ({ ...body, requestId: 0, instance: 0 });
+    expect(strip(hidden.json())).toEqual(strip(none.json()));
+    expect(refusalLine(hidden.headers['x-request-id'])).toMatchObject({
+      operationId: 'files.get',
+      problem: 'not_found',
+    });
+  });
+});

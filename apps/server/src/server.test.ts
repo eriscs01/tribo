@@ -151,6 +151,7 @@ const library: LibraryService = {
 
 const files: FilesService = {
   list: unused,
+  get: unused,
   upload: unused,
 };
 

@@ -60,7 +60,8 @@ export const filesOperations = [
     mcpApproval: false,
     mcpTool: null,
     notes: 'File metadata; As files.list; purged shows purgedAt',
-    status: 'planned',
+    status: 'implemented',
+    output: FileMetadata,
   }),
   defineOperation({
     id: 'files.update',

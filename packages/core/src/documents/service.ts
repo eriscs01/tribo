@@ -8,7 +8,7 @@ import {
   ID_PREFIX,
   type PageQuery,
 } from '@tribo/contract';
-import { forModule, type DB, type ValueOf } from '@tribo/db';
+import { forModule, type DB, type TripRole, type ValueOf } from '@tribo/db';
 import {
   actingUser,
   ApiError,
@@ -24,8 +24,16 @@ import { visibleItemTrip } from '../items/service.js';
 import { callerMembership, memberTrip, type CallerMembership } from '../trips/service.js';
 import { writeOperation } from '../write-operation.js';
 import type { BlobStore, StoredBlob } from './blobs.js';
-import { canListFiles, canUploadFile } from './policy.js';
-import { findFile, insertFile, listVisibleFiles, newFileId, type FileRow } from './repo.js';
+import { canGetFile, canListFiles, canUploadFile } from './policy.js';
+import {
+  fileTrip,
+  findFile,
+  findVisibleFile,
+  insertFile,
+  listVisibleFiles,
+  newFileId,
+  type FileRow,
+} from './repo.js';
 import { displayName, sniffer, typeRefusal } from './sniff.js';
 
 export { createBlobStore, type BlobStore, type StoredBlob } from './blobs.js';
@@ -69,6 +77,8 @@ export interface FilesService {
     tripId: string,
     query: PageQuery,
   ): Promise<{ items: FileRecord[]; nextCursor: string | null }>;
+  /** files.get: one file files.list would show the caller; not_found for any other. */
+  get(userId: string, fileId: string): Promise<FileRecord>;
   /**
    * files.upload: checks the form, the caller and the item before reading a byte, then
    * streams the bytes through the type sniffer into the blob store and records the row.
@@ -133,6 +143,36 @@ async function attachableItem(
   return id;
 }
 
+/** Stands in for the trip of a file that does not exist, so its lookup still runs. */
+const NO_ROW = '00000000-0000-0000-0000-000000000000';
+
+/**
+ * A file the reader may see, with their membership in its trip, or not_found. The same
+ * queries run whether the file is theirs to see, hidden, in another trip or unknown, so
+ * neither the answer nor its cost tells them apart.
+ */
+async function readableFile(
+  db: Kysely<DB>,
+  userId: string,
+  fileId: string,
+  allowed: (role: TripRole) => boolean,
+): Promise<{ row: FileRow; membership: CallerMembership }> {
+  const documents = forModule(db, 'documents');
+  const membership = await callerMembership(
+    db,
+    userId,
+    (await fileTrip(documents, fileId)) ?? NO_ROW,
+  );
+  const row = await findVisibleFile(
+    documents,
+    { userId, membershipId: membership?.id ?? NO_ROW },
+    fileId,
+  );
+  if (!row || !membership) throw new ApiError('not_found');
+  if (!allowed(membership.role)) throw new ApiError('forbidden');
+  return { row, membership };
+}
+
 /** The caller adding a file to the trip: their active membership, which a viewer's is not. */
 async function uploader(tx: Tx, userId: string, tripId: string): Promise<CallerMembership> {
   const membership = await callerMembership(tx, userId, tripId);
@@ -176,6 +216,10 @@ export function createFilesService(
       );
       const shown = page(rows, query.limit, (row) => [row.id]);
       return { items: shown.rows.map(fileRecord), nextCursor: shown.nextCursor };
+    },
+
+    async get(userId, fileId) {
+      return fileRecord((await readableFile(db, userId, fileId, canGetFile)).row);
     },
 
     async upload(ctx, tripId, form, file) {

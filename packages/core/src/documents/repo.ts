@@ -120,3 +120,18 @@ export function listVisibleFiles(
   if (page.after !== null) query = query.where('f.id', '>', page.after);
   return query.orderBy('f.id').limit(page.limit).execute();
 }
+
+/** The trip a file row is in, deleted or not; undefined when there is no such row. */
+export async function fileTrip(db: DocumentsDb, fileId: string): Promise<string | undefined> {
+  const row = await db
+    .selectFrom('tribo.files')
+    .select('trip_id')
+    .where('id', '=', fileId)
+    .executeTakeFirst();
+  return row?.trip_id;
+}
+
+/** The file if the reader may see it (the one file predicate). */
+export function findVisibleFile(db: DocumentsDb, reader: FileReader, fileId: string) {
+  return visibleFiles(db, reader).where('f.id', '=', fileId).executeTakeFirst();
+}

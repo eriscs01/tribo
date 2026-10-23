@@ -40,6 +40,8 @@ export function filesHandlers(files: FilesService): Handlers {
       );
       return { items: page.items.map(fileView), nextCursor: page.nextCursor };
     },
+    'files.get': async (request) =>
+      fileView(await files.get(signedIn(request).userId, pathId(request, 'fileId'))),
     'files.upload': async (request, reply) => {
       const tripId = pathId(request, 'tripId');
       const file = await withUpload(request, (form, part) =>
