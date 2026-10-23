@@ -55,3 +55,4 @@ fixed.
 | [0012](0012-itinerary-and-dashboard.md)               | 22 Oct 2026 | The itinerary and the dashboard in Drop A                              | accepted |
 | [0013](0013-ci-path-rules-and-single-test-run.md)     | 22 Oct 2026 | CI path rules, step-level skips and one run of the tests               | accepted |
 | [0014](0014-published-images-are-the-scanned-ones.md) | 23 Oct 2026 | Published images are the scanned ones                                  | accepted |
+| [0015](0015-reference-host-uses-acme-http.md)         | 23 Oct 2026 | The reference host uses acme-http                                      | accepted |

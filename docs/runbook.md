@@ -27,6 +27,29 @@ This repository is public, so the scripts and this runbook hold nothing secret. 
 - **The `doctl` token is scoped and expires.** Create it under API → Tokens with custom scopes (`droplet: read`, `firewall: read, update`, `tag: read`) and an expiry of 90 days or less. Delete it there if your machine is lost. `doctl` keeps it in plain text in its config file (`~/Library/Application Support/doctl/config.yaml` on macOS), so never copy that file into the repository.
 - **No secrets in the repository.** App keys, database passwords and tokens live only on the host under `deploy/secrets/` and in your password manager (steps 6–7).
 
+### Keys in a directory of their own
+
+The reference host's keys, host key and ssh settings can live in `~/.tribo-deploy/` instead of `~/.ssh`, so nothing else on your machine uses them and no tool that reads `~/.ssh` sees them. The v0.3.0 install did this:
+
+```bash
+mkdir -m 700 ~/.tribo-deploy && ssh-keygen -t ed25519 -C tribo-deploy -f ~/.tribo-deploy/id_ed25519
+```
+
+`~/.tribo-deploy/config` (mode 600) names the host once:
+
+```plain
+Host tribo-ref
+  HostName <ipv4>
+  User tribo
+  IdentityFile ~/.tribo-deploy/id_ed25519
+  IdentitiesOnly yes
+  IdentityAgent none
+  UserKnownHostsFile ~/.tribo-deploy/known_hosts
+  StrictHostKeyChecking accept-new
+```
+
+Then `ssh -F ~/.tribo-deploy/config tribo-ref` stands for `ssh tribo@<ipv4>` in every step below (and `root@tribo-ref` for `root@<ipv4>`). Use `accept-new` only for the first connection, right after creating the droplet, then change it to `yes`. Step 10 adds the backup key's alias to the same file.
+
 ### Choices
 
 | Item           | Choice                                                                 | Why                                                                                                                                               |
@@ -108,7 +131,7 @@ Keep your current session open until the checks below pass from a second termina
 ssh tribo@<ipv4> 'sudo sshd -T | grep -E "^(allowusers|permitrootlogin|authenticationmethods|passwordauthentication|kbdinteractiveauthentication|maxauthtries) "; sudo ls /root/.ssh'
 ```
 
-Expect these values: `allowusers tribo`, `permitrootlogin no`, `authenticationmethods publickey`, `passwordauthentication no`, `kbdinteractiveauthentication no` and `maxauthtries 3`. `/root/.ssh` should list no `authorized_keys`.
+Expect these values: `allowusers tribo`, `permitrootlogin no`, `authenticationmethods publickey`, `passwordauthentication no`, `kbdinteractiveauthentication no` and `maxauthtries 3`. `/root/.ssh` should list no `authorized_keys`, or an empty one: cloud-init can create an empty file again after `provision.sh` has removed it. Either grants nothing; `sudo find /root/.ssh -name authorized_keys -size +0` must print nothing.
 
 ```bash
 ssh -o BatchMode=yes root@<ipv4> true
@@ -146,7 +169,7 @@ Without `doctl`, set it in the control panel: Networking → Firewalls → Creat
 - Outbound: ICMP, all TCP and all UDP to All IPv4 and All IPv6 (the panel's default).
 - Apply to droplets: tag `tribo`.
 
-Check that the firewall covers the droplet with exactly these rules:
+Check that the firewall covers the droplet with exactly these rules. A firewall applied by tag can take a minute or two to reach a new droplet: until this lists it, a closed port answers `Connection refused` instead of timing out. `doctl compute firewall get` shows no droplet ids for it, because those list only droplets attached by id.
 
 ```bash
 doctl compute firewall list-by-droplet "$(doctl compute droplet get tribo-ref --format ID --no-header)" --format Name,Status,Tags,InboundRules
@@ -235,7 +258,14 @@ Only `proxy` publishes ports (80, 443 and 443/udp). The database and the app are
 
 ### Install a release (steps 6–8)
 
-1. Put `deploy/` from the release tag in `/opt/tribo` and work there. Run `sh docker-check.sh`: it refuses a Docker Engine or Compose older than the release's `docker-minimum.env`, before anything starts.
+1. Put `deploy/` from the release tag in `/opt/tribo` and work there. From a checkout on your machine (`sudo install -d -o tribo -g tribo /opt/tribo` on the host first):
+
+   ```bash
+   git archive <tag> deploy | ssh tribo@<ipv4> 'cd /opt/tribo && tar -x --strip-components=1 && chmod -R go-w /opt/tribo'
+   ```
+
+   The `chmod` matters: Ubuntu gives `tribo` umask 002, so the files arrive group-writable, and `backup/serve.sh` is the backup key's forced command. Run `sh docker-check.sh`: it refuses a Docker Engine or Compose older than the release's `docker-minimum.env`, before anything starts.
+
 2. `cp .env.example .env`, then set `TRIBO_VERSION` (the release tag), `TRIBO_PUBLIC_URL`, `TRIBO_TLS_MODE`, `TRIBO_ACME_EMAIL` (acme modes) and `TRIBO_TRUSTED_PROXIES`. Compose refuses to start without the required ones and names the missing variable.
 3. Create the secrets in `/opt/tribo/secrets/`:
 
@@ -282,13 +312,13 @@ Set `TRIBO_VERSION` to the new tag, then `sh docker-check.sh && docker compose p
 
 ### Releases
 
-Pushing a tag `vX.Y.Z` on `main` runs CI. Once every job passes, its "Publish" job pushes `ghcr.io/eriscs01/tribo-app:vX.Y.Z` and `ghcr.io/eriscs01/tribo-proxy:vX.Y.Z` (linux/amd64) and lists both digests in the run summary. They are the images that Trivy scanned and End to end ran in the same run, retagged, not rebuilt ([decision 0014](decisions/0014-published-images-are-the-scanned-ones.md)); the summary shows each scanned image's id beside the id that was pushed. The packages are public, so the host pulls them without credentials (set each package's visibility to public in GitHub once, after its first push).
+Pushing a tag `vX.Y.Z` on `main` runs CI. Once every job passes, its "Publish" job pushes `ghcr.io/eriscs01/tribo-app:vX.Y.Z` and `ghcr.io/eriscs01/tribo-proxy:vX.Y.Z` (linux/amd64) and lists both digests in the run summary. They are the images that Trivy scanned and End to end ran in the same run, retagged, not rebuilt ([decision 0014](decisions/0014-published-images-are-the-scanned-ones.md)); each scanned image's id and each pushed id and digest are in the jobs' logs (`gh run view <run> --log`) and in the run summary, which GitHub shows only to signed-in viewers. The packages are public, so the host pulls them without credentials (set each package's visibility to public in GitHub once, after its first push).
 
-| Tag      | Date       | Notes                                                                                                                                                                                      |
-| -------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `v0.1.0` | 2026-10-18 | First release: Sprint 0 foundation (tasks 1–15 and 19), first images published to GHCR                                                                                                     |
-| `v0.2.0` | 2026-10-18 | Tasks 17–18, secrets fix, Docker minimums; first deploy on the reference host; walking skeleton checked by hand on 2026-10-18; first nightly backup and restore check passed on 2026-10-18 |
-| `v0.3.0` | 2026-10-23 | Drop A of slice 1a: 46 REST operations; rate limits; R1 fixes; migrations 0002–0003; fresh reference host                                                                                  |
+| Tag      | Date       | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| -------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `v0.1.0` | 2026-10-18 | First release: Sprint 0 foundation (tasks 1–15 and 19), first images published to GHCR                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `v0.2.0` | 2026-10-18 | Tasks 17–18, secrets fix, Docker minimums; first deploy on the reference host; walking skeleton checked by hand on 2026-10-18; first nightly backup and restore check passed on 2026-10-18                                                                                                                                                                                                                                                                                                                                                 |
+| `v0.3.0` | 2026-10-23 | Drop A of slice 1a: 46 REST operations; rate limits; R1 fixes; migrations 0002–0003; fresh reference host (`acme-http`, [decision 0015](decisions/0015-reference-host-uses-acme-http.md)); first release that publishes the scanned images ([decision 0014](decisions/0014-published-images-are-the-scanned-ones.md)): app `sha256:e5595918ba526cb638d74134588c97ee18cfb14bfb3f2b7aaae8b4363605b3d6`, proxy `sha256:9479200f84b551aedbe51546fc5a340ca65af2474b8f3acc16e5166a2ae0b26f`; deployed and walking skeleton checked on 2026-10-23 |
 
 ## Backups and restore (steps 10–11)
 
@@ -334,6 +364,8 @@ Host tribo-backup
   IdentitiesOnly yes
   IdentityAgent none
 ```
+
+With the keys in `~/.tribo-deploy/` (see "Keys in a directory of their own"), put this alias in `~/.tribo-deploy/config` instead, with `IdentityFile ~/.tribo-deploy/tribo_backup`, `UserKnownHostsFile ~/.tribo-deploy/known_hosts` and `StrictHostKeyChecking yes`, and set `TRIBO_SSH_CONFIG=$HOME/.tribo-deploy/config` in `backup.env` below: `pull.sh` then runs `ssh -F` with that file and never reads `~/.ssh/config`.
 
 ssh offers every `IdentityFile` that matches, in file order, and the keys in your agent before any of them. Your own login key also opens `tribo@<ipv4>`, so if ssh offers it first you get a full shell instead of `serve.sh`. Putting the alias first and turning off the agent for it make ssh offer the backup key alone first.
 
@@ -435,9 +467,10 @@ sh deploy/backup/restore.sh --down
 
 Record the check below, and repeat it every quarter and after any change to the backup scripts.
 
-| Date       | Snapshot            | Release  | Chains   | Notes                                                                                       |
-| ---------- | ------------------- | -------- | -------- | ------------------------------------------------------------------------------------------- |
-| 2026-10-18 | `2026-10-18T213114` | `v0.2.0` | 3 intact | First snapshot from the launchd job, restored on the operator's Mac (Colima, Apple silicon) |
+| Date       | Snapshot            | Release  | Chains   | Notes                                                                                                                |
+| ---------- | ------------------- | -------- | -------- | -------------------------------------------------------------------------------------------------------------------- |
+| 2026-10-18 | `2026-10-18T213114` | `v0.2.0` | 3 intact | First snapshot from the launchd job, restored on the operator's Mac (Colima, Apple silicon)                          |
+| 2026-10-23 | `2026-10-23T140622` | `v0.3.0` | 3 intact | Fresh reference host; manual `pull.sh` with `TRIBO_SSH_CONFIG`; walking skeleton trip and item present after restore |
 
 ## Walking skeleton check (step 12)
 
