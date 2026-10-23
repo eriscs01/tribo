@@ -2385,6 +2385,10 @@ export interface components {
             dueSoon: components["schemas"]["DueSoon"][];
         };
         NewPassword: string;
+        OfflineItinerary: {
+            days: components["schemas"]["ItineraryDay"][];
+            warnings: components["schemas"]["Warning"][];
+        };
         OpeningHours: {
             /** @enum {string} */
             day: "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
@@ -2574,6 +2578,23 @@ export interface components {
             currency: components["schemas"]["CurrencyCode"];
             timezone: components["schemas"]["TimeZone"];
             destinations?: string[];
+        };
+        TripOfflineBundle: {
+            trip: components["schemas"]["Trip"];
+            membershipId: string;
+            members: components["schemas"]["Member"][];
+            items: components["schemas"]["Item"][];
+            units: components["schemas"]["Unit"][];
+            boards: components["schemas"]["ItemBoard"][];
+            itinerary: {
+                me: components["schemas"]["OfflineItinerary"];
+                group: components["schemas"]["OfflineItinerary"];
+            };
+            tickets: components["schemas"]["Ticket"][];
+            overlays: components["schemas"]["Overlay"][];
+            expenses: components["schemas"]["Expense"][];
+            files: components["schemas"]["FileMetadata"][];
+            truncated: boolean;
         };
         TripPage: {
             items: components["schemas"]["Trip"][];
@@ -7265,7 +7286,10 @@ export interface operations {
     "trips.offlineBundle": {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description An ETag already held; 304 when it is still current */
+                "If-None-Match"?: string;
+            };
             path: {
                 tripId: string;
             };
@@ -7273,14 +7297,23 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            200: {
                 headers: {
+                    /** @description SHA-256 (base64url) of this representation, as sent to this caller */
+                    ETag?: string;
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["TripOfflineBundle"];
                 };
+            };
+            /** @description Not modified: If-None-Match names the ETag */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {

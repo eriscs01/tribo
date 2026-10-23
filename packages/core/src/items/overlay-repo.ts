@@ -30,6 +30,28 @@ export function findOverlay(db: ItemsDb, itemId: string, membershipId: string) {
     .executeTakeFirst();
 }
 
+/**
+ * The membership's live overlays in the trip on items this account sees (tribo.item_visible),
+ * in item order, the first `limit` of them: the offline bundle's own overlays.
+ */
+export function listMemberOverlays(
+  db: ItemsDb,
+  reader: { userId: string; membershipId: string },
+  tripId: string,
+  limit: number,
+) {
+  return db
+    .selectFrom('tribo.overlays')
+    .select(OVERLAY_COLUMNS)
+    .where('trip_id', '=', tripId)
+    .where('membership_id', '=', reader.membershipId)
+    .where('deleted_at', 'is', null)
+    .where(sql<boolean>`tribo.item_visible(${reader.userId}, item_id)`)
+    .orderBy('item_id')
+    .limit(limit)
+    .execute();
+}
+
 /** As findOverlay, locked until commit. */
 export function lockOverlay(db: ItemsDb, itemId: string, membershipId: string) {
   return db

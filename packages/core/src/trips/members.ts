@@ -97,6 +97,26 @@ export interface MembersService {
   ): Promise<void>;
 }
 
+/**
+ * The trip's active memberships as members.list shows them, oldest first, the first `limit`
+ * of them: the offline bundle's members. The caller has found `viewer`, their active
+ * membership in the trip, which is what members.list asks.
+ */
+export async function tripMembers(
+  db: Kysely<DB>,
+  viewer: { role: TripRole },
+  tripId: string,
+  limit: number,
+): Promise<MemberRecord[]> {
+  if (!canListMembers(viewer.role)) return [];
+  const rows = await listMemberships(forModule(db, 'trips'), tripId, { limit, after: null });
+  const persons = await memberPersons(
+    db,
+    rows.map((r) => r.person_id),
+  );
+  return rows.map((r) => memberRecord(r, persons));
+}
+
 const membersAdd = writeOperation('members.add', MemberAddInput);
 const membersSetRole = writeOperation('members.setRole', MemberPatch);
 const membersRemove = writeOperation('members.remove', NoBody);

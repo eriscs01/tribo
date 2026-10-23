@@ -10,7 +10,7 @@ import { ifMatch, pathId, requestContext, signedIn } from '../context.js';
 import { parsedQuery, type Handlers } from '../routes.js';
 
 /** The service masks; this only names ids as the API does. */
-function expenseView(expense: ExpenseRecord): Expense {
+export function expenseView(expense: ExpenseRecord): Expense {
   return {
     id: encodeTypeId(ID_PREFIX.expense, expense.id),
     tripId: encodeTypeId(ID_PREFIX.trip, expense.tripId),

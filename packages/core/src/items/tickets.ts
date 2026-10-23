@@ -27,7 +27,7 @@ import {
 } from '@tribo/platform';
 import type { Kysely } from 'kysely';
 import { recordEvent } from '../audit/service.js';
-import { activeMembershipSet, callerMembership } from '../trips/service.js';
+import { activeMembershipSet, callerMembership, type CallerMembership } from '../trips/service.js';
 import { writeOperation } from '../write-operation.js';
 import { actingEditor, invalid, lockedItem, visibleItem } from './acting.js';
 import { canListTicket, canManageTickets, ticketEdit, ticketReveal } from './policy.js';
@@ -37,6 +37,7 @@ import {
   findTicket,
   findTicketNoEnc,
   insertTicket,
+  listMemberTickets,
   listTickets,
   lockSealedTicket,
   newTicketId,
@@ -259,6 +260,29 @@ function ticketRecord(row: TicketRow): TicketRecord {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+}
+
+/**
+ * The caller's own live tickets in the trip, on items they see, in id order and numbers
+ * masked, the first `limit` of them: what the offline bundle carries ("the tickets they
+ * marked for offline", decision 0027). `viewer` is the caller's active membership in the
+ * trip, so no other passenger's ticket is read.
+ */
+export async function ownTickets(
+  db: Kysely<DB>,
+  userId: string,
+  viewer: CallerMembership,
+  tripId: string,
+  limit: number,
+): Promise<TicketRecord[]> {
+  if (!canListTicket(viewer.role)) return [];
+  const rows = await listMemberTickets(
+    forModule(db, 'items'),
+    { userId, membershipId: viewer.id },
+    tripId,
+    limit,
+  );
+  return rows.map(ticketRecord);
 }
 
 /**

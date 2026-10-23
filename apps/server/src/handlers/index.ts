@@ -9,6 +9,7 @@ import type {
   LibraryService,
   MembersService,
   MyTasksService,
+  OfflineBundleService,
   OverlaysService,
   TicketsService,
   TripsService,
@@ -24,6 +25,7 @@ import { itemHandlers } from './items.js';
 import { itineraryHandlers } from './itinerary.js';
 import { libraryHandlers } from './library.js';
 import { membersHandlers } from './members.js';
+import { offlineBundleHandlers } from './offline-bundle.js';
 import { overlayHandlers } from './overlays.js';
 import { ticketsHandlers } from './tickets.js';
 import { tripHandlers } from './trips.js';
@@ -42,6 +44,7 @@ export interface HandlerServices {
   itinerary: ItineraryService;
   dashboard: DashboardService;
   myTasks: MyTasksService;
+  offlineBundle: OfflineBundleService;
   overlays: OverlaysService;
   tickets: TicketsService;
   units: UnitsService;
@@ -64,6 +67,7 @@ export function operationHandlers(services: HandlerServices): Handlers {
     ...itemHandlers(services.items),
     ...itineraryHandlers(services.itinerary),
     ...dashboardHandlers(services.dashboard),
+    ...offlineBundleHandlers(services.offlineBundle),
     ...libraryHandlers(services.library),
     ...meHandlers(services.identity, services.library, services.myTasks),
     ...metaHandlers(),

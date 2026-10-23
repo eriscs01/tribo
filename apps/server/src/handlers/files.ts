@@ -14,7 +14,7 @@ import { ifMatch, pathId, requestContext, signedIn } from '../context.js';
 import { withUpload } from '../multipart.js';
 import { parsedQuery, type Handlers } from '../routes.js';
 
-function fileView(file: FileRecord): FileMetadata {
+export function fileView(file: FileRecord): FileMetadata {
   return {
     id: encodeTypeId(ID_PREFIX.file, file.id),
     tripId: encodeTypeId(ID_PREFIX.trip, file.tripId),

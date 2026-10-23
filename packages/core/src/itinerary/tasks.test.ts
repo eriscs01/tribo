@@ -37,7 +37,12 @@ const timed = (local: string, offset: string) => ({
 
 const withBoard = (i: ItemRecord, assignees: string[]): TripItem => ({
   item: i,
-  board: assignees.map((membershipId) => ({ membershipId, role: 'assignee', rsvp: null })),
+  board: assignees.map((membershipId) => ({
+    membershipId,
+    role: 'assignee',
+    unitId: null,
+    rsvp: null,
+  })),
 });
 
 describe('openTasks', () => {

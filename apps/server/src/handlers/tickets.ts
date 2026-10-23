@@ -11,7 +11,7 @@ import { ifMatch, pathId, requestContext, signedIn } from '../context.js';
 import { parsedQuery, type Handlers } from '../routes.js';
 
 /** Names ids and times as the API does; the ticket number is only ever shown as masked. */
-function ticketView(ticket: TicketRecord): Ticket {
+export function ticketView(ticket: TicketRecord): Ticket {
   return {
     id: encodeTypeId(ID_PREFIX.ticket, ticket.id),
     itemId: encodeTypeId(ID_PREFIX.item, ticket.itemId),

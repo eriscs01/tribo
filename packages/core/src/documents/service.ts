@@ -156,6 +156,28 @@ function fileRecord(row: FileRow): FileRecord {
   };
 }
 
+/**
+ * The trip's files as `viewer` (the caller's active membership in the trip) may see them,
+ * through the one file predicate, the first `limit` in id order: the offline bundle's file
+ * metadata. A purged file shows as purged; no blob is read.
+ */
+export async function tripFiles(
+  db: Kysely<DB>,
+  userId: string,
+  viewer: CallerMembership,
+  tripId: string,
+  limit: number,
+): Promise<FileRecord[]> {
+  if (!canListFiles(viewer.role)) return [];
+  const rows = await listVisibleFiles(
+    forModule(db, 'documents'),
+    { userId, membershipId: viewer.id },
+    tripId,
+    { limit, after: null },
+  );
+  return rows.map(fileRecord);
+}
+
 /** The file aggregate's snapshot: its metadata as restore would copy it (never the blob key). */
 function fileSnapshot(row: FileRow) {
   return {

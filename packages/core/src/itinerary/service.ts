@@ -21,8 +21,15 @@ export {
   type MyTasksRecord,
   type MyTasksService,
 } from './my-tasks.js';
+export {
+  createOfflineBundleService,
+  OFFLINE_BUNDLE_MAX_ROWS,
+  type OfflineBundleDeps,
+  type OfflineBundleRecord,
+  type OfflineBundleService,
+} from './offline-bundle.js';
 export type { DueSoonRecord } from './tasks.js';
-export type { WarningRecord } from './timeline.js';
+export type { DayRecord, WarningRecord } from './timeline.js';
 
 export interface ItineraryRecord {
   view: ItineraryView;
