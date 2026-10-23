@@ -23,7 +23,12 @@ import type { Kysely } from 'kysely';
 import { moneyRecorded } from '../expenses/service.js';
 import { accountPersonId } from '../library/service.js';
 import { writeOperation } from '../write-operation.js';
-import { membershipSnapshot, requireRole } from './membership.js';
+import {
+  callerMembership,
+  membershipSnapshot,
+  requireRole,
+  type CallerMembership,
+} from './membership.js';
 import {
   canDeleteTrip,
   canGetTrip,
@@ -42,6 +47,7 @@ import {
   softDeleteTrip,
   updateTrip,
   type TripFields,
+  type TripRole,
   type TripRow,
 } from './repo.js';
 
@@ -121,6 +127,28 @@ const tripsCreate = writeOperation('trips.create', TripInput);
 const tripsUpdate = writeOperation('trips.update', TripPatch);
 const tripsDelete = writeOperation('trips.delete', NoBody);
 
+/**
+ * A trip as one of its members reads it, with the caller's membership, resolved once: a
+ * read that needs both (trips.get, trips.dashboard) asks here rather than twice. Anyone
+ * outside the trip, a removed member or a deleted trip is not_found; a role `allowed`
+ * refuses is forbidden.
+ */
+export async function memberTrip(
+  db: Kysely<DB>,
+  userId: string,
+  tripId: string,
+  allowed: (role: TripRole) => boolean,
+): Promise<{ trip: TripRecord; viewer: CallerMembership }> {
+  const viewer = await callerMembership(db, userId, tripId);
+  if (viewer === null) throw new ApiError('not_found');
+  if (!allowed(viewer.role)) throw new ApiError('forbidden');
+  const trips = forModule(db, 'trips');
+  const row = await findTrip(trips, tripId);
+  if (!row) throw new ApiError('not_found');
+  const destinations = await listDestinations(trips, [tripId]);
+  return { trip: tripRecord(row, destinations.get(tripId) ?? []), viewer };
+}
+
 /** `write` is core's write path (writePath in write-path.ts), passed in to keep imports acyclic. */
 export function createTripsService(db: Kysely<DB>, write: WritePath): TripsService {
   return {
@@ -142,12 +170,7 @@ export function createTripsService(db: Kysely<DB>, write: WritePath): TripsServi
     },
 
     async get(userId, tripId) {
-      await requireRole(db, userId, tripId, canGetTrip);
-      const trips = forModule(db, 'trips');
-      const row = await findTrip(trips, tripId);
-      if (!row) throw new ApiError('not_found');
-      const destinations = await listDestinations(trips, [tripId]);
-      return tripRecord(row, destinations.get(tripId) ?? []);
+      return (await memberTrip(db, userId, tripId, canGetTrip)).trip;
     },
 
     update: (ctx, tripId, body, ifMatch) =>

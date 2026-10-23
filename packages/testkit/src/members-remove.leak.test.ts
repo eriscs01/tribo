@@ -9,7 +9,6 @@ import {
   createDashboardService,
   createItemsService,
   createItineraryService,
-  createTripsService,
   createUnitsService,
   writePath,
 } from '@tribo/core';
@@ -43,7 +42,7 @@ async function readsOf(db: Kysely<DB>, world: BuiltWorld, userId: string): Promi
   const units = createUnitsService(db, writePath(db));
   const members = membersService(db);
   const itinerary = createItineraryService(db);
-  const dashboard = createDashboardService(db, { trips: createTripsService(db, writePath(db)) });
+  const dashboard = createDashboardService(db);
   const seen: string[] = [];
   for (const trip of world.trips) {
     /* eslint-disable no-await-in-loop -- one read at a time keeps failures readable */

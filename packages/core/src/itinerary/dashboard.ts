@@ -2,11 +2,10 @@
 // module, the read-only engine over the others (decision 0012): the trip comes from the trips
 // service, the items from the items service and my share from the expenses service.
 import { forModule, type DB } from '@tribo/db';
-import { ApiError } from '@tribo/platform';
 import type { Kysely } from 'kysely';
 import { memberShare } from '../expenses/service.js';
 import { tripItems, type ItemRecord, type TripItem } from '../items/service.js';
-import { callerMembership, type CallerMembership, type TripsService } from '../trips/service.js';
+import { memberTrip, type CallerMembership } from '../trips/service.js';
 import { canReadDashboard } from './policy.js';
 import { localDate } from './repo.js';
 import { addDays, laidOut, type WarningRecord } from './timeline.js';
@@ -35,7 +34,6 @@ export interface DashboardService {
 }
 
 export interface DashboardDeps {
-  trips: Pick<TripsService, 'get'>;
   /** The clock the countdown, the next item and due soon read; tests pin it. */
   now?: () => Date;
 }
@@ -49,15 +47,12 @@ const NOT_EVENTS = new Set<ItemRecord['type']>(['task', 'note', 'document']);
 /** Statuses after which an item is nothing to look forward to or to do. */
 const FINISHED = new Set<ItemRecord['status']>(['done', 'cancelled']);
 
-export function createDashboardService(db: Kysely<DB>, deps: DashboardDeps): DashboardService {
+export function createDashboardService(db: Kysely<DB>, deps: DashboardDeps = {}): DashboardService {
   const now = deps.now ?? (() => new Date());
   return {
     async get(userId, tripId) {
       // Members only: anyone else, a removed member or a deleted trip is not_found.
-      const trip = await deps.trips.get(userId, tripId);
-      const viewer = await callerMembership(db, userId, tripId);
-      if (viewer === null) throw new ApiError('not_found');
-      if (!canReadDashboard(viewer.role)) throw new ApiError('forbidden');
+      const { trip, viewer } = await memberTrip(db, userId, tripId, canReadDashboard);
       const at = now();
       const [today, visible, share] = await Promise.all([
         localDate(forModule(db, 'itinerary'), at, trip.timezone),

@@ -39,7 +39,7 @@ export function composeServices(db: Kysely<DB>, appKey: AppKey, publicUrl: URL) 
     items: createItemsService(db, write, keys),
     units: createUnitsService(db, write),
     itinerary: createItineraryService(db),
-    dashboard: createDashboardService(db, { trips }),
+    dashboard: createDashboardService(db),
     library: createLibraryService(db, write, keys),
     verifyAudit: (chainKey?: string) => verifyChains(db, chainKey),
     requestAudit: (requestId: string) => requestEvents(db, requestId),

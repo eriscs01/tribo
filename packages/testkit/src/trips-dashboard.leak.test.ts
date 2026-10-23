@@ -3,12 +3,7 @@
 // it is in; my share is the oracle's sum when it may read amounts and masked when not; no
 // item it cannot see is named anywhere; and the dashboard reads the same with every item
 // hidden from it gone, so no hidden item counts as a next item, a task or a warning.
-import {
-  createDashboardService,
-  createTripsService,
-  writePath,
-  type DashboardRecord,
-} from '@tribo/core';
+import { createDashboardService, type DashboardRecord } from '@tribo/core';
 import type { DB } from '@tribo/db';
 import { ApiError } from '@tribo/platform';
 import fc from 'fast-check';
@@ -29,7 +24,6 @@ const options = leakRunOptions();
 /** Every trip's dashboard this account reads, by trip id, at an instant before the world's day. */
 async function dashboards(db: Kysely<DB>, userId: string): Promise<Map<string, DashboardRecord>> {
   const dashboard = createDashboardService(db, {
-    trips: createTripsService(db, writePath(db)),
     now: () => new Date('2026-11-09T02:00:00Z'),
   });
   const trips = await db.selectFrom('tribo.trips').select('id').orderBy('id').execute();

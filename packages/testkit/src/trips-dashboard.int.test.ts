@@ -1,11 +1,6 @@
 // @module-tag drop-a
 // trips.dashboard (Drop A): Countdown, next item, open tasks, due soon, my share (sum of my expense shares; no balance or who-owes-whom, R36), warnings; Costs masked for viewers w/o canViewCosts; Poll with If-None-Match on the representation ETag (rule 4)
-import {
-  createDashboardService,
-  createTripsService,
-  writePath,
-  type DashboardService,
-} from '@tribo/core';
+import { createDashboardService, type DashboardService } from '@tribo/core';
 import type { DB } from '@tribo/db';
 import { Kysely, PostgresDialect } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -23,7 +18,6 @@ afterAll(() => tdb.destroy());
 /** The dashboard as read at one instant. */
 function dashboardAt(iso: string): DashboardService {
   return createDashboardService(tdb.db, {
-    trips: createTripsService(tdb.db, writePath(tdb.db)),
     now: () => new Date(iso),
   });
 }
@@ -264,7 +258,6 @@ describe('trips.dashboard on a representative trip', () => {
     const large = await bigTrip(300);
     const read = (w: World) => (db: Kysely<DB>) =>
       createDashboardService(db, {
-        trips: createTripsService(db, writePath(db)),
         now: () => new Date('2026-11-09T02:00:00Z'),
       }).get(w.member.userId, w.tripId);
     expect(await queriesOf(read(large))).toBe(await queriesOf(read(small)));
