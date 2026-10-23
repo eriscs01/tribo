@@ -431,7 +431,7 @@ describe('tickets.delete over HTTP', () => {
     const cases: [Caller, Record<string, string>, number, string][] = [
       [w.member, { 'if-match': '"1"' }, 403, 'forbidden'],
       [w.viewer, { 'if-match': '"1"' }, 403, 'forbidden'],
-      [w.owner, {} as Record<string, string>, 428, 'if_match_required'],
+      [w.owner, {}, 428, 'if_match_required'],
       [w.owner, { 'if-match': '"7"' }, 412, 'version_conflict'],
     ];
     for (const [caller, headers, status, problem] of cases) {
@@ -444,5 +444,123 @@ describe('tickets.delete over HTTP', () => {
       });
       logsNoTicket(res.headers['x-request-id']);
     }
+  });
+});
+
+describe('tickets.reveal over HTTP', () => {
+  const reveal = (
+    caller: Caller,
+    ticketPath: string,
+    body: unknown = { fields: ['ticketNo'] },
+    headers: Record<string, string> = {},
+  ) =>
+    app.inject({
+      method: 'POST',
+      url: `/v1/tickets/${ticketPath}/reveal`,
+      payload: body as object,
+      cookies: caller.auth.cookies,
+      headers: { ...caller.auth.headers, ...headers },
+    });
+  const eventsOf = (ticketId: string) =>
+    tdb.db
+      .selectFrom('audit.audit_events')
+      .select(['request_id', 'reason', 'actor_user_id'])
+      .where('entity_id', '=', ticketId)
+      .where('action', '=', 'reveal')
+      .execute();
+
+  it('answers the plaintext number, never cached, and logs neither it nor the seat', async () => {
+    const w = await world();
+    const id = await memberTicket(w);
+    const res = await reveal(w.member, encodeTypeId(ID_PREFIX.ticket, id));
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['cache-control']).toBe('private, no-store');
+    expect(res.json()).toEqual({ ticketNo: TICKET_NO });
+    const requestId = res.headers['x-request-id'];
+    // The answer is the one place the number appears; no line the request logged holds it.
+    logsNoTicket(requestId);
+    expect(await eventsOf(id)).toEqual([
+      { request_id: requestId, reason: '/ticketNo', actor_user_id: w.member.userId },
+    ]);
+  });
+
+  it('is never replayed: each call under the same Idempotency-Key is its own audited reveal', async () => {
+    const w = await world();
+    const id = await memberTicket(w);
+    const key = { 'idempotency-key': 'reveal-twice' };
+    const path = encodeTypeId(ID_PREFIX.ticket, id);
+    const first = await reveal(w.owner, path, undefined, key);
+    const second = await reveal(w.owner, path, undefined, key);
+    expect(first.statusCode).toBe(200);
+    expect(second.statusCode).toBe(200);
+    expect(second.headers['idempotent-replayed']).toBeUndefined();
+    expect(await eventsOf(id)).toHaveLength(2);
+    // Nothing was claimed under the key, so no answer with the number is stored.
+    const stored = await tdb.db
+      .selectFrom('tribo.idempotency_keys')
+      .selectAll()
+      .where('key', '=', 'reveal-twice')
+      .execute();
+    expect(stored).toEqual([]);
+    expect(JSON.stringify(stored)).not.toContain(TICKET_NO);
+  });
+
+  it('logs each refusal by operation and code, writes no event, and never the ticket', async () => {
+    const w = await world();
+    const id = await memberTicket(w);
+    const path = encodeTypeId(ID_PREFIX.ticket, id);
+    const stranger = await signedInUser();
+    const cases: [Caller, unknown, number, string][] = [
+      [w.viewer, undefined, 403, 'forbidden'],
+      [w.other, undefined, 404, 'not_found'],
+      [stranger, undefined, 404, 'not_found'],
+      [w.member, { fields: ['seat'] }, 400, 'validation_failed'],
+      [w.member, {}, 400, 'validation_failed'],
+    ];
+    for (const [caller, body, status, problem] of cases) {
+      // eslint-disable-next-line no-await-in-loop -- each refusal is checked on its own
+      const res = await reveal(caller, path, body);
+      expect(res.statusCode, problem).toBe(status);
+      expect(res.body).not.toContain(TICKET_NO);
+      expect(refusalLine(res.headers['x-request-id'])).toMatchObject({
+        operationId: 'tickets.reveal',
+        problem,
+      });
+      logsNoTicket(res.headers['x-request-id']);
+    }
+    expect(await eventsOf(id)).toEqual([]);
+  });
+
+  it('answers 500 and logs the failure with its request id when the stored number does not open, writing no event', async () => {
+    const w = await world();
+    const id = await memberTicket(w);
+    const other = await createTicket(tdb.db, keyring(appKey), {
+      tripId: w.trip.tripId,
+      itemId: w.itemId,
+      membershipId: w.otherMembershipId,
+      ticketNo: NEW_TICKET_NO,
+    });
+    // The other ticket's sealed number is bound to the other ticket: it cannot open here.
+    const moved = await tdb.db
+      .selectFrom('tribo.tickets')
+      .select('ticket_no_enc')
+      .where('id', '=', other)
+      .executeTakeFirstOrThrow();
+    await tdb.db
+      .updateTable('tribo.tickets')
+      .set({ ticket_no_enc: moved.ticket_no_enc })
+      .where('id', '=', id)
+      .execute();
+    const res = await reveal(w.owner, encodeTypeId(ID_PREFIX.ticket, id));
+    expect(res.statusCode).toBe(500);
+    expect(res.json()).toMatchObject({ code: 'internal_error' });
+    const requestId = res.headers['x-request-id'];
+    expect(linesOf(requestId).find((l) => l.msg === 'unhandled error')).toMatchObject({
+      level: 50,
+      operationId: 'tickets.reveal',
+      err: { type: 'EnvelopeError' },
+    });
+    logsNoTicket(requestId);
+    expect(await eventsOf(id)).toEqual([]);
   });
 });

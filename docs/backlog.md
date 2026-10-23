@@ -167,7 +167,7 @@
 - [x] `tickets.delete` · Drop B · `DELETE /v1/tickets/{ticketId}`
   - Remove ticket; trip_archived on archived trips (R29)
   - Roles: item owner, organizer, owner. If-Match: `version`. Idempotency: safe to repeat.
-- [ ] `tickets.reveal` · Drop B · `POST /v1/tickets/{ticketId}/reveal`
+- [x] `tickets.reveal` · Drop B · `POST /v1/tickets/{ticketId}/reveal`
   - Plaintext ticketNo; Audited reveal; never cached offline; write scope (G15); MCP approval (1b); No Idempotency-Key: each call is its own audited reveal (R2); MCP: tool returns approvalId, after approval the client calls again with approvalId within 10 min, single use (R15); Allowed on archived trips (a read, audited); refused with trip_retired after retirement
   - Roles: owner, organizer, member (own ticket). If-Match: `no`. Idempotency: never replayed.
 

@@ -151,3 +151,14 @@ export async function softDeleteTicket(
     .executeTakeFirstOrThrow();
   return row.version;
 }
+
+/** The sealed ticket number of a live ticket: null when none is stored. Only reveal reads it. */
+export async function findTicketNoEnc(db: ItemsDb, ticketId: string): Promise<Buffer | null> {
+  const row = await db
+    .selectFrom('tribo.tickets')
+    .select('ticket_no_enc')
+    .where('id', '=', ticketId)
+    .where('deleted_at', 'is', null)
+    .executeTakeFirst();
+  return row?.ticket_no_enc ?? null;
+}

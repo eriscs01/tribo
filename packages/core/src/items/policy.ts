@@ -1,3 +1,4 @@
+import type { TripRole } from '@tribo/db';
 import {
   anyMember,
   contributors,
@@ -95,4 +96,17 @@ export function ticketEdit(onItem: Holder, ownTicket: boolean): TicketEdit {
   return organizersOrOwningMember({ role: onItem.role, owns: ownTicket })
     ? 'seat_and_baggage'
     : null;
+}
+
+/** What a caller gets for tickets.reveal: the number, a refusal by role, or the answer for a ticket that is not theirs. */
+export type RevealOutcome = 'allowed' | 'forbidden' | 'hidden';
+
+/**
+ * tickets.reveal: the trip's owners and organizers reveal any ticket's number, a member only
+ * their own (owning the item is not enough); a viewer never does, and is told so. A member's
+ * reach ends at their own ticket, so another's is as unknown to them as one that is not there.
+ */
+export function ticketReveal(role: TripRole, ownTicket: boolean): RevealOutcome {
+  if (organizersOrOwningMember({ role, owns: ownTicket })) return 'allowed';
+  return role === 'viewer' ? 'forbidden' : 'hidden';
 }

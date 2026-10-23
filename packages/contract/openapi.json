@@ -6858,12 +6858,31 @@
           }
         ],
         "responses": {
-          "501": {
-            "description": "Registered but not implemented yet (not_implemented)",
+          "201": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketReveal"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many writes in this window (rate_limited)",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the window resets",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
                 }
               }
             }
@@ -6880,7 +6899,7 @@
           }
         },
         "x-tribo": {
-          "status": "planned",
+          "status": "implemented",
           "slice": "1a",
           "drop": "B",
           "roles": "owner, organizer, member (own ticket)",
@@ -6900,7 +6919,17 @@
               "pattern": "^tkt_[0-7][0-9a-hjkmnp-tv-z]{25}$"
             }
           }
-        ]
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TicketRevealInput"
+              }
+            }
+          }
+        }
       }
     },
     "/v1/trips": {
@@ -12528,6 +12557,41 @@
             "additionalProperties": false
           }
         },
+        "additionalProperties": false
+      },
+      "TicketReveal": {
+        "type": "object",
+        "properties": {
+          "ticketNo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "TicketRevealField": {
+        "type": "string",
+        "enum": [
+          "ticketNo"
+        ]
+      },
+      "TicketRevealInput": {
+        "type": "object",
+        "properties": {
+          "fields": {
+            "minItems": 1,
+            "maxItems": 1,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TicketRevealField"
+            }
+          }
+        },
+        "required": [
+          "fields"
+        ],
         "additionalProperties": false
       },
       "TimeInput": {

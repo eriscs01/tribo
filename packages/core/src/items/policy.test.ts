@@ -6,6 +6,7 @@ import {
   canListTicket,
   canManageTickets,
   ticketEdit,
+  ticketReveal,
   canPutOverlay,
   canDeleteItem,
   canListItems,
@@ -176,5 +177,16 @@ describe('ticketEdit', () => {
     expect(ticketEdit(editor('member'), false)).toBeNull();
     expect(ticketEdit(editor('viewer'), true)).toBeNull();
     expect(ticketEdit(editor('viewer', true), true)).toBeNull();
+  });
+});
+
+describe('ticketReveal', () => {
+  it("lets owners and organizers reveal any ticket and a member their own, tells a viewer so, and hides another's from a member", () => {
+    expect(ticketReveal('owner', false)).toBe('allowed');
+    expect(ticketReveal('organizer', false)).toBe('allowed');
+    expect(ticketReveal('member', true)).toBe('allowed');
+    expect(ticketReveal('member', false)).toBe('hidden');
+    expect(ticketReveal('viewer', true)).toBe('forbidden');
+    expect(ticketReveal('viewer', false)).toBe('forbidden');
   });
 });

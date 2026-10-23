@@ -84,3 +84,22 @@ export const TicketPatch = z
   .meta({ id: 'TicketPatch' });
 
 export type TicketPatch = z.infer<typeof TicketPatch>;
+
+/** The ticket fields a reveal can show: the one every read masks. */
+export const TicketRevealField = z.enum(['ticketNo']).meta({ id: 'TicketRevealField' });
+
+export type TicketRevealField = z.infer<typeof TicketRevealField>;
+
+/** tickets.reveal: which masked field to show; each call is its own audited reveal (R2). */
+export const TicketRevealInput = z
+  .strictObject({ fields: z.array(TicketRevealField).min(1).max(1) })
+  .meta({ id: 'TicketRevealInput' });
+
+export type TicketRevealInput = z.infer<typeof TicketRevealInput>;
+
+/** The plaintext of the field asked for (null when none is stored); never cached offline. */
+export const TicketReveal = z
+  .strictObject({ ticketNo: z.string().nullable().optional() })
+  .meta({ id: 'TicketReveal' });
+
+export type TicketReveal = z.infer<typeof TicketReveal>;

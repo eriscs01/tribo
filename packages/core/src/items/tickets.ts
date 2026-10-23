@@ -8,9 +8,11 @@ import {
   NoBody,
   TicketInput,
   TicketPatch,
+  TicketRevealInput,
   type PageQuery,
+  type TicketReveal,
 } from '@tribo/contract';
-import { seal, type Keyring } from '@tribo/crypto';
+import { open, seal, type Keyring } from '@tribo/crypto';
 import { forModule, type DB } from '@tribo/db';
 import {
   actingUser,
@@ -18,19 +20,22 @@ import {
   onConstraint,
   page,
   uuidCursor,
+  validate,
   type RequestContext,
   type Tx,
   type WritePath,
 } from '@tribo/platform';
 import type { Kysely } from 'kysely';
+import { recordEvent } from '../audit/service.js';
 import { activeMembershipSet, callerMembership } from '../trips/service.js';
 import { writeOperation } from '../write-operation.js';
 import { actingEditor, invalid, lockedItem, visibleItem } from './acting.js';
-import { canListTicket, canManageTickets, ticketEdit } from './policy.js';
+import { canListTicket, canManageTickets, ticketEdit, ticketReveal } from './policy.js';
 import { findVisibleItem, lockItem } from './repo.js';
 import {
   findSealedTicket,
   findTicket,
+  findTicketNoEnc,
   insertTicket,
   listTickets,
   lockSealedTicket,
@@ -104,6 +109,14 @@ export interface TicketsService {
     body: unknown,
     ifMatch: number | undefined,
   ): Promise<void>;
+  /**
+   * tickets.reveal: the plaintext ticket number, with a reveal audit event naming the field
+   * path, never the value. The trip's owners and organizers reveal any ticket, a member
+   * their own; a viewer is forbidden, and another member's ticket is not_found. A read, so
+   * it works on archived trips; a retired trip refuses the event, and with it the reveal
+   * (trip_retired).
+   */
+  reveal(ctx: RequestContext, ticketId: string, body: unknown): Promise<TicketReveal>;
 }
 
 const ticketsCreate = writeOperation('tickets.create', TicketInput);
@@ -160,6 +173,11 @@ async function actingOnTicket(tx: Tx, ctx: RequestContext, ticketId: string) {
   );
   if (edit === null) throw new ApiError('forbidden');
   return { userId, edit, itemId: item.id };
+}
+
+/** Runs `work` in the caller's transaction when it is one, or in a new one. */
+function inTransaction<T>(db: Kysely<DB>, work: (tx: Tx) => Promise<T>): Promise<T> {
+  return db.isTransaction ? work(db as Tx) : db.transaction().execute(work);
 }
 
 /** The caller removes a ticket: whoever manages the tickets of its item, or forbidden. */
@@ -401,5 +419,28 @@ export function createTicketsService(
         },
       });
     },
+
+    // Not the write path: a reveal changes nothing and has no counter, and an archived trip
+    // still allows it. It runs in one transaction so the event and the answer go together.
+    reveal: (ctx, ticketId, body) =>
+      inTransaction(db, async (tx) => {
+        const userId = actingUser(ctx);
+        const { ticket, item, membership } = await readableTicket(tx, userId, ticketId);
+        const outcome = ticketReveal(membership.role, ticket.membership_id === membership.id);
+        if (outcome === 'forbidden') throw new ApiError('forbidden');
+        if (outcome === 'hidden') throw new ApiError('not_found');
+        const { fields } = validate(TicketRevealInput, body);
+        await recordEvent(tx, ctx, {
+          action: 'reveal',
+          entityType: 'ticket',
+          entityId: ticket.id,
+          tripId: item.trip_id,
+          reason: fields.map((f) => `/${f}`).join(','),
+        });
+        const sealed = await findTicketNoEnc(forModule(tx, 'items'), ticket.id);
+        return {
+          ticketNo: sealed === null ? null : open(keys, sealedNumber(ticket.id), sealed).toString(),
+        };
+      }),
   };
 }

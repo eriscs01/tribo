@@ -66,5 +66,15 @@ export function ticketsHandlers(tickets: TicketsService): Handlers {
       );
       return reply.code(204).send();
     },
+
+    // Revealed values are never cached, offline or anywhere else.
+    'tickets.reveal': async (request, reply) => {
+      const shown = await tickets.reveal(
+        requestContext(request),
+        pathId(request, 'ticketId'),
+        request.body,
+      );
+      return reply.header('cache-control', 'private, no-store').send(shown);
+    },
   };
 }

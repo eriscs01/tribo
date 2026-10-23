@@ -4,7 +4,14 @@ import { defineOperation } from '../operation.js';
 import { UnitPage, Unit, UnitInput, UnitPatch } from '../unit.js';
 import { PageQuery } from '../page.js';
 import { ItemBoard, ItemBoardInput } from '../assignment.js';
-import { TicketPage, Ticket, TicketInput, TicketPatch } from '../ticket.js';
+import {
+  TicketPage,
+  Ticket,
+  TicketInput,
+  TicketPatch,
+  TicketRevealInput,
+  TicketReveal,
+} from '../ticket.js';
 
 export const unitsOperations = [
   defineOperation({
@@ -213,6 +220,8 @@ export const unitsOperations = [
     mcpTool: 'reveal_fields',
     notes:
       'Plaintext ticketNo; Audited reveal; never cached offline; write scope (G15); MCP approval (1b); No Idempotency-Key: each call is its own audited reveal (R2); MCP: tool returns approvalId, after approval the client calls again with approvalId within 10 min, single use (R15); Allowed on archived trips (a read, audited); refused with trip_retired after retirement',
-    status: 'planned',
+    status: 'implemented',
+    input: TicketRevealInput,
+    output: TicketReveal,
   }),
 ] as const;

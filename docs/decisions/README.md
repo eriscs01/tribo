@@ -65,3 +65,5 @@ fixed.
 | [0022](0022-file-downloads.md)                        | 23 Oct 2026 | File downloads: the headers, the name, failures and the audit of sensitive files | accepted |
 | [0023](0023-file-retention-purge.md)                  | 23 Oct 2026 | The file retention purge: what is due, how a purge is written, what it leaves    | accepted |
 | [0024](0024-expenses.md)                              | 24 Oct 2026 | Expenses: shares, ownership, masking and the ledger's reads                      | accepted |
+| [0025](0025-overlays-and-my-tasks.md)                 | 24 Oct 2026 | Overlays, preconditions and the due-soon list                                    | accepted |
+| [0026](0026-tickets.md)                               | 24 Oct 2026 | Tickets: the sealed number, who edits what, and which refusal says what          | accepted |
