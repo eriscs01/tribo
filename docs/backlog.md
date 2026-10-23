@@ -196,7 +196,7 @@
   - Roles: owner, organizer, member (own). If-Match: `version`. Idempotency: safe to repeat.
   - Limit: Trip currency only: fx_rate = 1; FX entry follows after the trip.
   - Limit: Splits are equal or itemised only; weight follows after the trip.
-- [ ] `expenses.void` · Drop B · `DELETE /v1/expenses/{expenseId}`
+- [x] `expenses.void` · Drop B · `DELETE /v1/expenses/{expenseId}`
   - Void (soft delete, audited); trip_archived on archived trips (R29)
   - Roles: owner, organizer, member (own). If-Match: `version`. Idempotency: safe to repeat.
 

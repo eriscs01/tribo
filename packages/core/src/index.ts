@@ -73,6 +73,7 @@ export {
 } from './documents/service.js';
 export {
   createExpensesService,
+  memberShare,
   moneyRecorded,
   type Cost,
   type ExpenseRecord,

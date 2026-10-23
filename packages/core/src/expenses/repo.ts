@@ -251,3 +251,24 @@ export async function replaceShares(
   await db.deleteFrom('tribo.expense_shares').where('expense_id', '=', expenseId).execute();
   await insertShares(db, expenseId, tripId, shares);
 }
+
+/** Voids an expense (a soft delete; its shares stay for restore) and bumps its version; returns it. */
+export async function voidExpense(
+  db: ExpensesDb,
+  expenseId: string,
+  voidedBy: string,
+): Promise<number> {
+  const { version } = await db
+    .updateTable('tribo.expenses')
+    .set((eb) => ({
+      deleted_at: sql`now()`,
+      deleted_by: voidedBy,
+      version: eb('version', '+', 1),
+      updated_at: sql`now()`,
+      updated_by: voidedBy,
+    }))
+    .where('id', '=', expenseId)
+    .returning('version')
+    .executeTakeFirstOrThrow();
+  return version;
+}

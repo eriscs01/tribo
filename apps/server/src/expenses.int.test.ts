@@ -361,3 +361,37 @@ describe('expenses.update over HTTP', () => {
     logsNoMoney(missing.headers['x-request-id']);
   });
 });
+
+describe('expenses.void over HTTP', () => {
+  const remove = (caller: Caller, expensePath: string, version?: string) =>
+    app.inject({
+      method: 'DELETE',
+      url: `/v1/expenses/${expensePath}`,
+      cookies: caller.auth.cookies,
+      headers: {
+        ...caller.auth.headers,
+        ...(version === undefined ? {} : { 'if-match': version }),
+      },
+    });
+
+  it('answers 204, and the expense is gone from reads; a viewer is refused with its log line', async () => {
+    const w = await world();
+    const created = (await create(w, w.member, dinner(w))).json<{ id: string }>();
+    const refused = await remove(w.viewer, created.id, '"1"');
+    expect(refused.statusCode).toBe(403);
+    expect(refusalLine(refused.headers['x-request-id'])).toMatchObject({
+      operationId: 'expenses.void',
+      problem: 'forbidden',
+    });
+    const voided = await remove(w.member, created.id, '"1"');
+    expect(voided.statusCode).toBe(204);
+    logsNoMoney(voided.headers['x-request-id']);
+    const read = await app.inject({
+      method: 'GET',
+      url: `/v1/expenses/${created.id}`,
+      cookies: w.member.auth.cookies,
+      headers: w.member.auth.headers,
+    });
+    expect(read.statusCode).toBe(404);
+  });
+});

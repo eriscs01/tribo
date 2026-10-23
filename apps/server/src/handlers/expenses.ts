@@ -62,5 +62,14 @@ export function expensesHandlers(expenses: ExpensesService): Handlers {
           ifMatch(request),
         ),
       ),
+    'expenses.void': async (request, reply) => {
+      await expenses.void(
+        requestContext(request),
+        pathId(request, 'expenseId'),
+        request.body,
+        ifMatch(request),
+      );
+      return reply.code(204).send();
+    },
   };
 }

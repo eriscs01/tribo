@@ -17,3 +17,6 @@ export const canListExpenses = anyMember;
  * paid); a viewer none, whatever they paid (decision 0024).
  */
 export const canUpdateExpense = organizersOrOwningMember;
+
+/** expenses.void: as expenses.update. */
+export const canVoidExpense = organizersOrOwningMember;

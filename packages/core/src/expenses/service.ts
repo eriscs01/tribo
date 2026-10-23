@@ -8,6 +8,7 @@ import {
   ExpensePatch,
   ID_PREFIX,
   MASKED,
+  NoBody,
   type ExpenseSplit,
   type MaskedValue,
   type Money,
@@ -35,7 +36,13 @@ import {
 } from '../trips/service.js';
 import { writeOperation } from '../write-operation.js';
 import { equalShares, itemisedShares, tripAmountMinor, type Share } from './money.js';
-import { canCreateExpense, canGetExpense, canListExpenses, canUpdateExpense } from './policy.js';
+import {
+  canCreateExpense,
+  canGetExpense,
+  canListExpenses,
+  canUpdateExpense,
+  canVoidExpense,
+} from './policy.js';
 import {
   expenseTrip,
   findExpense,
@@ -48,6 +55,7 @@ import {
   replaceShares,
   sumShares,
   updateExpense,
+  voidExpense,
   type ExpenseRow,
 } from './repo.js';
 
@@ -121,10 +129,21 @@ export interface ExpensesService {
     body: unknown,
     ifMatch: number | undefined,
   ): Promise<ExpenseRecord>;
+  /**
+   * expenses.void: a soft delete under If-Match = version. The expense leaves the ledger and
+   * my share; its frozen shares stay, for restore (1b).
+   */
+  void(
+    ctx: RequestContext,
+    expenseId: string,
+    body: unknown,
+    ifMatch: number | undefined,
+  ): Promise<void>;
 }
 
 const expensesCreate = writeOperation('expenses.create', ExpenseInput);
 const expensesUpdate = writeOperation('expenses.update', ExpensePatch);
+const expensesVoid = writeOperation('expenses.void', NoBody);
 
 type ShareRow = Awaited<ReturnType<typeof listShares>>[number];
 
@@ -546,6 +565,30 @@ export function createExpensesService(db: Kysely<DB>, write: WritePath): Expense
               repriced?.currency ?? (await tripCurrency(tx, row.trip_id)),
               membership,
             ),
+          };
+        },
+      });
+    },
+
+    void(ctx, expenseId, body, ifMatch) {
+      return write(ctx, {
+        operation: expensesVoid,
+        target: { expenseId },
+        body,
+        ifMatch,
+        authorize: (tx, c, target) => actingOnExpense(tx, c, target.expenseId, canVoidExpense),
+        load: (tx, target, _input, { userId }) => lockedExpense(tx, target, userId),
+        mutate: async (tx, _c, { row, shares }, _input, { userId }) => {
+          const version = await voidExpense(forModule(tx, 'expenses'), row.id, userId);
+          return {
+            action: 'delete',
+            aggregate: 'expense',
+            entityId: row.id,
+            tripId: row.trip_id,
+            version,
+            // The expense as it was: restore (1b) copies this snapshot forward.
+            snapshot: expenseSnapshot(row, shares),
+            result: undefined,
           };
         },
       });

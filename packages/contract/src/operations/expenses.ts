@@ -98,7 +98,7 @@ export const expensesOperations = [
     mcpApproval: false,
     mcpTool: null,
     notes: 'Void (soft delete, audited); trip_archived on archived trips (R29)',
-    status: 'planned',
+    status: 'implemented',
   }),
   defineOperation({
     id: 'budget.get',
