@@ -188,3 +188,66 @@ export function listLiveExpenses(
   }
   return query.orderBy('e.spent_on').orderBy('e.id').limit(page.limit).execute();
 }
+
+/** The write path's load for one live expense: the row as this writer gets it, locked until commit. */
+export function lockExpense(db: ExpensesDb, userId: string, expenseId: string) {
+  return selectExpense(db, userId)
+    .where('e.id', '=', expenseId)
+    .where('e.deleted_at', 'is', null)
+    .forUpdate()
+    .executeTakeFirst();
+}
+
+export interface ExpenseChanges {
+  itemId?: string | null;
+  category?: string;
+  description?: string;
+  spentOn?: string;
+  payerMembershipId?: string;
+  amountMinor?: number;
+  tripAmountMinor?: number;
+  splitMethod?: ValueOf<'tribo.expenses.split_method'>;
+}
+
+/** Applies a change and bumps the expense's version; returns the new version. */
+export async function updateExpense(
+  db: ExpensesDb,
+  expenseId: string,
+  changes: ExpenseChanges,
+  updatedBy: string,
+): Promise<number> {
+  const { version } = await db
+    .updateTable('tribo.expenses')
+    .set((eb) => ({
+      ...(changes.itemId === undefined ? {} : { item_id: changes.itemId }),
+      ...(changes.category === undefined ? {} : { category: changes.category }),
+      ...(changes.description === undefined ? {} : { description: changes.description }),
+      ...(changes.spentOn === undefined ? {} : { spent_on: changes.spentOn }),
+      ...(changes.payerMembershipId === undefined
+        ? {}
+        : { payer_membership_id: changes.payerMembershipId }),
+      ...(changes.amountMinor === undefined ? {} : { amount_minor: changes.amountMinor }),
+      ...(changes.tripAmountMinor === undefined
+        ? {}
+        : { trip_amount_minor: changes.tripAmountMinor }),
+      ...(changes.splitMethod === undefined ? {} : { split_method: changes.splitMethod }),
+      version: eb('version', '+', 1),
+      updated_at: sql`now()`,
+      updated_by: updatedBy,
+    }))
+    .where('id', '=', expenseId)
+    .returning('version')
+    .executeTakeFirstOrThrow();
+  return version;
+}
+
+/** Replaces an expense's shares whole: owned rows, written only with their root. */
+export async function replaceShares(
+  db: ExpensesDb,
+  expenseId: string,
+  tripId: string,
+  shares: readonly Share[],
+): Promise<void> {
+  await db.deleteFrom('tribo.expense_shares').where('expense_id', '=', expenseId).execute();
+  await insertShares(db, expenseId, tripId, shares);
+}

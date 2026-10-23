@@ -2027,6 +2027,19 @@ export interface components {
             items: components["schemas"]["Expense"][];
             nextCursor: string | null;
         };
+        ExpensePatch: {
+            itemId?: string | null;
+            category?: string;
+            description?: string;
+            /** Format: date */
+            spentOn?: string;
+            payerMembershipId?: string;
+            amount?: {
+                amountMinor: number;
+                currency: components["schemas"]["CurrencyCode"];
+            };
+            split?: components["schemas"]["ExpenseSplit"];
+        };
         ExpenseShare: {
             membershipId: string;
             amount: components["schemas"]["Money"] | components["schemas"]["MaskedValue"];
@@ -3687,11 +3700,26 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExpensePatch"];
+            };
+        };
         responses: {
-            /** @description Registered but not implemented yet (not_implemented) */
-            501: {
+            /** @description OK */
+            200: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Expense"];
+                };
+            };
+            /** @description Too many writes in this window (rate_limited) */
+            429: {
+                headers: {
+                    /** @description Seconds until the window resets */
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {

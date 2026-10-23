@@ -1,7 +1,7 @@
 // Generated from operations.csv by src/scripts/import-operations.ts. A story replaces an
 // entry's status with 'implemented' and adds its input and output schemas.
 import { defineOperation } from '../operation.js';
-import { Expense, ExpenseInput, ExpensePage } from '../expense.js';
+import { Expense, ExpenseInput, ExpensePage, ExpensePatch } from '../expense.js';
 import { PageQuery } from '../page.js';
 
 export const expensesOperations = [
@@ -79,7 +79,9 @@ export const expensesOperations = [
     mcpTool: null,
     notes:
       'Edit expense; shares recomputed; Same FX rule and share-sum check as create; trip_archived on archived trips (R29)',
-    status: 'planned',
+    status: 'implemented',
+    input: ExpensePatch,
+    output: Expense,
   }),
   defineOperation({
     id: 'expenses.void',

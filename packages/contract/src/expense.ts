@@ -95,6 +95,11 @@ export const ExpenseSplit = z
 
 export type ExpenseSplit = z.infer<typeof ExpenseSplit>;
 
+const Description = z.string().trim().min(1).max(300);
+
+/** What was paid; Drop B takes the trip currency only, at a rate of 1. */
+const AmountInput = z.strictObject({ amountMinor: z.int().min(1), currency: CurrencyCode });
+
 /**
  * expenses.create. Drop B takes the trip currency only, at a rate of 1, so amount's currency
  * must be the trip's; an item must be one the caller sees in the same trip.
@@ -103,10 +108,10 @@ export const ExpenseInput = z
   .strictObject({
     itemId: typeId(ID_PREFIX.item).optional(),
     category: Category,
-    description: z.string().trim().min(1).max(300),
+    description: Description,
     spentOn: z.iso.date(),
     payerMembershipId: typeId(ID_PREFIX.membership),
-    amount: z.strictObject({ amountMinor: z.int().min(1), currency: CurrencyCode }),
+    amount: AmountInput,
     split: ExpenseSplit,
   })
   .meta({ id: 'ExpenseInput' });
@@ -123,3 +128,24 @@ export type ExpensePage = z.infer<typeof ExpensePage>;
 
 /** expenses.list's keyset: the last row's day spent and id (the cursor's decoded form). */
 export const ExpenseCursorKey = z.tuple([z.iso.date(), Uuid]);
+
+/**
+ * expenses.update, as JSON Merge Patch: absent keys stay. A new amount or split refreezes
+ * the shares (an equal split re-splits among the same members; itemised amounts must sum
+ * to the new amount, or come with a new split); anything else leaves them as frozen. itemId
+ * null detaches the expense from its item, except from one the caller cannot see, which
+ * stays (the read showed them null).
+ */
+export const ExpensePatch = z
+  .strictObject({
+    itemId: typeId(ID_PREFIX.item).nullable().optional(),
+    category: Category.optional(),
+    description: Description.optional(),
+    spentOn: z.iso.date().optional(),
+    payerMembershipId: typeId(ID_PREFIX.membership).optional(),
+    amount: AmountInput.optional(),
+    split: ExpenseSplit.optional(),
+  })
+  .meta({ id: 'ExpensePatch' });
+
+export type ExpensePatch = z.infer<typeof ExpensePatch>;

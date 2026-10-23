@@ -323,3 +323,41 @@ describe('expenses.list over HTTP', () => {
     });
   });
 });
+
+describe('expenses.update over HTTP', () => {
+  const update = (caller: Caller, expensePath: string, body: unknown, version?: string) =>
+    app.inject({
+      method: 'PATCH',
+      url: `/v1/expenses/${expensePath}`,
+      payload: body as object,
+      cookies: caller.auth.cookies,
+      headers: {
+        ...caller.auth.headers,
+        ...(version === undefined ? {} : { 'if-match': version }),
+      },
+    });
+
+  it('edits under If-Match, refreezing the shares, and answers 412 to a stale one with its log line', async () => {
+    const w = await world();
+    const created = (await create(w, w.member, dinner(w))).json<{ id: string }>();
+    const edited = await update(
+      w.member,
+      created.id,
+      { amount: { amountMinor: AMOUNT + 1, currency: 'PHP' }, description: `${DESCRIPTION} again` },
+      '"1"',
+    );
+    expect(edited.statusCode).toBe(200);
+    expect(edited.json()).toMatchObject({ version: 2, tripAmount: { amountMinor: AMOUNT + 1 } });
+    logsNoMoney(edited.headers['x-request-id']);
+
+    const stale = await update(w.member, created.id, { description: 'Late' }, '"1"');
+    expect(stale.statusCode).toBe(412);
+    expect(refusalLine(stale.headers['x-request-id'])).toMatchObject({
+      operationId: 'expenses.update',
+      problem: 'version_conflict',
+    });
+    const missing = await update(w.member, created.id, { description: 'Late' });
+    expect(missing.statusCode).toBe(428);
+    logsNoMoney(missing.headers['x-request-id']);
+  });
+});

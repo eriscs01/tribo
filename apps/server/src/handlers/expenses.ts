@@ -6,7 +6,7 @@ import {
   type ExpensePage,
 } from '@tribo/contract';
 import type { ExpenseRecord, ExpensesService } from '@tribo/core';
-import { pathId, requestContext, signedIn } from '../context.js';
+import { ifMatch, pathId, requestContext, signedIn } from '../context.js';
 import { parsedQuery, type Handlers } from '../routes.js';
 
 /** The service masks; this only names ids as the API does. */
@@ -53,5 +53,14 @@ export function expensesHandlers(expenses: ExpensesService): Handlers {
       );
       return { items: page.items.map(expenseView), nextCursor: page.nextCursor };
     },
+    'expenses.update': async (request) =>
+      expenseView(
+        await expenses.update(
+          requestContext(request),
+          pathId(request, 'expenseId'),
+          request.body,
+          ifMatch(request),
+        ),
+      ),
   };
 }

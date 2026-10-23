@@ -388,7 +388,8 @@ type SoftDeletable =
   | 'tribo.items'
   | 'tribo.persons'
   | 'tribo.units'
-  | 'tribo.files';
+  | 'tribo.files'
+  | 'tribo.expenses';
 
 /** Soft-deletes one root row (sets deleted_at), as the services' delete operations do. */
 export async function softDelete(db: Db, table: SoftDeletable, id: string): Promise<void> {

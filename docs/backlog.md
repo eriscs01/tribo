@@ -191,7 +191,7 @@
 - [x] `expenses.get` · Drop B · `GET /v1/expenses/{expenseId}`
   - Expense with shares; As expenses.list
   - Roles: owner, organizer, member, viewer. If-Match: `no`. Idempotency: safe to repeat.
-- [ ] `expenses.update` · Drop B · `PATCH /v1/expenses/{expenseId}`
+- [x] `expenses.update` · Drop B · `PATCH /v1/expenses/{expenseId}`
   - Edit expense; shares recomputed; Same FX rule and share-sum check as create; trip_archived on archived trips (R29)
   - Roles: owner, organizer, member (own). If-Match: `version`. Idempotency: safe to repeat.
   - Limit: Trip currency only: fx_rate = 1; FX entry follows after the trip.

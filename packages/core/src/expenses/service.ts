@@ -5,6 +5,7 @@ import {
   decodeTypeId,
   ExpenseCursorKey,
   ExpenseInput,
+  ExpensePatch,
   ID_PREFIX,
   MASKED,
   type ExpenseSplit,
@@ -25,6 +26,7 @@ import {
 } from '@tribo/platform';
 import type { Kysely } from 'kysely';
 import { visibleItemTrip } from '../items/service.js';
+import type { Holder } from '../roles.js';
 import {
   allActiveMemberships,
   callerMembership,
@@ -33,7 +35,7 @@ import {
 } from '../trips/service.js';
 import { writeOperation } from '../write-operation.js';
 import { equalShares, itemisedShares, tripAmountMinor, type Share } from './money.js';
-import { canCreateExpense, canGetExpense, canListExpenses } from './policy.js';
+import { canCreateExpense, canGetExpense, canListExpenses, canUpdateExpense } from './policy.js';
 import {
   expenseTrip,
   findExpense,
@@ -42,7 +44,10 @@ import {
   insertExpense,
   listLiveExpenses,
   listShares,
+  lockExpense,
+  replaceShares,
   sumShares,
+  updateExpense,
   type ExpenseRow,
 } from './repo.js';
 
@@ -106,9 +111,20 @@ export interface ExpensesService {
    * payer and every member named must be active members of the trip.
    */
   create(ctx: RequestContext, tripId: string, body: unknown): Promise<ExpenseRecord>;
+  /**
+   * expenses.update: merge-patches an expense under If-Match = version; a new amount or
+   * split refreezes the shares, under the same rules as create.
+   */
+  update(
+    ctx: RequestContext,
+    expenseId: string,
+    body: unknown,
+    ifMatch: number | undefined,
+  ): Promise<ExpenseRecord>;
 }
 
 const expensesCreate = writeOperation('expenses.create', ExpenseInput);
+const expensesUpdate = writeOperation('expenses.update', ExpensePatch);
 
 type ShareRow = Awaited<ReturnType<typeof listShares>>[number];
 
@@ -210,24 +226,49 @@ async function requireMembers(
 
 const memberId = (typeId: string) => decodeTypeId(ID_PREFIX.membership, typeId);
 
-/** What a split freezes over the trip amount (R11, rule 2), with the path its members are at. */
-function frozenShares(total: number, split: ExpenseSplit): { shares: Share[]; path: string } {
-  if (split.method === 'equal') {
+/** A split over membership ids: one a body names, or the one an expense has frozen. */
+type Split =
+  | { method: 'equal'; membershipIds: string[] }
+  | { method: 'itemised'; shares: { membershipId: string; amountMinor: number }[] };
+
+function namedSplit(split: ExpenseSplit): Split {
+  return split.method === 'equal'
+    ? { method: 'equal', membershipIds: split.membershipIds.map(memberId) }
+    : {
+        method: 'itemised',
+        shares: split.shares.map((s) => ({
+          membershipId: memberId(s.membershipId),
+          amountMinor: s.amountMinor,
+        })),
+      };
+}
+
+/**
+ * The split an expense has, to refreeze over a new amount: an equal one among the same
+ * members, an itemised one with the same amounts. Drop B writes no weight split, so one
+ * written otherwise needs a new split sent with its new amount.
+ */
+function keptSplit(row: ExpenseRow, shares: readonly ShareRow[]): Split {
+  if (row.split_method === 'equal') {
+    return { method: 'equal', membershipIds: shares.map((s) => s.membership_id) };
+  }
+  if (row.split_method === 'itemised') {
     return {
-      shares: equalShares(total, split.membershipIds.map(memberId)),
-      path: '/split/membershipIds',
+      method: 'itemised',
+      shares: shares.map((s) => ({
+        membershipId: s.membership_id,
+        amountMinor: Number(s.share_minor),
+      })),
     };
   }
-  return {
-    shares: itemisedShares(
-      total,
-      split.shares.map((s) => ({
-        membershipId: memberId(s.membershipId),
-        amountMinor: s.amountMinor,
-      })),
-    ),
-    path: '/split/shares',
-  };
+  throw refused('/split', 'send the split with the new amount');
+}
+
+/** What a split freezes over the trip amount (R11, rule 2), with the path its members are at. */
+function frozenShares(total: number, split: Split): { shares: Share[]; path: string } {
+  return split.method === 'equal'
+    ? { shares: equalShares(total, split.membershipIds), path: '/split/membershipIds' }
+    : { shares: itemisedShares(total, split.shares), path: '/split/shares' };
 }
 
 /** Drop B takes the trip currency only, so the rate is 1 (decision 0016's limits). */
@@ -241,7 +282,7 @@ async function pricedExpense(
   tx: Tx,
   tripId: string,
   amount: { amountMinor: number; currency: string },
-  split: ExpenseSplit,
+  split: Split,
 ) {
   const currency = await tripCurrency(tx, tripId);
   if (amount.currency !== currency) {
@@ -291,6 +332,53 @@ async function readableExpense(
   if (!row || !membership) throw new ApiError('not_found');
   if (!allowed(membership.role)) throw new ApiError('forbidden');
   return { row, membership };
+}
+
+/**
+ * Who is acting on an expense they can see: their account and membership, and whether
+ * `allowed` lets them. An expense is a member's own when they paid it (decision 0024). An
+ * expense they cannot see does not exist for them, before any role is weighed.
+ */
+async function actingOnExpense(
+  tx: Tx,
+  ctx: RequestContext,
+  expenseId: string,
+  allowed: (holder: Holder) => boolean,
+) {
+  const userId = actingUser(ctx);
+  const { row, membership } = await readableExpense(tx, userId, expenseId, () => true);
+  if (!allowed({ role: membership.role, owns: row.payer_membership_id === membership.id })) {
+    throw new ApiError('forbidden');
+  }
+  return { userId, membership };
+}
+
+/** The write path's load for one expense: the live row and its shares, locked until commit. */
+async function lockedExpense(tx: Tx, target: { expenseId: string }, userId: string) {
+  const expenses = forModule(tx, 'expenses');
+  const row = await lockExpense(expenses, userId, target.expenseId);
+  if (!row) throw new ApiError('not_found');
+  return {
+    tripId: row.trip_id,
+    counter: row.version,
+    row,
+    shares: await listShares(expenses, [row.id]),
+  };
+}
+
+/**
+ * The item link a patch leaves: a link the caller cannot see stays when they send null
+ * (their read showed them null), so they neither learn of it nor drop it unseen.
+ */
+async function patchedItem(
+  tx: Tx,
+  userId: string,
+  row: ExpenseRow,
+  itemId: string | null | undefined,
+): Promise<string | null | undefined> {
+  if (itemId === undefined) return undefined;
+  if (itemId === null) return row.shown_item_id === row.item_id ? null : undefined;
+  return linkableItem(tx, userId, row.trip_id, itemId);
 }
 
 /** The caller adding to the trip's ledger: their active membership, which a viewer's is not. */
@@ -351,7 +439,12 @@ export function createExpensesService(db: Kysely<DB>, write: WritePath): Expense
               : await linkableItem(tx, userId, target.tripId, input.itemId);
           const payer = memberId(input.payerMembershipId);
           await requireMembers(tx, target.tripId, [payer], '/payerMembershipId');
-          const priced = await pricedExpense(tx, target.tripId, input.amount, input.split);
+          const priced = await pricedExpense(
+            tx,
+            target.tripId,
+            input.amount,
+            namedSplit(input.split),
+          );
           return { tripId: target.tripId, itemId, payer, ...priced };
         },
         mutate: async (tx, _c, loaded, input, { userId, membership }) => {
@@ -385,6 +478,74 @@ export function createExpensesService(db: Kysely<DB>, write: WritePath): Expense
             version: row.version,
             snapshot: expenseSnapshot(row, shares),
             result: expenseRecord(row, shares, loaded.currency, membership),
+          };
+        },
+      });
+    },
+
+    update(ctx, expenseId, body, ifMatch) {
+      return write(ctx, {
+        operation: expensesUpdate,
+        target: { expenseId },
+        body,
+        ifMatch,
+        authorize: (tx, c, target) => actingOnExpense(tx, c, target.expenseId, canUpdateExpense),
+        load: (tx, target, _patch, { userId }) => lockedExpense(tx, target, userId),
+        mutate: async (tx, _c, { row, shares: frozen }, patch, { userId, membership }) => {
+          const expenses = forModule(tx, 'expenses');
+          const itemId = await patchedItem(tx, userId, row, patch.itemId);
+          const payer =
+            patch.payerMembershipId === undefined ? undefined : memberId(patch.payerMembershipId);
+          if (payer !== undefined) {
+            await requireMembers(tx, row.trip_id, [payer], '/payerMembershipId');
+          }
+          // Shares are refrozen only when the money changes, among active members only.
+          const repriced =
+            patch.amount === undefined && patch.split === undefined
+              ? null
+              : await pricedExpense(
+                  tx,
+                  row.trip_id,
+                  patch.amount ?? { amountMinor: Number(row.amount_minor), currency: row.currency },
+                  patch.split === undefined ? keptSplit(row, frozen) : namedSplit(patch.split),
+                );
+          const version = await updateExpense(
+            expenses,
+            row.id,
+            {
+              ...(itemId === undefined ? {} : { itemId }),
+              ...(patch.category === undefined ? {} : { category: patch.category }),
+              ...(patch.description === undefined ? {} : { description: patch.description }),
+              ...(patch.spentOn === undefined ? {} : { spentOn: patch.spentOn }),
+              ...(payer === undefined ? {} : { payerMembershipId: payer }),
+              ...(patch.amount === undefined ? {} : { amountMinor: patch.amount.amountMinor }),
+              ...(repriced === null
+                ? {}
+                : {
+                    tripAmountMinor: repriced.total,
+                    splitMethod: patch.split?.method ?? (row.split_method as Split['method']),
+                  }),
+            },
+            userId,
+          );
+          if (repriced !== null)
+            await replaceShares(expenses, row.id, row.trip_id, repriced.shares);
+          const changed = await findExpense(expenses, userId, row.id);
+          if (!changed) throw new Error(`expense ${row.id} vanished inside its own write`);
+          const shares = await listShares(expenses, [row.id]);
+          return {
+            action: 'update',
+            aggregate: 'expense',
+            entityId: row.id,
+            tripId: row.trip_id,
+            version,
+            snapshot: expenseSnapshot(changed, shares),
+            result: expenseRecord(
+              changed,
+              shares,
+              repriced?.currency ?? (await tripCurrency(tx, row.trip_id)),
+              membership,
+            ),
           };
         },
       });
