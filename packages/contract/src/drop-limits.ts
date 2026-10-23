@@ -16,3 +16,10 @@ export const EXPENSE_WRITES: readonly string[] = ['expenses.create', 'expenses.u
 export function honoursIdempotencyKey(op: Pick<Operation, 'id' | 'idempotent'>): boolean {
   return op.idempotent === 'key' && IDEMPOTENCY_KEY_OPERATIONS.includes(op.id);
 }
+
+/**
+ * The upload ceiling (Technical design, "Uploads and downloads"): 25 MB, the same as the
+ * `tribo.files.size_bytes` CHECK. Caddy's request_body limit sits just above it, for the
+ * multipart framing.
+ */
+export const UPLOAD_MAX_BYTES = 25 * 1024 * 1024;

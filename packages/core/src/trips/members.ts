@@ -9,7 +9,7 @@ import {
   type PageQuery,
 } from '@tribo/contract';
 import type { Keyring } from '@tribo/crypto';
-import { forModule, type DB } from '@tribo/db';
+import { forModule, type DB, type TripRole } from '@tribo/db';
 import {
   actingUser,
   ApiError,
@@ -56,7 +56,6 @@ import {
   undeleteMembership,
   updateMembershipRole,
   type MembershipRow,
-  type TripRole,
 } from './repo.js';
 
 export interface MembersService {

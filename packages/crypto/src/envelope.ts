@@ -40,9 +40,14 @@ export function fieldAad({ table, column, rowId }: FieldRef): Buffer {
   if (!IDENTIFIER.test(column) || !column.endsWith('_enc')) {
     throw new EnvelopeError(`bad column ${column}: sensitive columns end in _enc`);
   }
+  return Buffer.from(`${table}.${column}:${rowUuid(rowId)}`, 'utf8');
+}
+
+/** A row id as AAD binds it: a lowercase uuid, never a TypeID. */
+export function rowUuid(rowId: string): string {
   const id = rowId.toLowerCase();
   if (!UUID.test(id)) throw new EnvelopeError('row id must be a uuid');
-  return Buffer.from(`${table}.${column}:${id}`, 'utf8');
+  return id;
 }
 
 /** Encrypts a value for one row's column: key_version (1 byte) ‖ nonce (12) ‖ ciphertext ‖ tag (16). */

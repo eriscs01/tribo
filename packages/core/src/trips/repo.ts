@@ -1,9 +1,8 @@
-import type { ModuleDb, ValueOf } from '@tribo/db';
+import type { ModuleDb, TripRole, ValueOf } from '@tribo/db';
 import { sql } from 'kysely';
 
 /** The trips module's database handle: only the tables it owns compile. Other modules call service.ts. */
 export type TripsDb = ModuleDb<'trips'>;
-export type TripRole = ValueOf<'tribo.memberships.trip_role'>;
 
 /**
  * Locks the trip FOR SHARE until commit: concurrent writes under the trip proceed, while

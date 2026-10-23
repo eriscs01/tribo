@@ -96,3 +96,6 @@ export type ValueSetKey = keyof typeof VALUE_SETS;
 
 /** The union of values one CHECK allows, e.g. `ValueOf<'tribo.items.visibility'>`. */
 export type ValueOf<K extends ValueSetKey> = (typeof VALUE_SETS)[K][number];
+
+/** A membership's role in its trip: the one TypeScript name every module and tool uses. */
+export type TripRole = ValueOf<'tribo.memberships.trip_role'>;

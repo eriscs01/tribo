@@ -1,8 +1,6 @@
 import { ERROR_CODES, MODULE_FILE, type ErrorCode, type Operation } from '@tribo/contract';
-import { VALUE_SETS, type TableOwner, type ValueOf } from '@tribo/db';
+import { VALUE_SETS, type TableOwner, type TripRole } from '@tribo/db';
 import { dropLimits } from './limits.js';
-
-export type TripRole = ValueOf<'tribo.memberships.trip_role'>;
 
 /** The core module that owns each resource's tables (TABLE_OWNER in @tribo/db), by id prefix. */
 const CORE_MODULE: Record<string, Exclude<TableOwner, 'platform'>> = {

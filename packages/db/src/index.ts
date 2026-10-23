@@ -19,4 +19,4 @@ export {
   type TableOwner,
   type TablesOf,
 } from './ownership.js';
-export { VALUE_SETS, type ValueOf, type ValueSetKey } from './value-sets.js';
+export { VALUE_SETS, type TripRole, type ValueOf, type ValueSetKey } from './value-sets.js';

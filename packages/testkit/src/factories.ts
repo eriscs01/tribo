@@ -3,11 +3,11 @@
 // test a write path.
 import { createHash, randomBytes } from 'node:crypto';
 import { hash } from '@node-rs/argon2';
-import type { DB, ValueOf } from '@tribo/db';
+import type { DB, TripRole, ValueOf } from '@tribo/db';
 import type { Kysely } from 'kysely';
 
 type Db = Kysely<DB>;
-export type TripRole = ValueOf<'tribo.memberships.trip_role'>;
+export type { TripRole } from '@tribo/db';
 export type Visibility = ValueOf<'tribo.items.visibility'>;
 
 let counter = 0;

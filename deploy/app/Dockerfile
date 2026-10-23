@@ -35,6 +35,9 @@ ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=build /out /app
 COPY deploy/app/tribo /usr/local/bin/tribo
+# The upload volume's mount point, owned by node: a new named volume takes its owner from
+# it, so the app can write uploads while the rest of the filesystem stays read-only.
+RUN mkdir -p /var/lib/tribo/uploads && chown node:node /var/lib/tribo/uploads
 # The release this image is: on every log line and from `tribo release show`. CI sets both
 # (the tag and the commit); a local build is dev. Last, so a new commit rebuilds only this.
 ARG TRIBO_RELEASE_VERSION=dev

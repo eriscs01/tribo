@@ -10,10 +10,20 @@ tribo.localhost {
 	# One origin for the SPA and the API, so the __Host- session cookie and CSRF need no CORS.
 	@server path /v1/* /healthz
 	handle @server {
+		# The upload ceiling is 25 MiB (the app enforces it too); the rest is multipart framing.
+		request_body {
+			max_size 26MiB
+		}
 		reverse_proxy app:3000 {
 			header_up X-Forwarded-For {client_ip}
 		}
 	}
+	# A body over the ceiling never reaches the app: answer as it would, problem+json with the code.
+	handle_errors 413 {
+		header Content-Type application/problem+json
+		respond `{"type":"urn:tribo:problem:file_too_large","title":"file too large","status":413,"code":"file_too_large","requestId":"{http.request.header.X-Request-Id}"}` 413
+	}
+
 	# Everything else is the SPA, from Vite's dev server (hot reload over this origin's wss).
 	handle {
 		reverse_proxy web:5173

@@ -28,17 +28,26 @@ export function pageStub(name: string, item: string, of: string): string {
   ].join('\n');
 }
 
-export const TRIP_ROLE_TYPE = "type TripRole = ValueOf<'tribo.memberships.trip_role'>;";
+/**
+ * The shared rules of packages/core/src/roles.ts, by the trip roles they let in. A roles
+ * column reduces to one of them; one that does not needs a new rule there first.
+ */
+const SHARED_RULES: Readonly<Record<string, string>> = {
+  'member,organizer,owner,viewer': 'anyMember',
+  'member,organizer,owner': 'contributors',
+  'organizer,owner': 'organizers',
+  owner: 'ownerOnly',
+};
 
-export function policyRow(story: Story, roles: readonly string[]): string {
-  const constant = `${story.slug.replaceAll('-', '_').toUpperCase()}_ROLES`;
+/** The shared rule a set of trip roles reduces to, or null. */
+export function sharedRule(roles: readonly string[]): string | null {
+  return SHARED_RULES[[...new Set(roles)].sort().join(',')] ?? null;
+}
+
+export function policyRow(story: Story, rule: string): string {
   return [
     `/** ${story.op.id}: ${story.op.roles} (operations.csv). The story adds what a trip role can't say. */`,
-    `const ${constant}: ReadonlySet<TripRole> = new Set([${roles.map((r) => `'${r}'`).join(', ')}]);`,
-    '',
-    `export function ${story.policyName}(role: TripRole): boolean {`,
-    `  return ${constant}.has(role);`,
-    '}',
+    `export const ${story.policyName} = ${rule};`,
   ].join('\n');
 }
 

@@ -5,9 +5,15 @@ import proxyAddr from '@fastify/proxy-addr';
 import { CSRF_HEADER, registry as defaultRegistry, type Operation } from '@tribo/contract';
 import type { SignedIn } from '@tribo/core';
 import Fastify, { type FastifyInstance } from 'fastify';
-import { ApiError, createRateLimits, type RateLimits } from '@tribo/platform';
+import {
+  ApiError,
+  createRateLimits,
+  type IdempotencyStore,
+  type RateLimits,
+} from '@tribo/platform';
 import { DEV_RELEASE, type Release } from './config.js';
 import { registerErrorHandling } from './errors.js';
+import { registerIdempotency } from './idempotency.js';
 import { loggerOptions } from './logger.js';
 import { RequestLog } from './request-log.js';
 import { inRequestScope } from './request-scope.js';
@@ -32,6 +38,8 @@ export interface ServerDeps {
   handlers?: Handlers;
   /** The in-memory rate limits; tests pass ones on their own clock. */
   rateLimits?: RateLimits;
+  /** Where responses to an Idempotency-Key are kept; without it no key is honoured. */
+  idempotency?: IdempotencyStore;
 }
 
 const REQUEST_ID = /^[A-Za-z0-9-]{8,64}$/;
@@ -59,6 +67,7 @@ export async function buildServer(deps: ServerDeps): Promise<FastifyInstance> {
 
   await app.register(cookie);
   registerErrorHandling(app);
+  if (deps.idempotency) registerIdempotency(app, deps.idempotency);
 
   app.addHook('onRequest', (request, _reply, done) => {
     inRequestScope(request.id, done);

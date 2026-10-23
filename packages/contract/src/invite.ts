@@ -6,6 +6,7 @@ import { Member, TripRole } from './member.js';
 import { DisplayName } from './person.js';
 import { Instant } from './time.js';
 import { page } from './page.js';
+import { secret } from './secret.js';
 
 /** The roles an invite gives: the trip has one owner, who hands over with members.setRole. */
 export const InviteRole = TripRole.exclude(['owner']).meta({ id: 'InviteRole' });
@@ -54,8 +55,8 @@ export type Invite = z.infer<typeof Invite>;
  * proxy log. An idempotent replay (1b) omits both and says `redacted: true` (R2).
  */
 export const InviteCreated = Invite.extend({
-  token: z.string().optional(),
-  link: z.url().optional(),
+  token: secret(z.string()).optional(),
+  link: secret(z.url()).optional(),
   redacted: z.boolean(),
 }).meta({ id: 'InviteCreated' });
 

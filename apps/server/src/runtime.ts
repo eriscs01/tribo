@@ -1,4 +1,7 @@
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import {
+  createBlobStore,
   memberItems,
   createDashboardService,
   createIdentityService,
@@ -14,6 +17,7 @@ import {
   writePath,
 } from '@tribo/core';
 import { keyring, loadAppKey, type AppKey } from '@tribo/crypto';
+import { createIdempotencyStore } from '@tribo/platform';
 import type { DB } from '@tribo/db';
 import { Kysely, PostgresDialect, sql } from 'kysely';
 import pg from 'pg';
@@ -23,7 +27,13 @@ import type { Config } from './config.js';
  * The services over one database handle and one app key: the one composition the HTTP
  * server, the CLI and the adapter tests share.
  */
-export function composeServices(db: Kysely<DB>, appKey: AppKey, publicUrl: URL) {
+export function composeServices(
+  db: Kysely<DB>,
+  appKey: AppKey,
+  publicUrl: URL,
+  /** The upload volume; tests and local runs that store no file default to a temp directory. */
+  uploadsDir = join(tmpdir(), 'tribo-uploads'),
+) {
   const write = writePath(db);
   const keys = keyring(appKey);
   /** How authenticator apps name this deployment. */
@@ -41,6 +51,8 @@ export function composeServices(db: Kysely<DB>, appKey: AppKey, publicUrl: URL) 
     itinerary: createItineraryService(db),
     dashboard: createDashboardService(db),
     library: createLibraryService(db, write, keys),
+    idempotency: createIdempotencyStore(db),
+    blobs: createBlobStore({ root: uploadsDir, keys }),
     verifyAudit: (chainKey?: string) => verifyChains(db, chainKey),
     requestAudit: (requestId: string) => requestEvents(db, requestId),
     /** Resolves once the database answers a query. */
@@ -66,9 +78,11 @@ export async function openRuntime(config: Config, applicationName: string) {
   });
   const db = new Kysely<DB>({ dialect: new PostgresDialect({ pool }) });
   return {
-    ...composeServices(db, appKey, config.publicUrl),
+    ...composeServices(db, appKey, config.publicUrl, config.uploadsDir),
     release: config.release,
     pool,
+    /** The tribo_app handle, for the daily jobs' advisory locks. */
+    db,
     /** Ends the pool. Kysely ends only a pool it has queried through, so this ends it too. */
     close: async () => {
       await db.destroy();
