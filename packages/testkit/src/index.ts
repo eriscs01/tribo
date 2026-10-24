@@ -36,5 +36,6 @@ export {
   type WorldSpec,
 } from './leak.js';
 export { testKeys } from './keys.js';
+export { sealBookingRef, sealEmergencyContact } from './offline-bundle-world.js';
 export { POSTGRES_IMAGE, startPostgres, type PostgresInfo } from './postgres.js';
 export { totpFor } from './totp.js';

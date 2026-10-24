@@ -293,15 +293,18 @@ export function listVisibleItems(
 
 /**
  * Every item of the trip this account can see, in id order, for the reads that sum a trip
- * up in one answer (itinerary, dashboard). A trip holds a few hundred items at most.
+ * up in one answer (itinerary, dashboard, offline bundle), or the first `limit` of them. A
+ * trip holds a few hundred items at most.
  */
 export function listAllVisibleItems(
   db: ItemsDb,
   userId: string,
   tripId: string,
   filter: ItemFilter,
+  limit?: number,
 ) {
-  return visibleItems(db, userId, tripId, filter).orderBy('i.id').execute();
+  const query = visibleItems(db, userId, tripId, filter).orderBy('i.id');
+  return (limit === undefined ? query : query.limit(limit)).execute();
 }
 
 /** The tasks of these trips that tribo.item_visible lets this account see, in id order. */
@@ -540,14 +543,10 @@ export function itemUnits(db: ItemsDb, itemId: string, options: { lock: boolean 
   return (options.lock ? query.forUpdate() : query).execute();
 }
 
-/** The live vehicles of these items in one query, in id order. */
-export function listVehicles(db: ItemsDb, itemIds: readonly string[]) {
+/** The live units (rooms and vehicles) of these items in one query, in id order. */
+export function listItemsUnits(db: ItemsDb, itemIds: readonly string[]) {
   if (itemIds.length === 0) return Promise.resolve([]);
-  return selectUnit(db)
-    .where('u.item_id', 'in', itemIds)
-    .where('u.kind', '=', 'vehicle')
-    .orderBy('u.id')
-    .execute();
+  return selectUnit(db).where('u.item_id', 'in', itemIds).orderBy('u.id').execute();
 }
 
 /**

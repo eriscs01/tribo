@@ -9,7 +9,7 @@ import {
   type EmergencyContact,
   type OpeningHours,
 } from '@tribo/contract';
-import { sealJson, type FieldRef, type Keyring } from '@tribo/crypto';
+import type { Keyring } from '@tribo/crypto';
 import { forModule, type DB, type ValueOf } from '@tribo/db';
 import {
   actingUser,
@@ -48,6 +48,13 @@ import {
   type PlaceRow,
   type VendorRow,
 } from './repo.js';
+import { sealedContact } from './sealed.js';
+
+export {
+  createPersonRevealService,
+  type PersonRevealService,
+  type SharedTripRoles,
+} from './reveal.js';
 
 /** A person as the library hands it out; sensitive values stay inside the module. */
 export interface PersonRecord {
@@ -133,21 +140,6 @@ const peopleUpdate = writeOperation('library.people.update', PersonPatch);
 const meUpdate = writeOperation('me.update', PersonPatch);
 const placesCreate = writeOperation('library.places.create', PlaceInput);
 const vendorsCreate = writeOperation('library.vendors.create', VendorInput);
-
-const EMERGENCY_CONTACT = (personId: string): FieldRef => ({
-  table: 'persons',
-  column: 'emergency_contact_enc',
-  rowId: personId,
-});
-
-/** The emergency contact sealed to its person's row (AAD), or null for none. */
-function sealedContact(
-  keys: Keyring,
-  personId: string,
-  contact: EmergencyContact | null,
-): Buffer | null {
-  return contact === null ? null : sealJson(keys, EMERGENCY_CONTACT(personId), contact);
-}
 
 /** `write` is core's write path (writePath in write-path.ts), passed in to keep imports acyclic. */
 export function createLibraryService(

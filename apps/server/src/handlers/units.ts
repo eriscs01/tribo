@@ -11,7 +11,7 @@ import type { BoardRecord, UnitRecord, UnitsService } from '@tribo/core';
 import { ifMatch, pathId, requestContext, signedIn } from '../context.js';
 import { parsedQuery, type Handlers } from '../routes.js';
 
-function unitView(unit: UnitRecord): Unit {
+export function unitView(unit: UnitRecord): Unit {
   return {
     id: encodeTypeId(ID_PREFIX.unit, unit.id),
     itemId: encodeTypeId(ID_PREFIX.item, unit.itemId),
@@ -27,7 +27,7 @@ function unitView(unit: UnitRecord): Unit {
   };
 }
 
-function boardView(board: BoardRecord): ItemBoard {
+export function boardView(board: BoardRecord): ItemBoard {
   const unit = (id: string) => encodeTypeId(ID_PREFIX.unit, id);
   return {
     itemId: encodeTypeId(ID_PREFIX.item, board.itemId),

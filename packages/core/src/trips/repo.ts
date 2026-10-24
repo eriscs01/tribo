@@ -375,6 +375,31 @@ export function listMemberships(
   return query.orderBy('id').limit(page.limit).execute();
 }
 
+/**
+ * The roles one person holds in the trips they share with another, both memberships active,
+ * the trip not deleted and its audit chain not retired: what a person reveal is granted by.
+ */
+export async function listSharedTripRoles(
+  db: TripsDb,
+  mine: string,
+  theirs: string,
+): Promise<string[]> {
+  const rows = await db
+    .selectFrom('tribo.memberships as m')
+    .innerJoin('tribo.memberships as t', 't.trip_id', 'm.trip_id')
+    .innerJoin('tribo.trips as trip', 'trip.id', 'm.trip_id')
+    .select('m.trip_role')
+    .where('m.person_id', '=', mine)
+    .where('m.deleted_at', 'is', null)
+    .where('t.person_id', '=', theirs)
+    .where('t.deleted_at', 'is', null)
+    .where('trip.deleted_at', 'is', null)
+    .where('trip.audit_retired_at', 'is', null)
+    .orderBy('m.trip_id')
+    .execute();
+  return rows.map((r) => r.trip_role);
+}
+
 export type MembershipRow = Awaited<ReturnType<typeof insertMembership>>;
 
 const INVITE_COLUMNS = [

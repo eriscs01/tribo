@@ -4793,12 +4793,31 @@
           }
         ],
         "responses": {
-          "501": {
-            "description": "Registered but not implemented yet (not_implemented)",
+          "201": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonReveal"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many writes in this window (rate_limited)",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the window resets",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
                 }
               }
             }
@@ -4815,7 +4834,7 @@
           }
         },
         "x-tribo": {
-          "status": "planned",
+          "status": "implemented",
           "slice": "1a",
           "drop": "B",
           "roles": "self; owner, organizer of a shared trip",
@@ -4835,7 +4854,17 @@
               "pattern": "^per_[0-7][0-9a-hjkmnp-tv-z]{25}$"
             }
           }
-        ]
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PersonRevealInput"
+              }
+            }
+          }
+        }
       }
     },
     "/v1/library/places": {
@@ -9141,15 +9170,26 @@
           }
         ],
         "responses": {
-          "501": {
-            "description": "Registered but not implemented yet (not_implemented)",
-            "content": {
-              "application/problem+json": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "ETag": {
+                "description": "SHA-256 (base64url) of this representation, as sent to this caller",
                 "schema": {
-                  "$ref": "#/components/schemas/Problem"
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TripOfflineBundle"
                 }
               }
             }
+          },
+          "304": {
+            "description": "Not modified: If-None-Match names the ETag"
           },
           "default": {
             "description": "Error",
@@ -9163,7 +9203,7 @@
           }
         },
         "x-tribo": {
-          "status": "planned",
+          "status": "implemented",
           "slice": "1a",
           "drop": "B",
           "roles": "owner, organizer, member, viewer",
@@ -9181,6 +9221,15 @@
             "schema": {
               "type": "string",
               "pattern": "^trp_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+            }
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "required": false,
+            "description": "An ETag already held; 304 when it is still current",
+            "schema": {
+              "type": "string"
             }
           }
         ]
@@ -11772,6 +11821,28 @@
         "minLength": 12,
         "maxLength": 128
       },
+      "OfflineItinerary": {
+        "type": "object",
+        "properties": {
+          "days": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ItineraryDay"
+            }
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Warning"
+            }
+          }
+        },
+        "required": [
+          "days",
+          "warnings"
+        ],
+        "additionalProperties": false
+      },
       "OpeningHours": {
         "maxItems": 50,
         "type": "array",
@@ -12067,6 +12138,45 @@
             ]
           }
         },
+        "additionalProperties": false
+      },
+      "PersonReveal": {
+        "type": "object",
+        "properties": {
+          "emergencyContact": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EmergencyContact"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "PersonRevealField": {
+        "type": "string",
+        "enum": [
+          "emergencyContact"
+        ]
+      },
+      "PersonRevealInput": {
+        "type": "object",
+        "properties": {
+          "fields": {
+            "minItems": 1,
+            "maxItems": 1,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PersonRevealField"
+            }
+          }
+        },
+        "required": [
+          "fields"
+        ],
         "additionalProperties": false
       },
       "Place": {
@@ -12778,6 +12888,100 @@
           "endDate",
           "currency",
           "timezone"
+        ],
+        "additionalProperties": false
+      },
+      "TripOfflineBundle": {
+        "type": "object",
+        "properties": {
+          "trip": {
+            "$ref": "#/components/schemas/Trip"
+          },
+          "membershipId": {
+            "type": "string",
+            "pattern": "^mem_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Member"
+            }
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Item"
+            }
+          },
+          "units": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Unit"
+            }
+          },
+          "boards": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ItemBoard"
+            }
+          },
+          "itinerary": {
+            "type": "object",
+            "properties": {
+              "me": {
+                "$ref": "#/components/schemas/OfflineItinerary"
+              },
+              "group": {
+                "$ref": "#/components/schemas/OfflineItinerary"
+              }
+            },
+            "required": [
+              "me",
+              "group"
+            ],
+            "additionalProperties": false
+          },
+          "tickets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Ticket"
+            }
+          },
+          "overlays": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Overlay"
+            }
+          },
+          "expenses": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Expense"
+            }
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FileMetadata"
+            }
+          },
+          "truncated": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "trip",
+          "membershipId",
+          "members",
+          "items",
+          "units",
+          "boards",
+          "itinerary",
+          "tickets",
+          "overlays",
+          "expenses",
+          "files",
+          "truncated"
         ],
         "additionalProperties": false
       },

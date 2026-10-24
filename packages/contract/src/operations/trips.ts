@@ -2,6 +2,7 @@
 // entry's status with 'implemented' and adds its input and output schemas.
 import { PageQuery } from '../page.js';
 import { TripDashboard } from '../dashboard.js';
+import { TripOfflineBundle } from '../offline-bundle.js';
 import { Trip, TripInput, TripPage, TripPatch } from '../trip.js';
 import { defineOperation } from '../operation.js';
 
@@ -174,6 +175,8 @@ export const tripsOperations = [
     mcpTool: null,
     notes:
       'Read bundle for IndexedDB; Sensitive fields always masked; no revealed values; ETag = SHA-256 of the serialized per-caller bundle (R12)',
-    status: 'planned',
+    status: 'implemented',
+    etag: 'representation',
+    output: TripOfflineBundle,
   }),
 ] as const;

@@ -186,6 +186,31 @@ function expenseRecord(
   };
 }
 
+/**
+ * The trip's ledger as `viewer` (the caller's active membership in the trip) reads it, the
+ * first `limit` expenses by the day spent then id, masked and with hidden item links nulled
+ * as expenses.list shows them: the offline bundle's expenses.
+ */
+export async function tripExpenses(
+  db: Kysely<DB>,
+  userId: string,
+  viewer: CallerMembership,
+  trip: { id: string; currency: string },
+  limit: number,
+): Promise<ExpenseRecord[]> {
+  if (!canListExpenses(viewer.role)) return [];
+  const expenses = forModule(db, 'expenses');
+  const rows = await listLiveExpenses(expenses, userId, trip.id, { limit, after: null });
+  const shares = Map.groupBy(
+    await listShares(
+      expenses,
+      rows.map((row) => row.id),
+    ),
+    (share) => share.expense_id,
+  );
+  return rows.map((row) => expenseRecord(row, shares.get(row.id) ?? [], trip.currency, viewer));
+}
+
 /** The expense aggregate's snapshot: the row and its shares, as restore would copy them. */
 function expenseSnapshot(row: ExpenseRow, shares: readonly ShareRow[]) {
   return {

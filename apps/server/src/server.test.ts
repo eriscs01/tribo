@@ -25,6 +25,8 @@ import type {
   OverlaysService,
   TicketsService,
   MyTasksService,
+  OfflineBundleService,
+  PersonRevealService,
   FilesService,
   LibraryService,
   MembersService,
@@ -175,6 +177,10 @@ const myTasks: MyTasksService = {
   get: unused,
 };
 
+const offlineBundle: OfflineBundleService = { get: unused };
+
+const personReveal: PersonRevealService = { reveal: unused };
+
 const overlays: OverlaysService = {
   get: unused,
   put: unused,
@@ -218,6 +224,8 @@ async function server(overrides: Partial<ServerDeps> = {}) {
         itinerary,
         dashboard,
         myTasks,
+        offlineBundle,
+        personReveal,
         overlays,
         tickets,
         units,

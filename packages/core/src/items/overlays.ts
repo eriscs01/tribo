@@ -12,11 +12,13 @@ import {
   type WritePath,
 } from '@tribo/platform';
 import type { Kysely } from 'kysely';
+import type { CallerMembership } from '../trips/service.js';
 import { writeOperation } from '../write-operation.js';
 import { visibleItem } from './acting.js';
 import {
   findOverlay,
   insertOverlay,
+  listMemberOverlays,
   lockOverlay,
   replaceOverlay,
   softDeleteOverlay,
@@ -91,6 +93,29 @@ function overlayRecord(row: OverlayRow): OverlayRecord {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+}
+
+/**
+ * The caller's own live overlays in the trip, on items they see, in item order, the first
+ * `limit` of them: what the offline bundle carries. `viewer` is the caller's active
+ * membership in the trip, so no other member's overlay is read; a viewer keeps none, so one
+ * left from before a demotion is not read either.
+ */
+export async function ownOverlays(
+  db: Kysely<DB>,
+  userId: string,
+  viewer: CallerMembership,
+  tripId: string,
+  limit: number,
+): Promise<OverlayRecord[]> {
+  if (!canGetOverlay(viewer.role)) return [];
+  const rows = await listMemberOverlays(
+    forModule(db, 'items'),
+    { userId, membershipId: viewer.id },
+    tripId,
+    limit,
+  );
+  return rows.map(overlayRecord);
 }
 
 /** The overlay aggregate's snapshot: its content with whose and where, as restore would copy it. */

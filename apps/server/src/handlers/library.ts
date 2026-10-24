@@ -12,6 +12,7 @@ import type {
   LibraryHitRecord,
   LibraryService,
   PersonRecord,
+  PersonRevealService,
   PlaceRecord,
   VendorRecord,
 } from '@tribo/core';
@@ -67,7 +68,7 @@ function hitView(hit: LibraryHitRecord): LibraryHit {
   }
 }
 
-export function libraryHandlers(library: LibraryService): Handlers {
+export function libraryHandlers(library: LibraryService, people: PersonRevealService): Handlers {
   return {
     'library.people.create': async (request, reply) => {
       const person = await library.createPerson(requestContext(request), request.body);
@@ -102,6 +103,16 @@ export function libraryHandlers(library: LibraryService): Handlers {
         parsedQuery(request, LibrarySearchQuery),
       );
       return { items: hits.map(hitView) };
+    },
+
+    // Revealed values are never cached, offline or anywhere else.
+    'library.people.reveal': async (request, reply) => {
+      const shown = await people.reveal(
+        requestContext(request),
+        pathId(request, 'personId'),
+        request.body,
+      );
+      return reply.header('cache-control', 'private, no-store').send(shown);
     },
   };
 }

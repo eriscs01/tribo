@@ -54,6 +54,8 @@ export const ItineraryDay = z
   .strictObject({ date: z.iso.date(), entries: z.array(ItineraryEntry) })
   .meta({ id: 'ItineraryDay' });
 
+export type ItineraryDay = z.infer<typeof ItineraryDay>;
+
 /**
  * itinerary.get: the days that have lines, the items they name (each once, masked as
  * items.list masks them), and the rule checks over those items alone.

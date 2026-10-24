@@ -60,12 +60,13 @@ export {
   type InvitesService,
 } from './invites.js';
 export type { AcceptedInvite } from './join.js';
-export { createMembersService, type MembersService } from './members.js';
+export { createMembersService, tripMembers, type MembersService } from './members.js';
 export {
   activeMembershipSet,
   allActiveMemberships,
   callerMembership,
   licensedMemberships,
+  sharedTripRoles,
   type CallerMembership,
   type MemberItems,
   type MemberMove,

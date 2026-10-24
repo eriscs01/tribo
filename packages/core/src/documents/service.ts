@@ -25,6 +25,7 @@ import type { Kysely } from 'kysely';
 import { recordEvent } from '../audit/service.js';
 import { visibleItemTrip } from '../items/service.js';
 import { callerMembership, memberTrip, type CallerMembership } from '../trips/service.js';
+import { inTransaction } from '../transaction.js';
 import { writeOperation } from '../write-operation.js';
 import type { BlobStore, StoredBlob } from './blobs.js';
 import {
@@ -156,6 +157,28 @@ function fileRecord(row: FileRow): FileRecord {
   };
 }
 
+/**
+ * The trip's files as `viewer` (the caller's active membership in the trip) may see them,
+ * through the one file predicate, the first `limit` in id order: the offline bundle's file
+ * metadata. A purged file shows as purged; no blob is read.
+ */
+export async function tripFiles(
+  db: Kysely<DB>,
+  userId: string,
+  viewer: CallerMembership,
+  tripId: string,
+  limit: number,
+): Promise<FileRecord[]> {
+  if (!canListFiles(viewer.role)) return [];
+  const rows = await listVisibleFiles(
+    forModule(db, 'documents'),
+    { userId, membershipId: viewer.id },
+    tripId,
+    { limit, after: null },
+  );
+  return rows.map(fileRecord);
+}
+
 /** The file aggregate's snapshot: its metadata as restore would copy it (never the blob key). */
 function fileSnapshot(row: FileRow) {
   return {
@@ -188,11 +211,6 @@ async function attachableItem(
     });
   }
   return id;
-}
-
-/** Runs `work` in the caller's transaction when it is one, or in a new one. */
-function inTransaction<T>(db: Kysely<DB>, work: (tx: Tx) => Promise<T>): Promise<T> {
-  return db.isTransaction ? work(db as Tx) : db.transaction().execute(work);
 }
 
 /** Stands in for the trip of a file that does not exist, so its lookup still runs. */

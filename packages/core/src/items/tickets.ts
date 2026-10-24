@@ -26,8 +26,9 @@ import {
   type WritePath,
 } from '@tribo/platform';
 import type { Kysely } from 'kysely';
-import { recordEvent } from '../audit/service.js';
-import { activeMembershipSet, callerMembership } from '../trips/service.js';
+import { recordReveal } from '../audit/service.js';
+import { activeMembershipSet, callerMembership, type CallerMembership } from '../trips/service.js';
+import { inTransaction } from '../transaction.js';
 import { writeOperation } from '../write-operation.js';
 import { actingEditor, invalid, lockedItem, visibleItem } from './acting.js';
 import { canListTicket, canManageTickets, ticketEdit, ticketReveal } from './policy.js';
@@ -37,6 +38,7 @@ import {
   findTicket,
   findTicketNoEnc,
   insertTicket,
+  listMemberTickets,
   listTickets,
   lockSealedTicket,
   newTicketId,
@@ -175,11 +177,6 @@ async function actingOnTicket(tx: Tx, ctx: RequestContext, ticketId: string) {
   return { userId, edit, itemId: item.id };
 }
 
-/** Runs `work` in the caller's transaction when it is one, or in a new one. */
-function inTransaction<T>(db: Kysely<DB>, work: (tx: Tx) => Promise<T>): Promise<T> {
-  return db.isTransaction ? work(db as Tx) : db.transaction().execute(work);
-}
-
 /** The caller removes a ticket: whoever manages the tickets of its item, or forbidden. */
 async function actingOnRemoval(tx: Tx, ctx: RequestContext, ticketId: string) {
   const userId = actingUser(ctx);
@@ -259,6 +256,29 @@ function ticketRecord(row: TicketRow): TicketRecord {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+}
+
+/**
+ * The caller's own live tickets in the trip, on items they see, in id order and numbers
+ * masked, the first `limit` of them: what the offline bundle carries ("the tickets they
+ * marked for offline", decision 0027). `viewer` is the caller's active membership in the
+ * trip, so no other passenger's ticket is read.
+ */
+export async function ownTickets(
+  db: Kysely<DB>,
+  userId: string,
+  viewer: CallerMembership,
+  tripId: string,
+  limit: number,
+): Promise<TicketRecord[]> {
+  if (!canListTicket(viewer.role)) return [];
+  const rows = await listMemberTickets(
+    forModule(db, 'items'),
+    { userId, membershipId: viewer.id },
+    tripId,
+    limit,
+  );
+  return rows.map(ticketRecord);
 }
 
 /**
@@ -430,12 +450,11 @@ export function createTicketsService(
         if (outcome === 'forbidden') throw new ApiError('forbidden');
         if (outcome === 'hidden') throw new ApiError('not_found');
         const { fields } = validate(TicketRevealInput, body);
-        await recordEvent(tx, ctx, {
-          action: 'reveal',
+        await recordReveal(tx, ctx, {
           entityType: 'ticket',
           entityId: ticket.id,
           tripId: item.trip_id,
-          reason: fields.map((f) => `/${f}`).join(','),
+          fields,
         });
         const sealed = await findTicketNoEnc(forModule(tx, 'items'), ticket.id);
         return {

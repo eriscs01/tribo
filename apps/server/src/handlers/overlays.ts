@@ -4,7 +4,7 @@ import { createOnly, ifMatch, pathId, requestContext, signedIn } from '../contex
 import type { Handlers } from '../routes.js';
 
 /** Names ids and times as the API does; an overlay is the caller's own, so nothing is masked. */
-function overlayView(overlay: OverlayRecord): Overlay {
+export function overlayView(overlay: OverlayRecord): Overlay {
   return {
     itemId: encodeTypeId(ID_PREFIX.item, overlay.itemId),
     tripId: encodeTypeId(ID_PREFIX.trip, overlay.tripId),

@@ -442,7 +442,8 @@ async function checkMemberships(
   }
 }
 
-function boardUnit(u: UnitRow) {
+/** A unit as the board checks read it. */
+export function boardUnit(u: UnitRow) {
   return { id: u.id, kind: u.kind as UnitRecord['kind'], capacity: u.capacity };
 }
 
@@ -473,7 +474,7 @@ async function boardRecord(
 }
 
 /** The unit as this caller reads it: the one serializer every unit read goes through. */
-function unitRecord(
+export function unitRecord(
   row: UnitRow,
   item: ItemRow,
   viewer: Pick<CallerMembership, 'id' | 'role' | 'canViewCosts'>,

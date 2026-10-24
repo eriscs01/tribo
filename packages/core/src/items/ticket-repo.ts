@@ -51,6 +51,25 @@ export function listTickets(
   return query.orderBy('t.id').limit(page.limit).execute();
 }
 
+/**
+ * The membership's live tickets in the trip on items this account sees (tribo.item_visible),
+ * in id order, the first `limit` of them: the offline bundle's own tickets.
+ */
+export function listMemberTickets(
+  db: ItemsDb,
+  reader: { userId: string; membershipId: string },
+  tripId: string,
+  limit: number,
+) {
+  return selectTicket(db)
+    .where('t.trip_id', '=', tripId)
+    .where('t.membership_id', '=', reader.membershipId)
+    .where(sql<boolean>`tribo.item_visible(${reader.userId}, t.item_id)`)
+    .orderBy('t.id')
+    .limit(limit)
+    .execute();
+}
+
 /** The live ticket, whether or not the caller sees its item: that is not asked here. */
 export function findTicket(db: ItemsDb, ticketId: string) {
   return selectTicket(db).where('t.id', '=', ticketId).executeTakeFirst();

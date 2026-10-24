@@ -59,6 +59,7 @@ export async function visibleTasks(
         board: (boards.get(row.id) ?? []).map((r) => ({
           membershipId: r.membership_id,
           role: r.role as TripItem['board'][number]['role'],
+          unitId: r.unit_id,
           rsvp: r.rsvp as TripItem['board'][number]['rsvp'],
         })),
       },

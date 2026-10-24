@@ -51,6 +51,31 @@ export async function recordEvent(tx: Tx, ctx: RequestContext, event: EventRecor
 }
 
 /**
+ * A reveal (Technical design, "Reveal"): one event naming the field paths shown, never their
+ * values, on the entity's chain, in the caller's transaction before the values are opened, so
+ * a value that fails to open rolls its event back. Each call is its own; a reveal is never
+ * replayed (R2). A retired trip chain refuses it (trip_retired).
+ */
+export function recordReveal(
+  tx: Tx,
+  ctx: RequestContext,
+  reveal: {
+    entityType: string;
+    entityId: string;
+    tripId: string | null;
+    fields: readonly string[];
+  },
+): Promise<void> {
+  return recordEvent(tx, ctx, {
+    action: 'reveal',
+    entityType: reveal.entityType,
+    entityId: reveal.entityId,
+    tripId: reveal.tripId,
+    reason: reveal.fields.map((f) => `/${f}`).join(','),
+  });
+}
+
+/**
  * Retention's step for one aggregate (Technical design, "Soft delete everywhere": hard
  * deletion "removes rows and snapshots"): drops every snapshot it has, in the caller's
  * transaction, before the purge records its tombstone with recordWrite.

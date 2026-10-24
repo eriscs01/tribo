@@ -28,7 +28,7 @@ import {
   type WriteRecord,
 } from '@tribo/platform';
 import type { Kysely } from 'kysely';
-import { deletedWithEntity, recordEvent } from '../audit/service.js';
+import { deletedWithEntity, recordReveal } from '../audit/service.js';
 import { allActiveMemberships, callerMembership, type MemberMove } from '../trips/service.js';
 import { writeOperation } from '../write-operation.js';
 import { actingEditor, boardSnapshot, invalid, lockedItem, visibleItem } from './acting.js';
@@ -65,14 +65,20 @@ import {
 
 export type { ItemRecord, ItemTimeRecord } from './record.js';
 export { ownReminders, visibleTasks, type ReminderRecord } from './my-items.js';
-export { createOverlaysService, type OverlayRecord, type OverlaysService } from './overlays.js';
+export {
+  createOverlaysService,
+  ownOverlays,
+  type OverlayRecord,
+  type OverlaysService,
+} from './overlays.js';
 export {
   createTicketsService,
+  ownTickets,
   type BaggageRecord,
   type TicketRecord,
   type TicketsService,
 } from './tickets.js';
-export { tripItems, type TripItem } from './trip-items.js';
+export { itemBoards, tripItems, type TripItem } from './trip-items.js';
 export {
   createUnitsService,
   type AllocationRecord,
@@ -332,12 +338,11 @@ export function createItemsService(db: Kysely<DB>, write: WritePath, keys: Keyri
         const { row, editor } = await actingEditor(tx, ctx, itemId);
         if (!canRevealItem(editor)) throw new ApiError('forbidden');
         const { fields } = validate(ItemRevealInput, body);
-        await recordEvent(tx, ctx, {
-          action: 'reveal',
+        await recordReveal(tx, ctx, {
           entityType: 'item',
           entityId: row.id,
           tripId: row.trip_id,
-          reason: fields.map((f) => `/${f}`).join(','),
+          fields,
         });
         const shown: ItemReveal = {};
         for (const f of fields) {

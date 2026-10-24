@@ -67,3 +67,5 @@ fixed.
 | [0024](0024-expenses.md)                              | 24 Oct 2026 | Expenses: shares, ownership, masking and the ledger's reads                      | accepted |
 | [0025](0025-overlays-and-my-tasks.md)                 | 24 Oct 2026 | Overlays, preconditions and the due-soon list                                    | accepted |
 | [0026](0026-tickets.md)                               | 24 Oct 2026 | Tickets: the sealed number, who edits what, and which refusal says what          | accepted |
+| [0027](0027-offline-bundle.md)                        | 24 Oct 2026 | The offline bundle: who serves it, what is in it, and how it stays fresh         | accepted |
+| [0028](0028-people-reveal.md)                         | 24 Oct 2026 | Revealing a person's emergency contact: who may, which chain, which refusal      | accepted |

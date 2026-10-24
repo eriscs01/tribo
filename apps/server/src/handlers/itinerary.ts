@@ -3,9 +3,10 @@ import {
   ID_PREFIX,
   ItineraryQuery,
   type Itinerary,
+  type ItineraryDay,
   type Warning,
 } from '@tribo/contract';
-import type { ItineraryRecord, ItineraryService, WarningRecord } from '@tribo/core';
+import type { DayRecord, ItineraryRecord, ItineraryService, WarningRecord } from '@tribo/core';
 import { pathId, signedIn } from '../context.js';
 import { parsedQuery, type Handlers } from '../routes.js';
 import { itemView } from './items.js';
@@ -22,15 +23,17 @@ export function warningView(w: WarningRecord): Warning {
   };
 }
 
+/** A day of the itinerary and its lines, with type ids. */
+export function dayView(d: DayRecord): ItineraryDay {
+  return { date: d.date, entries: d.entries.map((e) => ({ ...e, itemId: item(e.itemId) })) };
+}
+
 function itineraryView(it: ItineraryRecord): Itinerary {
   return {
     view: it.view,
     from: it.from,
     to: it.to,
-    days: it.days.map((d) => ({
-      date: d.date,
-      entries: d.entries.map((e) => ({ ...e, itemId: item(e.itemId) })),
-    })),
+    days: it.days.map(dayView),
     items: it.items.map(itemView),
     warnings: it.warnings.map(warningView),
   };
