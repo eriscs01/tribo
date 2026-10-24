@@ -24,9 +24,5 @@
   "ignore": [
     // Text fixtures that boundaries.test.ts feeds to dependency-cruiser; they are never imported.
     "packages/core/boundary-fixtures/**",
-    // The layout's modules whose stories are still to come (Drop B and 1b): the scaffold of
-    // service, repo and policy is in place and each file is imported once its first story lands.
-    "packages/core/src/audit/policy.ts",
-    "packages/core/src/itinerary/*.ts",
   ],
 }

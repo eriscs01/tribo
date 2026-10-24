@@ -5,7 +5,7 @@ import type { ItemRecord, ReminderRecord, TripItem } from '../items/service.js';
 import { addDays } from './timeline.js';
 
 /** How far ahead a task counts as due soon, and how far either side of now a reminder does (Technical Design, "Reminders in 1a"). */
-export const DUE_SOON_DAYS = 7;
+const DUE_SOON_DAYS = 7;
 
 /** Statuses after which an item is nothing to look forward to or to do. */
 export const FINISHED = new Set<ItemRecord['status']>(['done', 'cancelled']);

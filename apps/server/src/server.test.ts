@@ -316,7 +316,7 @@ describe('problem details', () => {
     // endpoint handed another type is a malformed request, and header and body agree.
     expect(res.statusCode).toBe(400);
     expect(res.json()).toMatchObject({ code: 'validation_failed', status: 400 });
-    expect(res.json().detail).toBe('The request body must be application/json');
+    expect(res.json<{ detail: string }>().detail).toBe('The request body must be application/json');
     expect(res.body).not.toMatch(/x-www-form-urlencoded|hunter2/);
   });
 
