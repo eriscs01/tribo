@@ -303,6 +303,23 @@ describe('problem details', () => {
     expect(res.json()).toMatchObject({ code: 'validation_failed' });
   });
 
+  it('answers a body of another content type with 400 validation_failed, never a 415', async () => {
+    const res = await (
+      await server()
+    ).inject({
+      method: 'POST',
+      url: '/v1/test/login',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      payload: 'password=hunter2',
+    });
+    // 415 is the contract's file_type_not_allowed (an upload off the allowlist); a JSON
+    // endpoint handed another type is a malformed request, and header and body agree.
+    expect(res.statusCode).toBe(400);
+    expect(res.json()).toMatchObject({ code: 'validation_failed', status: 400 });
+    expect(res.json().detail).toBe('The request body must be application/json');
+    expect(res.body).not.toMatch(/x-www-form-urlencoded|hunter2/);
+  });
+
   it('answers a body over the limit with 413 file_too_large, the one 413 in the contract', async () => {
     const res = await (
       await server()
