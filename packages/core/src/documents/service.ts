@@ -27,7 +27,7 @@ import { visibleItemTrip } from '../items/service.js';
 import { callerMembership, memberTrip, type CallerMembership } from '../trips/service.js';
 import { inTransaction } from '../transaction.js';
 import { writeOperation } from '../write-operation.js';
-import type { BlobStore, StoredBlob } from './blobs.js';
+import type { BlobStore, StoredBlob, StoredEntry } from './blobs.js';
 import {
   canDeleteFile,
   canDownloadFile,
@@ -37,6 +37,7 @@ import {
   canUploadFile,
 } from './policy.js';
 import { purgeDueFiles } from './purge.js';
+import { unreferencedBlobs } from './unreferenced.js';
 import {
   fileTrip,
   findFile,
@@ -51,7 +52,7 @@ import {
 } from './repo.js';
 import { displayName, nameRefusal, sniffer, typeRefusal, type FileMime } from './sniff.js';
 
-export { createBlobStore, type BlobStore, type StoredBlob } from './blobs.js';
+export { createBlobStore, type BlobStore, type StoredBlob, type StoredEntry } from './blobs.js';
 
 /** A file's metadata as the documents service answers it. */
 export interface FileRecord {
@@ -124,6 +125,12 @@ export interface FilesService {
     ctx: RequestContext,
     onFailure: (fileId: string, error: unknown) => void,
   ): Promise<{ due: number; purged: number; failed: number }>;
+  /**
+   * The blobs and `.tmp/` leftovers on the volume at least as old as `olderThan` that no
+   * files row names (decision 0021), streamed; for the operator's `tribo admin blobs
+   * unreferenced`. Reads only; entries it cannot vouch for count to `onIgnored`, unnamed.
+   */
+  unreferencedBlobs(olderThan: Date, onIgnored: () => void): AsyncGenerator<StoredEntry>;
   /** files.delete: a soft delete under If-Match; the blob stays until the retention purge. */
   delete(
     ctx: RequestContext,
@@ -418,6 +425,7 @@ export function createFilesService(
     },
 
     purgeDue: (ctx, onFailure) => purgeDueFiles(db, blobs, ctx, onFailure),
+    unreferencedBlobs: (olderThan, onIgnored) => unreferencedBlobs(db, blobs, olderThan, onIgnored),
 
     async upload(ctx, tripId, form, file) {
       const userId = actingUser(ctx);

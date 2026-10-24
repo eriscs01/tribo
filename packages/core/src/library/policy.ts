@@ -26,7 +26,7 @@ export function ownEditRefusal(person: EditablePerson): ErrorCode | null {
 
 /**
  * library.people.reveal: the person themself, or the owner or an organizer of a live trip
- * they share (operations.csv); anyone else, the placeholder's creator and a plain member or
+ * they share (the registry); anyone else, the placeholder's creator and a plain member or
  * viewer of a shared trip included, is told the person does not exist (decision 0028).
  */
 export function canRevealPerson(reveal: {

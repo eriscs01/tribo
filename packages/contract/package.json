@@ -17,7 +17,6 @@
     "@seriousme/openapi-schema-validator": "2.11.0"
   },
   "scripts": {
-    "import:operations": "node dist/scripts/import-operations.js && prettier --write src/operations",
     "openapi": "node dist/scripts/write-openapi.js"
   }
 }

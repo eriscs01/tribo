@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { RequestContext } from '@tribo/platform';
 import type { Release } from '../config.js';
+import { adminBlobs } from './blobs.js';
 import { adminCreate } from './admin-create.js';
 import type { Services } from '../runtime.js';
 import { auditRequest } from './audit-request.js';
@@ -13,6 +14,7 @@ type CommandDeps = Omit<CliRuntime, 'close'> & { io: CliIo; ctx: RequestContext 
 
 /** Commands by their two-word name; a new command is a new entry. */
 const COMMANDS: Record<string, (deps: CommandDeps, args: readonly string[]) => Promise<void>> = {
+  'admin blobs': adminBlobs,
   'admin create': adminCreate,
   'audit request': auditRequest,
   'audit verify': auditVerify,
@@ -20,7 +22,10 @@ const COMMANDS: Record<string, (deps: CommandDeps, args: readonly string[]) => P
 };
 
 /** What a command needs from the runtime, opened only once the command is known. */
-export type CliRuntime = Pick<Services, 'identity' | 'verifyAudit' | 'requestAudit' | 'issuer'> & {
+export type CliRuntime = Pick<
+  Services,
+  'identity' | 'verifyAudit' | 'requestAudit' | 'issuer' | 'files'
+> & {
   release: Release;
   close: () => Promise<void>;
 };

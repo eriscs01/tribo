@@ -90,6 +90,10 @@ export const metadataOnlyBlobs: BlobStore = {
   write: () => Promise.reject(new Error('this world takes no uploads')),
   read: () => Readable.from([Buffer.from('%PDF-')]),
   delete: () => Promise.resolve(),
+  list: () =>
+    (async function* empty() {
+      /* an empty volume */
+    })(),
   check: () => Promise.resolve(),
 };
 

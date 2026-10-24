@@ -36,6 +36,14 @@ export function registerErrorHandling(app: FastifyInstance) {
     // A body over the server's limit; uploads hit the same ceiling while streaming (decision 0019).
     if (error.code === 'FST_ERR_CTP_BODY_TOO_LARGE' || error.code === 'FST_REQ_FILE_TOO_LARGE')
       return sendProblem(reply, request, 'file_too_large');
+    // A body of another type than the endpoint reads. Fastify says 415, but that status is the
+    // contract's file_type_not_allowed (an upload off the allowlist); this is a malformed
+    // request, so it answers 400 validation_failed with a fixed detail, not the type it sent.
+    if (error.code === 'FST_ERR_CTP_INVALID_MEDIA_TYPE') {
+      return sendProblem(reply, request, 'validation_failed', {
+        detail: 'The request body must be application/json',
+      });
+    }
     if (error.validation) {
       return sendProblem(reply, request, 'validation_failed', {
         errors: error.validation.map((v) => ({

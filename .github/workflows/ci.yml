@@ -41,7 +41,7 @@ jobs:
         with:
           node-version-file: .nvmrc
       - id: decide
-        run: node packages/story-kit/src/scripts/ci-changes.ts "$GITHUB_EVENT_NAME"
+        run: node packages/tools/src/scripts/ci-changes.ts "$GITHUB_EVENT_NAME"
 
   lint:
     name: Lint and format

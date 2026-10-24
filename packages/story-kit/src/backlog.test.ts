@@ -19,7 +19,7 @@ describe('docs/backlog.md', () => {
     expect(backlog).not.toContain('`checklist.add`');
   });
 
-  it('groups the stories under one heading per CSV module', () => {
+  it('groups the stories under one heading per registry module', () => {
     const modules = new Set(registry.filter((op) => op.slice === '1a').map((op) => op.module));
     const headings = backlog.match(/^## .+$/gm) ?? [];
     expect(headings).toEqual([...modules].map((m) => `## ${m}`));

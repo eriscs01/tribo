@@ -1,5 +1,5 @@
-// docs/backlog.md: the slice 1a stories, rendered from the registry (which registry.test.ts
-// holds to operations.csv). The CSV owns the stories; this file only shows them.
+// docs/backlog.md: the slice 1a stories, rendered from the registry. The registry owns the
+// stories; this file only shows them.
 import type { Drop, Operation } from '@tribo/contract';
 import { dropLimits } from './limits.js';
 
@@ -28,7 +28,7 @@ export function renderBacklog(registry: readonly Operation[]): string {
   const lines = [
     '# Slice 1a backlog',
     '',
-    '<!-- Generated from operations.csv by `pnpm backlog`; edit the CSV or the registry, not this file. -->',
+    '<!-- Generated from the operation registry by `pnpm backlog`; edit the registry, not this file. -->',
     '',
     `${String(stories.length)} stories: ${String(inDrop('A'))} in Drop A, due ${DUE.A}, and ${String(inDrop('B'))} in Drop B, due ${DUE.B}. ` +
       'Start one with `pnpm new:op <id>`; it is done when it meets the 1a definition of done in ' +

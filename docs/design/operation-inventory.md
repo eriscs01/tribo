@@ -4,7 +4,7 @@ Oct 17, 2026 · @Eris Sales
 
 ## Summary
 
-The registry declares **130 operations**. Before the trip, slice 1a ships **68 in two drops: Drop A (46 operations, planning-ready by Sun 1 Nov) and Drop B (22, trip-ready by Sun 8 Nov)**. 18 operations follow right after the trip and 44 stay in 1b. Each operation becomes one backlog story and one registry stub; 18 rows map to the 15 MCP tools in the design. The per-operation detail lives only in `claude/api/operations.csv` (17 Oct schema review, R36 removed the nine debt and settle-up operations).
+The registry declares **130 operations**. Before the trip, slice 1a ships **68 in two drops: Drop A (46 operations, planning-ready by Sun 1 Nov) and Drop B (22, trip-ready by Sun 8 Nov)**. 18 operations follow right after the trip and 44 stay in 1b. Each operation becomes one backlog story and one registry stub; 18 rows map to the 15 MCP tools in the design. The per-operation detail lives only in the registry (17 Oct schema review, R36 removed the nine debt and settle-up operations).
 
 | Module | Drop A | Drop B | After trip | 1b | Total |
 | --- | --- | --- | --- | --- | --- |
@@ -29,9 +29,9 @@ The registry declares **130 operations**. Before the trip, slice 1a ships **68 i
 - **Drop A, planning-ready by Sun 1 Nov:** sign-in and MFA, invites and members, trips, all item types with RSVP, rooms and e-bike boards, itinerary, library search and inline place or vendor creation. The group joins and enters bookings from 2 Nov.
 - **Drop B, trip-ready by Sun 8 Nov:** tickets, expenses with splits, files, emergency-contact reveal, the offline bundle, private overlays and the due-soon list. Idempotency-Key is honoured on expenses.create and files.upload only; FX stays at the trip currency and splits are equal or itemised.
 - **After the trip:** the web admin console, library browse and edit pages, trip archive and file purge, plus the FX entry UI, weight splits and the daily retention job. Until the console ships, the `tribo admin` CLI creates users, issues reset links, resets MFA and unlocks accounts.
-- The Slice column reads 1a, After trip or 1b; the `drop` column of `operations.csv` says A or B for each 1a operation.
+- The Slice column reads 1a, After trip or 1b; the `drop` field of the registry says A or B for each 1a operation.
 
-**How to read `operations.csv`.** One row per operation, with its notes and R- and G-references inline. The columns that need a key:
+**How to read the registry.** One entry per operation in `packages/contract/src/operations/*.ts`, with its notes and R- and G-references inline. The fields that need a key (the registry spells them in camelCase):
 
 - **roles** use the trip role matrix: owner, organizer, member, viewer. *self* means the caller acting on their own data; *admin* means platform admin, which gives no trip access.
 - **auth**: *session* = web cookie + CSRF; *pat:read* / *pat:write* = personal access token scope (1b); *oauth:mcp* = also reachable through the MCP tool named in **mcp\_tool** (1b); *public* = no sign-in. OAuth tokens work only at /mcp.
@@ -53,7 +53,7 @@ The registry declares **130 operations**. Before the trip, slice 1a ships **68 i
 
 ## Where each operation is defined
 
-`claude/api/operations.csv` is the one list of operations: roles, auth, write rules, slice, drop, MCP tool and notes per row. The registry is built from it and CI fails when they disagree, so the per-module tables that used to sit here were removed on 17 Oct rather than kept as a second copy (they remain in this doc's version history). Filter the CSV by `module` for one area, or by `drop` for a backlog drop.
+The operation registry (`packages/contract/src/operations/*.ts`) is the one list of operations: roles, auth, write rules, slice, drop, MCP tool and notes per entry ([decision 0029](../decisions/0029-registry-is-the-operation-source.md)). It replaced `operations.csv`, which the registry had been checked against until Drop B; the per-module tables that used to sit here were removed on 17 Oct rather than kept as a second copy. Read one module's file for an area, or `docs/backlog.md` for a backlog drop.
 
 ## Decisions
 

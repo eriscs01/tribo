@@ -23,6 +23,9 @@
       "path": "packages/story-kit"
     },
     {
+      "path": "packages/tools"
+    },
+    {
       "path": "apps/server"
     },
     {

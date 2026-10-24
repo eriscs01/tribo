@@ -134,7 +134,7 @@ describe('invites.preview', () => {
     expect(events.map((e) => e.action)).toEqual(['create']);
   });
 
-  it('answers invite_invalid where operations.csv says so: one answer for every link that opens nothing', async () => {
+  it('answers invite_invalid where the registry notes say so: one answer for every link that opens nothing', async () => {
     const links = await deadLinks();
     const answers = await Promise.all(
       Object.values(links).map((token) => failure(invites.preview({ token }))),

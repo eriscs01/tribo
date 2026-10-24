@@ -8,7 +8,7 @@ import type { CallerMembership } from '../trips/service.js';
 
 export type TimelineItem = Pick<ItemRecord, 'id' | 'type' | 'status' | 'start' | 'end'>;
 
-export interface EntryRecord {
+interface EntryRecord {
   itemId: string;
   part: ItineraryPart;
   /** HH:mm in `tz`; null for all-day items and a stay's nights. */

@@ -476,7 +476,7 @@ function personRecord(row: PersonRow): PersonRecord {
   };
 }
 
-/** Library creates: any signed-in user (operations.csv). */
+/** Library creates: any signed-in user (the registry). */
 function signedInOnly(_tx: Tx, ctx: RequestContext): Promise<void> {
   return ctx.userId === null ? Promise.reject(new ApiError('unauthenticated')) : Promise.resolve();
 }

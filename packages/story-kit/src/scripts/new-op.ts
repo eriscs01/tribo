@@ -32,7 +32,7 @@ const disk: Workspace = {
 const id = process.argv[2];
 const op = registry.find((o) => o.id === id);
 if (!op) {
-  console.error(`usage: pnpm new:op <id>, with an id from operations.csv (got ${String(id)})`);
+  console.error(`usage: pnpm new:op <id>, with an id from the registry (got ${String(id)})`);
   process.exit(1);
 }
 

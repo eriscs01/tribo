@@ -191,7 +191,7 @@ describe('invites.accept', () => {
     expect(stored).not.toContain(joined.session?.token);
   });
 
-  it('answers username_taken where operations.csv says so, writing nothing', async () => {
+  it('answers username_taken where the registry notes say so, writing nothing', async () => {
     const w = await inviteWorld(tdb);
     const invite = await openInvite(w);
     const taken = newAccount();
@@ -202,7 +202,7 @@ describe('invites.accept', () => {
     expect((await storedInvite(tdb, invite.id)).uses).toBe(0);
   });
 
-  it('answers invite_invalid where operations.csv says so: the same answer for every dead link, creating no account', async () => {
+  it('answers invite_invalid where the registry notes say so: the same answer for every dead link, creating no account', async () => {
     const w = await inviteWorld(tdb);
     const expired = await openInvite(w);
     await tdb.db
@@ -240,7 +240,7 @@ describe('invites.accept', () => {
     for (const answer of answers) expect(answer).toEqual(answers[0]);
   });
 
-  it('answers already_member where operations.csv says so', async () => {
+  it('answers already_member where the registry notes say so', async () => {
     const w = await inviteWorld(tdb);
     const invite = await openInvite(w);
     expect(await refusal(invites.accept(as(w.member), { token: invite.token }, CLIENT))).toBe(
@@ -249,7 +249,7 @@ describe('invites.accept', () => {
     expect((await storedInvite(tdb, invite.id)).uses).toBe(0);
   });
 
-  it("answers claim_conflict where operations.csv says so: the caller's person already has a row here", async () => {
+  it("answers claim_conflict where the registry notes say so: the caller's person already has a row here", async () => {
     const w = await inviteWorld(tdb);
     const invite = await claimInvite(w, w.guest.personId);
     expect(await refusal(invites.accept(as(w.member), { token: invite.token }, CLIENT))).toBe(

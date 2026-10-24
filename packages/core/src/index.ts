@@ -91,6 +91,7 @@ export {
   type FileRecord,
   type FilesService,
   type StoredBlob,
+  type StoredEntry,
   type UploadPart,
 } from './documents/service.js';
 export {

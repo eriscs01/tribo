@@ -11,9 +11,9 @@ Sprint 0 ends when a walking skeleton runs on the reference host and CI guards i
 1. `tribo admin create` makes the first admin, who enrols TOTP and signs in with it.
 2. The admin creates a trip, adds one item and reads it back; the item's `create` event is in the trip's audit chain and `tribo audit verify` reports the chain intact.
 3. CI is green on `main`: lint, typecheck, unit, integration on PostgreSQL 18, generated OpenAPI diffed, registry coverage, leak-test harness.
-4. Every one of the 130 operations in operations.csv exists as a registry entry; the skeleton's handlers are real and the rest return `501 not_implemented`.
+4. Every one of the 130 operations in the registry exists as an entry; the skeleton's handlers are real and the rest return `501 not_implemented`.
 5. One nightly backup has run and been restored into a scratch Compose project.
-6. The Drop A and Drop B backlog (68 stories) is seeded from operations.csv with the story kit, and the 1a definition of done is in CONTRIBUTING.md (task 19).
+6. The Drop A and Drop B backlog (68 stories) is seeded from the registry with the story kit, and the 1a definition of done is in CONTRIBUTING.md (task 19).
 
 **Out of scope:** MCP and OAuth (1b), the offline bundle (a 1a story), history and restore UI (1b), and any screen beyond sign-in, trip list, create trip and add item.
 
@@ -29,7 +29,7 @@ Day-by-day order and session prompts: Execution order
 | --- | --- | --- | --- | --- | --- |
 | 1 | Repo and toolchain | pnpm workspaces, TypeScript strict with project references, ESLint + Prettier, Node 26 pinned (Active LTS from 28 Oct); `pnpm install && pnpm build` passes on a clean clone | S | — | dev |
 | 2 | Module boundaries | Each core module's repository gets a Kysely handle typed to its own tables only, so reading another module's table fails typecheck; dependency-cruiser forbids imports past a module's `service.ts` | S | 1 | dev |
-| 3 | Contract package | `defineOperation` and the registry; base Zod types (TypeID, money, wall-clock time + zone, problem details); OpenAPI 3.1 generated to `openapi.json`; all 130 operations from `operations.csv` registered as stubs that return `501 not_implemented` (a dev-only code, gone before 1a ships) | M | 1 | dev |
+| 3 | Contract package | `defineOperation` and the registry; base Zod types (TypeID, money, wall-clock time + zone, problem details); OpenAPI 3.1 generated to `openapi.json`; all 130 operations registered as stubs that return `501 not_implemented` (a dev-only code, gone before 1a ships) | M | 1 | dev |
 | 4 | Database package | `0000_bootstrap.sql` and `0001_init.sql` from the project; a runner that applies migrations at start as `tribo_owner` under an advisory lock; Kysely types generated from a migrated database | M | 1 | dev |
 | 5 | Local dev stack | `compose.dev.yml` with PostgreSQL 18 (bootstrap on init), the app in watch mode and Caddy with its internal CA; one command brings it up and seeds a demo trip | S | 4 | dev |
 | 6 | Server skeleton | Fastify with pino and a request id on every line, RFC 9457 errors from the closed code enum, `__Host-` session cookie and CSRF header check, client IP from trusted proxies only, public `GET /healthz` | M | 3 | dev |
@@ -45,7 +45,7 @@ Day-by-day order and session prompts: Execution order
 | 16 | First deploy | Runbook steps 6–9: secrets created, app key copied off the box, certificate issued, admin created, `/healthz` reachable from a phone on mobile data | S | 14, 15 | operator |
 | 17 | Backups and restore | Runbook steps 10–11: nightly dump and upload sync to a disk the operator owns, 7 kept; one restore into a scratch project passes chain verification | S | 16 | operator |
 | 18 | Walking skeleton end to end | A Playwright test runs exit criteria 1–2 against the local stack in CI, and the same steps pass by hand on the reference host | S | 12, 13, 16 | dev |
-| 19 | 1a story kit and backlog seed | pnpm new:op \<id> scaffolds a CSV row's Input, Patch and Output schemas, policy rows, handler, tagged integration test and leak registration. CONTRIBUTING.md holds the 1a definition of done: status implemented, OpenAPI diff reviewed, policy, leak and audit-event tests, enum codes only, If-Match as the CSV's if\_match column. Drop B limits are written into the stories: Idempotency-Key only on expenses.create and files.upload, fx\_rate = 1, equal and itemised splits only. The backlog holds the 68 Drop A and B operations, grouped by module and tagged by drop | S | 3, 7, 11 | dev |
+| 19 | 1a story kit and backlog seed | pnpm new:op \<id> scaffolds a registry entry's Input, Patch and Output schemas, policy rows, handler, tagged integration test and leak registration. CONTRIBUTING.md holds the 1a definition of done: status implemented, OpenAPI diff reviewed, policy, leak and audit-event tests, enum codes only, If-Match as the registry's ifMatch. Drop B limits are written into the stories: Idempotency-Key only on expenses.create and files.upload, fx\_rate = 1, equal and itemised splits only. The backlog holds the 68 Drop A and B operations, grouped by module and tagged by drop | S | 3, 7, 11 | dev |
 
 ## Repo layout
 

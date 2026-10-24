@@ -61,22 +61,37 @@ export interface HandlerServices {
  * and every test server take their handlers from here.
  */
 export function operationHandlers(services: HandlerServices): Handlers {
-  return {
-    ...authHandlers(services.identity, services.csrfSecret),
-    ...tripHandlers(services.trips),
-    ...membersHandlers(services.members),
-    ...invitesHandlers(services.invites, services.csrfSecret),
-    ...itemHandlers(services.items),
-    ...itineraryHandlers(services.itinerary),
-    ...dashboardHandlers(services.dashboard),
-    ...offlineBundleHandlers(services.offlineBundle),
-    ...libraryHandlers(services.library, services.personReveal),
-    ...meHandlers(services.identity, services.library, services.myTasks),
-    ...metaHandlers(),
-    ...overlayHandlers(services.overlays),
-    ...ticketsHandlers(services.tickets),
-    ...unitsHandlers(services.units),
-    ...filesHandlers(services.files),
-    ...expensesHandlers(services.expenses),
-  };
+  return mergeHandlers([
+    authHandlers(services.identity, services.csrfSecret),
+    tripHandlers(services.trips),
+    membersHandlers(services.members),
+    invitesHandlers(services.invites, services.csrfSecret),
+    itemHandlers(services.items),
+    itineraryHandlers(services.itinerary),
+    dashboardHandlers(services.dashboard),
+    offlineBundleHandlers(services.offlineBundle),
+    libraryHandlers(services.library, services.personReveal),
+    meHandlers(services.identity, services.library, services.myTasks),
+    metaHandlers(),
+    overlayHandlers(services.overlays),
+    ticketsHandlers(services.tickets),
+    unitsHandlers(services.units),
+    filesHandlers(services.files),
+    expensesHandlers(services.expenses),
+  ]);
+}
+
+/**
+ * One handler per operation id. A second handler for an id is refused, so a scaffold's 501
+ * stub left in another module's file cannot shadow the real handler (or be shadowed by it).
+ */
+export function mergeHandlers(parts: readonly Handlers[]): Handlers {
+  const merged: Record<string, Handlers[string]> = {};
+  for (const part of parts) {
+    for (const [id, handler] of Object.entries(part)) {
+      if (id in merged) throw new Error(`${id} has two handlers; delete the stub`);
+      merged[id] = handler;
+    }
+  }
+  return merged;
 }

@@ -2,11 +2,11 @@ import type { Operation } from './operation.js';
 
 /**
  * The Drop B limits (Operation inventory, "Drops"): what slice 1a ships narrower than the
- * CSV row describes. The OpenAPI document, the backlog and the scaffolded tests all read
+ * registry entry describes. The OpenAPI document, the backlog and the scaffolded tests all read
  * them from here.
  */
 
-/** The only creates that honour Idempotency-Key in 1a; the others the CSV marks `key` follow in 1b. */
+/** The only creates that honour Idempotency-Key in 1a; the others the registry marks `key` follow in 1b. */
 export const IDEMPOTENCY_KEY_OPERATIONS: readonly string[] = [
   'expenses.create',
   'files.upload',

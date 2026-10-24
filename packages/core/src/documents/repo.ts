@@ -248,3 +248,17 @@ export async function markPurged(db: DocumentsDb, fileId: string): Promise<numbe
     .executeTakeFirstOrThrow();
   return version;
 }
+
+/** Which of `blobKeys` some files row names, purged tombstones included. */
+export async function referencedBlobKeys(
+  db: DocumentsDb,
+  blobKeys: readonly string[],
+): Promise<Set<string>> {
+  if (blobKeys.length === 0) return new Set();
+  const rows = await db
+    .selectFrom('tribo.files')
+    .select('blob_key')
+    .where('blob_key', 'in', blobKeys)
+    .execute();
+  return new Set(rows.map((row) => row.blob_key));
+}

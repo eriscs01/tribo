@@ -5,7 +5,7 @@ import type { ItemRecord, ReminderRecord, TripItem } from '../items/service.js';
 import { addDays } from './timeline.js';
 
 /** How far ahead a task counts as due soon, and how far either side of now a reminder does (Technical Design, "Reminders in 1a"). */
-export const DUE_SOON_DAYS = 7;
+const DUE_SOON_DAYS = 7;
 
 /** Statuses after which an item is nothing to look forward to or to do. */
 export const FINISHED = new Set<ItemRecord['status']>(['done', 'cancelled']);
@@ -49,11 +49,10 @@ export function openTasks(items: readonly TripItem[], membershipId: string): Ite
 }
 
 /** Whether a task is due on or before `lastDay` (a local day, overdue included). */
-function isDueBy(task: ItemRecord, lastDay: string, at: Date): boolean {
+function isDueBy(task: ItemRecord, lastDay: string): boolean {
   const { start } = task;
   if (start === null) return false;
-  if ('date' in start) return start.date <= lastDay;
-  return start.at.getTime() <= at.getTime() + DUE_SOON_DAYS * 86_400_000;
+  return ('date' in start ? start.date : start.local.slice(0, 10)) <= lastDay;
 }
 
 /** The instants a reminder falls within to count as due soon: 7 days either side of now. */
@@ -71,9 +70,8 @@ export function dueSoon(
   open: readonly ItemRecord[],
   reminders: readonly ReminderRecord[],
   todayOf: (tripId: string) => string,
-  at: Date,
 ): DueSoonRecord[] {
-  const due = open.filter((t) => isDueBy(t, addDays(todayOf(t.tripId), DUE_SOON_DAYS), at));
+  const due = open.filter((t) => isDueBy(t, addDays(todayOf(t.tripId), DUE_SOON_DAYS)));
   return [
     ...due.map((item): DueSoonRecord => ({ kind: 'task_due', item })),
     ...reminders.map(({ item, reminderAt }): DueSoonRecord => ({

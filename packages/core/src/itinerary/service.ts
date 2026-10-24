@@ -11,20 +11,13 @@ import { isMine, laidOut, type DayRange, type DayRecord, type WarningRecord } fr
 
 export {
   createDashboardService,
-  type DashboardDeps,
   type DashboardRecord,
   type DashboardService,
 } from './dashboard.js';
-export {
-  createMyTasksService,
-  type MyTasksDeps,
-  type MyTasksRecord,
-  type MyTasksService,
-} from './my-tasks.js';
+export { createMyTasksService, type MyTasksRecord, type MyTasksService } from './my-tasks.js';
 export {
   createOfflineBundleService,
   OFFLINE_BUNDLE_MAX_ROWS,
-  type OfflineBundleDeps,
   type OfflineBundleRecord,
   type OfflineBundleService,
 } from './offline-bundle.js';

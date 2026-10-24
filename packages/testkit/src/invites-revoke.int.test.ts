@@ -86,7 +86,7 @@ describe('invites.revoke', () => {
     });
   });
 
-  it('answers trip_archived where operations.csv says so', async () => {
+  it('answers trip_archived where the registry notes say so', async () => {
     const w = await inviteWorld(tdb);
     const id = await createInvite(tdb.db, { tripId: w.tripId, createdBy: w.owner.userId });
     await archive(tdb, w.tripId);

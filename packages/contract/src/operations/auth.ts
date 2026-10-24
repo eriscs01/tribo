@@ -1,5 +1,4 @@
-// Generated from operations.csv by src/scripts/import-operations.ts. A story replaces an
-// entry's status with 'implemented' and adds its input and output schemas.
+// This file owns its operations: a story sets status to 'implemented' and adds the input and output schemas.
 import { LoginInput, Session } from '../account.js';
 import { AuthPasswordResetInput } from '../auth.js';
 import { MfaConfirm, MfaConfirmInput, MfaSetup } from '../mfa.js';

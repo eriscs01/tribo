@@ -55,7 +55,7 @@ export function createMyTasksService(db: Kysely<DB>, deps: MyTasksDeps = {}): My
         tasks: open
           .sort(byWhen)
           .map((item) => ({ tripName: trip.get(item.tripId)?.name ?? '', item })),
-        dueSoon: dueSoon(open, reminders, todayOf, at),
+        dueSoon: dueSoon(open, reminders, todayOf),
       };
     },
   };
