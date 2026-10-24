@@ -113,7 +113,7 @@ describe('storyOf', () => {
     expect(() => story('checklist.add')).toThrow(/slice 1b/);
   });
 
-  it('names the error codes the CSV notes mention', () => {
+  it('names the error codes the registry notes mention', () => {
     expect(story('items.update').noteCodes).toEqual(['masked_field_write', 'trip_archived']);
   });
 

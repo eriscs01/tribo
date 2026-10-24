@@ -7,7 +7,7 @@ it does not settle are in [docs/decisions/](docs/decisions/), and a PR that make
 
 ## Slice 1a stories
 
-Slice 1a is 68 operations from `packages/contract/operations.csv`: 46 in Drop A (due Sun 1 Nov)
+Slice 1a is 68 operations in the registry (`packages/contract/src/operations/*.ts`, the one source of the operation list): 46 in Drop A (due Sun 1 Nov)
 and 22 in Drop B (due Sun 8 Nov). [docs/backlog.md](docs/backlog.md) lists them by module,
 tagged by drop; it is generated, so never edit it by hand.
 
@@ -23,7 +23,7 @@ The scaffold reads the operation's registry entry and adds what is missing:
 | -------------------- | -------------------------------------------------------------------------- |
 | Input, Patch, Output | `packages/contract/src/<resource>.ts`; existing schemas are reused         |
 | Registry entry       | `packages/contract/src/operations/<module>.ts`, set to `implemented`       |
-| Policy row           | `packages/core/src/<module>/policy.ts`, from the CSV's trip roles          |
+| Policy row           | `packages/core/src/<module>/policy.ts`, from the registry's trip roles     |
 | Handler              | `apps/server/src/handlers/<module>.ts`, a stub answering `not_implemented` |
 | Integration test     | `packages/testkit/src/<id>.int.test.ts`, tagged `drop-a` or `drop-b`       |
 | Leak registration    | `packages/testkit/src/<id>.leak.test.ts` (list reads), via `listProperty`  |
@@ -41,12 +41,12 @@ Run one drop's tests with `pnpm vitest run --tags-filter drop-b`.
 
 ### Drop B limits
 
-Slice 1a ships some operations narrower than their CSV row. Each limit is written into the
+Slice 1a ships some operations narrower than their registry entry. Each limit is written into the
 stories it binds, in the backlog and in the scaffolded tests:
 
 - **Idempotency-Key** is honoured only on `expenses.create`, `files.upload` and
   `tickets.create`. The other
-  creates the CSV marks `key` take no Idempotency-Key in 1a; they get it in 1b.
+  creates the registry marks `key` take no Idempotency-Key in 1a; they get it in 1b.
 - **FX:** expenses are in the trip currency only, so `fx_rate` = 1.
 - **Splits** are equal or itemised only; weight splits come after the trip.
 
@@ -64,14 +64,14 @@ A 1a story is done when all of these hold:
       answers `not_implemented`), and `pnpm backlog` has ticked it.
 - [ ] The `openapi.json` diff has been reviewed. The PR says what changed in the contract, and
       the committed file matches `pnpm --filter @tribo/contract openapi`.
-- [ ] Tests exist and pass for the policy (each role the CSV allows and refuses, and
+- [ ] Tests exist and pass for the policy (each role the registry allows and refuses, and
       `not_found` outside the trip), for leaks (list reads registered through `listProperty`
       against the oracle in `packages/testkit/src/leak.ts`), and for the audit event (each write
       records its event and `entity_versions` snapshot in the same transaction). None of the
       scaffold's todos are left.
 - [ ] Errors use the closed enum in `packages/contract/src/errors.ts` only: no new codes in
       the story, no free-text errors, and no internal messages in responses.
-- [ ] If-Match follows the CSV's `if_match` column: `no` takes none; `version`,
+- [ ] If-Match follows the registry's `ifMatch`: `no` takes none; `version`,
       `board_version` and `budget_version` require that counter (`if_match_required` when
       missing, `version_conflict` when stale); `version_or_new` creates with
       `If-None-Match: *` and replaces with If-Match.

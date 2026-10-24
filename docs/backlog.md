@@ -1,6 +1,6 @@
 # Slice 1a backlog
 
-<!-- Generated from operations.csv by `pnpm backlog`; edit the CSV or the registry, not this file. -->
+<!-- Generated from the operation registry by `pnpm backlog`; edit the registry, not this file. -->
 
 68 stories: 46 in Drop A, due Sun 1 Nov, and 22 in Drop B, due Sun 8 Nov. Start one with `pnpm new:op <id>`; it is done when it meets the 1a definition of done in [CONTRIBUTING.md](../CONTRIBUTING.md). A ticked story is `implemented` in the registry. Its tests carry the Vitest tag `drop-a` or `drop-b`: `pnpm vitest run --tags-filter drop-b`.
 

@@ -1,6 +1,6 @@
 import { anyMember, contributors, organizersOrOwningMember } from '../roles.js';
 
-/** expenses.create: owner, organizer, member (operations.csv); a viewer records nothing. */
+/** expenses.create: owner, organizer, member (the registry); a viewer records nothing. */
 export const canCreateExpense = contributors;
 
 /**

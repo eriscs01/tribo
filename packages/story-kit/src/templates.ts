@@ -46,7 +46,7 @@ export function sharedRule(roles: readonly string[]): string | null {
 
 export function policyRow(story: Story, rule: string): string {
   return [
-    `/** ${story.op.id}: ${story.op.roles} (operations.csv). The story adds what a trip role can't say. */`,
+    `/** ${story.op.id}: ${story.op.roles} (the registry). The story adds what a trip role can't say. */`,
     `export const ${story.policyName} = ${rule};`,
   ].join('\n');
 }
@@ -100,7 +100,7 @@ function specs(story: Story): string[] {
   if (story.isWrite) {
     out.push('records its audit event and entity_versions snapshot in the one transaction');
   }
-  for (const code of story.noteCodes) out.push(`answers ${code} where operations.csv says so`);
+  for (const code of story.noteCodes) out.push(`answers ${code} where the registry notes say so`);
   out.push(...story.limits);
   return out;
 }

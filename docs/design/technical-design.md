@@ -254,7 +254,7 @@ defineOperation({
 });
 ```
 
-**Resources (v1).** The full list of 130 operations, with roles, write rules, slices and drops, is `claude/api/operations.csv` in the project, the one source the registry is checked against; the [Operation inventory](https://claude.ai/code/artifact/178b4be3-bdc8-4697-9cc6-f5a013c10d3a) explains its columns and records the gap decisions. The table below is an overview by path.
+**Resources (v1).** The full list of 130 operations, with roles, write rules, slices and drops, is the operation registry (`packages/contract/src/operations/*.ts`), the one source of the list; the [Operation inventory](https://claude.ai/code/artifact/178b4be3-bdc8-4697-9cc6-f5a013c10d3a) explains its columns and records the gap decisions. The table below is an overview by path.
 
 | Path | Purpose | Slice |
 | --- | --- | --- |

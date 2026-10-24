@@ -6,7 +6,7 @@
 
 ## Context
 
-`operations.csv` marks 21 operations as taking an Idempotency-Key, but slice 1a honours it
+The operation registry marks 21 operations as taking an Idempotency-Key, but slice 1a honours it
 on only two (`expenses.create`, `files.upload`). Declaring the header on the rest told
 clients that replays are safe where they are not.
 
@@ -15,7 +15,7 @@ clients that replays are safe where they are not.
 The OpenAPI document declares `Idempotency-Key` only on operations for which
 `honoursIdempotencyKey` holds. The list of those operations is owned by `@tribo/contract`
 (`drop-limits.ts`); the generator, the backlog and the scaffold read it. `x-tribo.idempotent`
-still shows the CSV value.
+still shows the registry value.
 
 ## Consequences
 

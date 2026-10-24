@@ -178,7 +178,7 @@ function parameters(op: Operation, components: Components): Json[] {
       schema: { type: 'string', enum: ['*'] },
     });
   }
-  // The CSV's `key` is the design; the header is declared only where this release honours it.
+  // The registry's `key` is the design; the header is declared only where this release honours it.
   if (honoursIdempotencyKey(op)) {
     params.push({
       name: 'Idempotency-Key',

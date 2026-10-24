@@ -12,7 +12,7 @@ Every fact has exactly one owner, and only that owner stores, changes, versions 
 apps/server/       Fastify bootstrap, REST adapter, CLI (tribo admin|audit …), daily jobs
 apps/web/          React SPA, service worker, generated API client
 apps/e2e/          Playwright walking-skeleton test against a running Compose stack
-packages/contract/ Zod schemas, defineOperation, registry, error codes, OpenAPI generator; operations.csv
+packages/contract/ Zod schemas, defineOperation, registry, error codes, OpenAPI generator; the operation registry (`src/operations/*.ts`) is the one list of operations
 packages/platform/ request context, write-path wrapper, idempotency, logging, rate limits
 packages/crypto/   app key loader, field and file envelopes
 packages/db/       migrations/*.sql, runner, generated Kysely types

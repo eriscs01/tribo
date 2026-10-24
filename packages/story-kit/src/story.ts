@@ -47,14 +47,14 @@ export interface Story {
   resource: SchemaName;
   input: SchemaName | null;
   output: SchemaName | null;
-  /** The trip roles operations.csv grants, or null when the rule is not a trip role. */
+  /** The trip roles the registry grants, or null when the rule is not a trip role. */
   tripRoles: TripRole[] | null;
   /** The core module whose policy.ts takes the policy row, or null outside core (meta). */
   coreModule: string | null;
   /** apps/server/src/handlers/<file>.ts and packages/contract/src/operations/<file>.ts. */
   moduleFile: string;
   policyName: string;
-  /** The error codes the CSV notes name: each gets its own test. */
+  /** The error codes the registry notes name: each gets its own test. */
   noteCodes: ErrorCode[];
   /** Drop B limits, as one sentence each. */
   limits: string[];

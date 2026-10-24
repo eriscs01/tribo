@@ -265,7 +265,7 @@ describe('members.remove', () => {
     });
   });
 
-  it('answers trip_archived where operations.csv says so', async () => {
+  it('answers trip_archived where the registry notes say so', async () => {
     const w = await inviteWorld(tdb);
     await archive(tdb, w.tripId);
     expect(

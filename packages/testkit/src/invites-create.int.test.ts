@@ -133,7 +133,7 @@ describe('invites.create', () => {
     expect(chosen).toMatchObject({ role: 'member', maxUses: 1 });
   });
 
-  it('answers invite_invalid where operations.csv says so: the person is no active placeholder member here', async () => {
+  it('answers invite_invalid where the registry notes say so: the person is no active placeholder member here', async () => {
     const w = await inviteWorld(tdb);
     const elsewhere = await createPlaceholder(tdb.db, { createdBy: w.owner.userId });
     const removed = await createPlaceholder(tdb.db, { createdBy: w.owner.userId });
@@ -163,7 +163,7 @@ describe('invites.create', () => {
     }
   });
 
-  it('answers trip_archived where operations.csv says so', async () => {
+  it('answers trip_archived where the registry notes say so', async () => {
     const w = await inviteWorld(tdb);
     await archive(tdb, w.tripId);
     const code = await refusal(
