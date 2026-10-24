@@ -13,7 +13,7 @@ their own jobs and again, with coverage, in the Coverage job. The required check
 
 ## Decision
 
-**Path rules.** Job "Changes" (`packages/story-kit/src/scripts/ci-changes.ts`, rules in
+**Path rules.** Job "Changes" (`packages/tools/src/scripts/ci-changes.ts`, rules in
 `ci-changes.ts`, tested) lists the files a pull request changes against its base and sets
 `code=false` only when every one of them is documentation: prose under `docs/` (not
 `docs/backlog.md`, which `backlog.test.ts` compares with the registry), the root `CLAUDE.md`,

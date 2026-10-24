@@ -686,7 +686,7 @@ A pull request that changes documentation only takes the quick path ([decision 0
 2. In a skipped job (Unit, Integration, Leak properties, Coverage, Typecheck, Build and scan, End to end) every step shows as skipped (grey) and the job lasts a few seconds. A job that ran shows its steps green with real durations.
 3. Pushes to `main`, tags, the nightly run and Publish never take the quick path.
 4. If the **Changes** job itself failed, nothing is skipped: the other jobs see an empty `code` output and run everything. Fix the cause (usually `git diff` could not read the merge commit) and re-run.
-5. A pull request that was wrongly quick (a path that should count as code is not in the rules) is fixed by adding the path to `packages/story-kit/src/ci-changes.ts` with a test, in the same pull request as the change that exposed it.
+5. A pull request that was wrongly quick (a path that should count as code is not in the rules) is fixed by adding the path to `packages/tools/src/ci-changes.ts` with a test, in the same pull request as the change that exposed it.
 
 ### End to end stalls installing the browser
 

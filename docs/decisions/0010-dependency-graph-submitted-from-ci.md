@@ -21,7 +21,7 @@ today, and stale); wait for GitHub to support the lockfile (no date); submit the
 ## Decision
 
 CI job "Dependency graph" runs on every push to `main`, after a frozen install, and runs
-`packages/story-kit/src/scripts/submit-dependency-snapshot.ts`. The script reads the resolved tree from
+`packages/tools/src/scripts/submit-dependency-snapshot.ts`. The script reads the resolved tree from
 `pnpm ls --recursive --json --depth Infinity --lockfile-only` and submits it to GitHub's
 dependency submission API (`POST /repos/{repo}/dependency-graph/snapshots`) as one manifest per
 workspace project, with `pkg:npm` package URLs, direct or indirect, runtime or development.

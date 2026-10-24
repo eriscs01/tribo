@@ -1,7 +1,7 @@
 // CI job "Changes": decides whether a pull request touches code (decision 0013) and writes
 // `code=true|false` to the GITHUB_OUTPUT file. Every event but a pull request runs everything.
 //
-//   node packages/story-kit/src/scripts/ci-changes.ts <event> [<base> <head>]
+//   node packages/tools/src/scripts/ci-changes.ts <event> [<base> <head>]
 //
 // It imports nothing outside node and the rule module, so the job runs it without an install.
 import { execFile } from 'node:child_process';

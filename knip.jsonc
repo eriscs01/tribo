@@ -6,7 +6,7 @@
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "workspaces": {
     "packages/contract": {
-      // pnpm new:op and the contract build run these.
+      // pnpm --filter @tribo/contract openapi runs these.
       "entry": ["src/scripts/*.ts"],
     },
     "packages/db": {
@@ -14,6 +14,10 @@
     },
     "packages/story-kit": {
       // pnpm new:op and pnpm backlog run these.
+      "entry": ["src/scripts/*.ts"],
+    },
+    "packages/tools": {
+      // CI runs these: the Changes job from source, "Dependency graph" through pnpm submit:deps.
       "entry": ["src/scripts/*.ts"],
     },
     "packages/core": {

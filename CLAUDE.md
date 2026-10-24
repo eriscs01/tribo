@@ -18,6 +18,8 @@ packages/crypto/   app key loader, field and file envelopes
 packages/db/       migrations/*.sql, runner, generated Kysely types
 packages/core/<module>/  service.ts · repo.ts · policy.ts  (identity, trips, items, itinerary, expenses, documents, library, audit)
 packages/testkit/  Testcontainers setup, factories, leak-test generators
+packages/story-kit/ `pnpm new:op` scaffolder and `pnpm backlog`, both reading the operation registry
+packages/tools/    CI scripts (`ci-changes`, `submit-dependency-snapshot`) and their tests
 deploy/            compose.yml, compose.dev.yml, .env.example, caddy/, backup/
 docs/              design/, runbook.md
 ```
