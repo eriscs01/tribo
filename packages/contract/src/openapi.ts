@@ -184,11 +184,19 @@ function parameters(op: Operation, components: Components): Json[] {
       name: 'Idempotency-Key',
       in: 'header',
       required: false,
-      description: 'Replays the stored response for 24 hours per caller',
+      description:
+        'Replays the stored response for 24 hours per caller, marked Idempotent-Replayed: true; ' +
+        'the same key with another request is refused with idempotency_key_reused (422)',
       schema: { type: 'string', maxLength: 255 },
     });
   }
   return params;
+}
+
+/** The registry's notes, plus where a create the registry marks `key` does not honour the header. */
+function withIdempotencyNote(op: Operation): string {
+  if (op.idempotent !== 'key' || honoursIdempotencyKey(op)) return op.notes;
+  return `${op.notes}; Idempotency-Key is ignored in 1a: a repeated create is another create (honoured from 1b)`;
 }
 
 function operationObject(op: Operation, components: Components): Json {
@@ -213,7 +221,7 @@ function operationObject(op: Operation, components: Components): Json {
   const object: Json = {
     operationId: op.id,
     summary: op.id,
-    description: op.notes,
+    description: withIdempotencyNote(op),
     tags: [op.module],
     security: security(op.auth),
     responses,

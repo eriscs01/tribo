@@ -304,7 +304,7 @@
       "post": {
         "operationId": "admin.clients.add",
         "summary": "admin.clients.add",
-        "description": "Allow client by CIMD client_id URL; Fetches and validates CIMD",
+        "description": "Allow client by CIMD client_id URL; Fetches and validates CIMD; Idempotency-Key is ignored in 1a: a repeated create is another create (honoured from 1b)",
         "tags": [
           "Admin"
         ],
@@ -705,7 +705,7 @@
       "post": {
         "operationId": "admin.users.create",
         "summary": "admin.users.create",
-        "description": "Create account; returns one-time set-password link; Link shown once; Secret omitted on idempotent replay (redacted = true): revoke and recreate (R2)",
+        "description": "Create account; returns one-time set-password link; Link shown once; Secret omitted on idempotent replay (redacted = true): revoke and recreate (R2); Idempotency-Key is ignored in 1a: a repeated create is another create (honoured from 1b)",
         "tags": [
           "Admin"
         ],
@@ -946,7 +946,7 @@
       "post": {
         "operationId": "admin.users.resetLink",
         "summary": "admin.users.resetLink",
-        "description": "Issue 24 h single-use reset link; Shown once; audited; Secret omitted on idempotent replay (redacted = true): revoke and recreate (R2)",
+        "description": "Issue 24 h single-use reset link; Shown once; audited; Secret omitted on idempotent replay (redacted = true): revoke and recreate (R2); Idempotency-Key is ignored in 1a: a repeated create is another create (honoured from 1b)",
         "tags": [
           "Admin"
         ],
@@ -1460,7 +1460,7 @@
       "post": {
         "operationId": "auth.mfa.confirm",
         "summary": "auth.mfa.confirm",
-        "description": "Confirm TOTP; returns 10 recovery codes; Codes shown once; Codes never stored for replay; a replay returns 200 with codes omitted and redacted = true (R2)",
+        "description": "Confirm TOTP; returns 10 recovery codes; Codes shown once; Codes never stored for replay; a replay returns 200 with codes omitted and redacted = true (R2); Idempotency-Key is ignored in 1a: a repeated create is another create (honoured from 1b)",
         "tags": [
           "Auth & identity"
         ],
@@ -2754,7 +2754,7 @@
       "post": {
         "operationId": "invites.accept",
         "summary": "invites.accept",
-        "description": "Join: new account (username+password) or signed-in; claims placeholder; username_taken, already_member, invite_invalid; Claim is per trip (R28): new account → its own person is created first; then only this trip's placeholder membership moves to the caller's person (tickets, allocations, shares follow the membership id); the placeholder never gains an account and stays in its other trips; when it has no membership rows left it is scrubbed, soft-deleted and mergedInto the caller; claim_conflict if the caller's person already has a row in this trip. Rejoin undeletes the caller's earlier membership in the trip. Anonymous Idempotency-Key caller = invite:<inviteId>; Set-Cookie never replayed",
+        "description": "Join: new account (username+password) or signed-in; claims placeholder; username_taken, already_member, invite_invalid; Claim is per trip (R28): new account → its own person is created first; then only this trip's placeholder membership moves to the caller's person (tickets, allocations, shares follow the membership id); the placeholder never gains an account and stays in its other trips; when it has no membership rows left it is scrubbed, soft-deleted and mergedInto the caller; claim_conflict if the caller's person already has a row in this trip. Rejoin undeletes the caller's earlier membership in the trip. Anonymous Idempotency-Key caller = invite:<inviteId>; Set-Cookie never replayed; Idempotency-Key is ignored in 1a: a repeated create is another create (honoured from 1b)",
         "tags": [
           "Members & invites"
         ],
@@ -3400,7 +3400,7 @@
       "post": {
         "operationId": "checklist.add",
         "summary": "checklist.add",
-        "description": "Add entry at position; trip_archived on archived trips (R29)",
+        "description": "Add entry at position; trip_archived on archived trips (R29); Idempotency-Key is ignored in 1a: a repeated create is another create (honoured from 1b)",
         "tags": [
           "Items"
         ],
@@ -4209,7 +4209,7 @@
             "name": "Idempotency-Key",
             "in": "header",
             "required": false,
-            "description": "Replays the stored response for 24 hours per caller",
+            "description": "Replays the stored response for 24 hours per caller, marked Idempotent-Replayed: true; the same key with another request is refused with idempotency_key_reused (422)",
             "schema": {
               "type": "string",
               "maxLength": 255
@@ -4315,7 +4315,7 @@
       "post": {
         "operationId": "units.create",
         "summary": "units.create",
-        "description": "Add room or vehicle: label, capacity, rate; trip_archived on archived trips (R29)",
+        "description": "Add room or vehicle: label, capacity, rate; trip_archived on archived trips (R29); Idempotency-Key is ignored in 1a: a repeated create is another create (honoured from 1b)",
         "tags": [
           "Units & assignments & tickets"
         ],
@@ -4459,7 +4459,7 @@
       "post": {
         "operationId": "library.people.create",
         "summary": "library.people.create",
-        "description": "Create placeholder person",
+        "description": "Create placeholder person; Idempotency-Key is ignored in 1a: a repeated create is another create (honoured from 1b)",
         "tags": [
           "Library"
         ],
@@ -4922,7 +4922,7 @@
       "post": {
         "operationId": "library.places.create",
         "summary": "library.places.create",
-        "description": "Add place (kind, lat/lng, hours, links); Audited on platform chain (G11)",
+        "description": "Add place (kind, lat/lng, hours, links); Audited on platform chain (G11); Idempotency-Key is ignored in 1a: a repeated create is another create (honoured from 1b)",
         "tags": [
           "Library"
         ],
@@ -5334,7 +5334,7 @@
       "post": {
         "operationId": "library.templates.create",
         "summary": "library.templates.create",
-        "description": "Create trip/packing/checklist/budget template; Shared needs admin session",
+        "description": "Create trip/packing/checklist/budget template; Shared needs admin session; Idempotency-Key is ignored in 1a: a repeated create is another create (honoured from 1b)",
         "tags": [
           "Library"
         ],
@@ -5593,7 +5593,7 @@
       "post": {
         "operationId": "library.templates.apply",
         "summary": "library.templates.apply",
-        "description": "Apply template to a trip (items, checklist, budget lines); Decided (G12); trip_archived on archived target trips (R29)",
+        "description": "Apply template to a trip (items, checklist, budget lines); Decided (G12); trip_archived on archived target trips (R29); Idempotency-Key is ignored in 1a: a repeated create is another create (honoured from 1b)",
         "tags": [
           "Library"
         ],
@@ -5708,7 +5708,7 @@
       "post": {
         "operationId": "library.vendors.create",
         "summary": "library.vendors.create",
-        "description": "Add vendor (kind, contacts, links); Audited on platform chain (G11)",
+        "description": "Add vendor (kind, contacts, links); Audited on platform chain (G11); Idempotency-Key is ignored in 1a: a repeated create is another create (honoured from 1b)",
         "tags": [
           "Library"
         ],
@@ -6413,7 +6413,7 @@
       "post": {
         "operationId": "tokens.create",
         "summary": "tokens.create",
-        "description": "Create PAT read|write, expiry ≤ 1 year; Token shown once; Secret omitted on idempotent replay (redacted = true): revoke and recreate (R2)",
+        "description": "Create PAT read|write, expiry ≤ 1 year; Token shown once; Secret omitted on idempotent replay (redacted = true): revoke and recreate (R2); Idempotency-Key is ignored in 1a: a repeated create is another create (honoured from 1b)",
         "tags": [
           "Me"
         ],
@@ -7039,7 +7039,7 @@
       "post": {
         "operationId": "trips.create",
         "summary": "trips.create",
-        "description": "Create trip: dates, currency, tz, destinations; mfa_required if caller has no TOTP",
+        "description": "Create trip: dates, currency, tz, destinations; mfa_required if caller has no TOTP; Idempotency-Key is ignored in 1a: a repeated create is another create (honoured from 1b)",
         "tags": [
           "Trips"
         ],
@@ -7596,7 +7596,7 @@
       "post": {
         "operationId": "trips.clone",
         "summary": "trips.clone",
-        "description": "Copy trip to new start date; opt-in own private items; Never copies bookings, tickets, allocations, money, files, overlays; Works from archived trips (read)",
+        "description": "Copy trip to new start date; opt-in own private items; Never copies bookings, tickets, allocations, money, files, overlays; Works from archived trips (read); Idempotency-Key is ignored in 1a: a repeated create is another create (honoured from 1b)",
         "tags": [
           "Trips"
         ],
@@ -7907,7 +7907,7 @@
             "name": "Idempotency-Key",
             "in": "header",
             "required": false,
-            "description": "Replays the stored response for 24 hours per caller",
+            "description": "Replays the stored response for 24 hours per caller, marked Idempotent-Replayed: true; the same key with another request is refused with idempotency_key_reused (422)",
             "schema": {
               "type": "string",
               "maxLength": 255
@@ -8093,7 +8093,7 @@
             "name": "Idempotency-Key",
             "in": "header",
             "required": false,
-            "description": "Replays the stored response for 24 hours per caller",
+            "description": "Replays the stored response for 24 hours per caller, marked Idempotent-Replayed: true; the same key with another request is refused with idempotency_key_reused (422)",
             "schema": {
               "type": "string",
               "maxLength": 255
@@ -8285,7 +8285,7 @@
       "post": {
         "operationId": "invites.create",
         "summary": "invites.create",
-        "description": "Create link: role, expiry, maxUses, optional placeholder; Token shown once; placeholder invite single use; Secret omitted on idempotent replay (redacted = true): revoke and recreate (R2); Link format /join#<token> (fragment, never in proxy logs); Pre-linked person must be an active placeholder member of this trip (FK + check), else invite_invalid (R28); trip_archived on archived trips (R29)",
+        "description": "Create link: role, expiry, maxUses, optional placeholder; Token shown once; placeholder invite single use; Secret omitted on idempotent replay (redacted = true): revoke and recreate (R2); Link format /join#<token> (fragment, never in proxy logs); Pre-linked person must be an active placeholder member of this trip (FK + check), else invite_invalid (R28); trip_archived on archived trips (R29); Idempotency-Key is ignored in 1a: a repeated create is another create (honoured from 1b)",
         "tags": [
           "Members & invites"
         ],
@@ -8590,7 +8590,7 @@
       "post": {
         "operationId": "items.create",
         "summary": "items.create",
-        "description": "Create any item type; visibility + sharedWith; Wall-clock + tz input; warnings[] returned; trip_archived on archived trips (R29); sharedWith = membership ids of the trip; owner = callers membership (rule 3)",
+        "description": "Create any item type; visibility + sharedWith; Wall-clock + tz input; warnings[] returned; trip_archived on archived trips (R29); sharedWith = membership ids of the trip; owner = callers membership (rule 3); Idempotency-Key is ignored in 1a: a repeated create is another create (honoured from 1b)",
         "tags": [
           "Items"
         ],
@@ -8859,7 +8859,7 @@
       "post": {
         "operationId": "members.add",
         "summary": "members.add",
-        "description": "Add placeholder traveller (new or visible library person); person_visible on personId; Person must have no account: person_has_account → send an invite (R4); A removed placeholder is undeleted rather than re-added; trip_archived on archived trips (R29)",
+        "description": "Add placeholder traveller (new or visible library person); person_visible on personId; Person must have no account: person_has_account → send an invite (R4); A removed placeholder is undeleted rather than re-added; trip_archived on archived trips (R29); Idempotency-Key is ignored in 1a: a repeated create is another create (honoured from 1b)",
         "tags": [
           "Members & invites"
         ],

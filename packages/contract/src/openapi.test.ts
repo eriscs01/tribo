@@ -69,6 +69,28 @@ describe('toOpenApi', () => {
     expect(declaring.sort()).toEqual([...IDEMPOTENCY_KEY_OPERATIONS].sort());
   });
 
+  it('says where a create ignores Idempotency-Key, and describes the replay where it is honoured', () => {
+    const paths = doc.paths as Record<
+      string,
+      Record<string, { description: string; parameters?: { name: string; description?: string }[] }>
+    >;
+    for (const op of registry.filter((o) => o.idempotent === 'key')) {
+      const declared = paths[op.path]?.[op.method.toLowerCase()];
+      if (IDEMPOTENCY_KEY_OPERATIONS.includes(op.id)) {
+        const header = declared?.parameters?.find((p) => p.name === 'Idempotency-Key');
+        expect(header?.description, op.id).toMatch(/Idempotent-Replayed: true/);
+        expect(declared?.description, op.id).not.toMatch(/ignored/);
+      } else {
+        expect(declared?.description, op.id).toMatch(/Idempotency-Key is ignored in 1a/);
+      }
+    }
+    for (const op of registry.filter((o) => o.idempotent !== 'key')) {
+      expect(paths[op.path]?.[op.method.toLowerCase()]?.description, op.id).not.toMatch(
+        /Idempotency-Key is ignored/,
+      );
+    }
+  });
+
   it('declares the ETag header and If-None-Match → 304 exactly on reads that send an ETag', () => {
     const paths = doc.paths as Record<string, Record<string, Declared>>;
     const tagged = registry.filter((op) => {
