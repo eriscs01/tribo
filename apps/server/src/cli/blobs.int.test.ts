@@ -197,4 +197,14 @@ describe('tribo admin blobs unreferenced', () => {
       /^error: usage: tribo admin blobs unreferenced \[--older-than-hours <n>\]/,
     );
   });
+
+  it('lets a failure to read the volume through, naming the run’s request id and no path', async () => {
+    const v = await setup();
+    await rm(v.root, { recursive: true });
+
+    await expect(v.run('unreferenced')).rejects.toThrow(/ENOENT/);
+    expect(v.errors).toHaveLength(1);
+    expect(v.errors[0]).toMatch(/^error: unexpected failure \(request cli-[0-9a-f-]{36}\)\n$/);
+    expect(v.errors[0]).not.toContain(v.root);
+  });
 });
