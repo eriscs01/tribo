@@ -99,7 +99,7 @@ describe('dueSoon', () => {
       { item: item('x', { type: 'activity' }), reminderAt: new Date('2026-11-10T00:00:00Z') },
       { item: item('y', { type: 'activity' }), reminderAt: new Date('2026-11-12T00:00:00Z') },
     ];
-    expect(dueSoon(tasks, reminders, today, AT).map((d) => [d.kind, d.item.id])).toEqual([
+    expect(dueSoon(tasks, reminders, today).map((d) => [d.kind, d.item.id])).toEqual([
       ['task_due', 'overdue'],
       ['task_due', 'edge'],
       ['task_due', 'timed-in'],
@@ -114,6 +114,34 @@ describe('dueSoon', () => {
       item('there', { tripId: 'b', start: allDay('2026-11-12') }),
     ];
     const todays = (tripId: string) => (tripId === 'a' ? '2026-11-09' : '2026-10-01');
-    expect(dueSoon(tasks, [], todays, AT).map((d) => d.item.id)).toEqual(['here']);
+    expect(dueSoon(tasks, [], todays).map((d) => d.item.id)).toEqual(['here']);
+  });
+
+  it('compares a timed task’s local day with the last day, whichever side of midnight UTC it falls', () => {
+    // Today is 9 Nov, so the last day is 16 Nov. 20:00 local that day is before midnight UTC
+    // in Manila (12:00Z) and after it in Los Angeles (04:00Z on the 17th); both are due.
+    const at = (local: string, tz: string, instant: string) => ({
+      local,
+      tz,
+      at: new Date(instant),
+    });
+    const tasks = [
+      item('manila-evening', {
+        start: at('2026-11-16T20:00', 'Asia/Manila', '2026-11-16T12:00:00Z'),
+      }),
+      item('la-evening', {
+        start: at('2026-11-16T20:00', 'America/Los_Angeles', '2026-11-17T04:00:00Z'),
+      }),
+      item('manila-after-midnight', {
+        start: at('2026-11-17T00:30', 'Asia/Manila', '2026-11-16T16:30:00Z'),
+      }),
+      item('la-after-midnight', {
+        start: at('2026-11-17T00:30', 'America/Los_Angeles', '2026-11-17T08:30:00Z'),
+      }),
+    ];
+    expect(dueSoon(tasks, [], today).map((d) => d.item.id)).toEqual([
+      'manila-evening',
+      'la-evening',
+    ]);
   });
 });

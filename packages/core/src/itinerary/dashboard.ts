@@ -69,7 +69,7 @@ export function createDashboardService(db: Kysely<DB>, deps: DashboardDeps = {})
         countdown: countdown(trip, today),
         nextItem: nextItem(visible.items, at, today),
         openTasks: open,
-        dueSoon: dueSoon(open, reminders, () => today, at),
+        dueSoon: dueSoon(open, reminders, () => today),
         myShare: share === null ? 'masked' : { amountMinor: share, currency: trip.currency },
         warnings: laidOut(visible.items, visible.warnings, {}).warnings,
       };
