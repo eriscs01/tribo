@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { createReadStream, createWriteStream } from 'node:fs';
-import { mkdir, open, rename, rm, unlink } from 'node:fs/promises';
+import { lstat, mkdir, open, opendir, rename, rm, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { pipeline as pipe, Transform, type Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
@@ -14,6 +14,13 @@ export interface StoredBlob {
   sha256: string;
   sizeBytes: number;
   keyVersion: number;
+}
+
+/** One thing found on the volume: a blob's key (or `.tmp/<name>` for a leftover) and its size. */
+export interface StoredEntry {
+  key: string;
+  sizeBytes: number;
+  leftover: boolean;
 }
 
 /**
@@ -32,6 +39,13 @@ export interface BlobStore {
   read(fileId: string, blobKey: string): Readable;
   /** Removes a blob (the purge); a blob already gone is not an error. */
   delete(blobKey: string): Promise<void>;
+  /**
+   * What is on the volume that is at least `olderThan` old, read-only and one entry at a
+   * time: whole blobs under their keys, and `.tmp/` leftovers as `.tmp/<name>`. Only entries
+   * shaped as this store writes them are named; a link or anything else is counted to
+   * `onIgnored`, never followed and never named.
+   */
+  list(olderThan: Date, onIgnored: () => void): AsyncGenerator<StoredEntry>;
   /** At start: throws, naming the directory, when uploads cannot be written there. */
   check(): Promise<void>;
 }
@@ -39,6 +53,8 @@ export interface BlobStore {
 /** `ab/ab…` : 128 random bits in hex, under a directory named by the first two characters. */
 const BLOB_KEY = /^([0-9a-f]{2})\/\1[0-9a-f]{30}$/;
 const TMP = '.tmp';
+const BUCKET = /^[0-9a-f]{2}$/;
+const PARTIAL = /^[0-9a-f]{32}\.partial$/;
 
 /** Counts and hashes the plaintext as it passes, and stops it past the ceiling. */
 function meter(maxBytes: number) {
@@ -64,6 +80,36 @@ async function fsync(path: string): Promise<void> {
     await handle.sync();
   } finally {
     await handle.close();
+  }
+}
+
+/**
+ * The regular files directly in `dir` that `accept` takes, at least as old as `olderThan`.
+ * Anything else counts to `onIgnored`: a Dirent says what an entry is without following a
+ * link, and lstat keeps it so for the size.
+ */
+async function* scan(
+  dir: string,
+  options: {
+    accept: (name: string) => boolean;
+    keyOf: (name: string) => string;
+    leftover: boolean;
+  },
+  olderThan: Date,
+  onIgnored: () => void,
+): AsyncGenerator<StoredEntry> {
+  for await (const entry of await opendir(dir)) {
+    if (!entry.isFile() || !options.accept(entry.name)) {
+      onIgnored();
+    } else {
+      const info = await lstat(join(dir, entry.name)).catch((error: unknown) => {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
+        throw error;
+      });
+      if (info?.isFile() && info.mtime < olderThan) {
+        yield { key: options.keyOf(entry.name), sizeBytes: info.size, leftover: options.leftover };
+      }
+    }
   }
 }
 
@@ -115,6 +161,33 @@ export function createBlobStore(options: {
       await unlink(pathOf(blobKey)).catch((error: unknown) => {
         if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
       });
+    },
+
+    async *list(olderThan, onIgnored) {
+      for await (const entry of await opendir(root)) {
+        const dir = join(root, entry.name);
+        if (entry.isDirectory() && entry.name === TMP) {
+          yield* scan(
+            dir,
+            { accept: (n) => PARTIAL.test(n), keyOf: (n) => `${TMP}/${n}`, leftover: true },
+            olderThan,
+            onIgnored,
+          );
+        } else if (entry.isDirectory() && BUCKET.test(entry.name)) {
+          yield* scan(
+            dir,
+            {
+              accept: (n) => BLOB_KEY.test(`${entry.name}/${n}`),
+              keyOf: (n) => `${entry.name}/${n}`,
+              leftover: false,
+            },
+            olderThan,
+            onIgnored,
+          );
+        } else {
+          onIgnored();
+        }
+      }
     },
 
     async check() {

@@ -54,7 +54,7 @@ describe('tribo <command>', () => {
     expect(await cli.run(['admin', 'delete'])).toBe(2);
     expect(await cli.run([])).toBe(2);
     expect(cli.errors[0]).toBe(
-      'usage: tribo <command>\ncommands:\n  admin create\n  audit request\n  audit verify\n  release show\n',
+      'usage: tribo <command>\ncommands:\n  admin blobs\n  admin create\n  audit request\n  audit verify\n  release show\n',
     );
     expect(cli.runtime.opened).toBe(0);
   });
