@@ -89,8 +89,21 @@ const alice: SignedIn = {
 /** Only the cookie value 'session-token' is a live session. */
 const authenticate = (token: string) => Promise.resolve(token === 'session-token' ? alice : null);
 const loggedOut: string[] = [];
+/**
+ * A service whose every method rejects, so a test names only what it uses and a new service
+ * method needs no entry here. `overrides` are the methods the test serves itself.
+ */
+function notUsed<T extends object>(overrides: Partial<T> = {}): T {
+  return new Proxy(overrides as T, {
+    get: (target, name) =>
+      name in target
+        ? Reflect.get(target, name)
+        : () => Promise.reject(new Error(`${String(name)} is not used here`)),
+  });
+}
+const unused = () => Promise.reject(new Error('not used here'));
 /** Core's identity service stands in here; its rules are proven in identity.int.test.ts. */
-const identity: IdentityService = {
+const identity = notUsed<IdentityService>({
   login: (_ctx, input) =>
     input.password === 'correct horse battery'
       ? Promise.resolve({ token: 'session-token', session: alice })
@@ -100,100 +113,10 @@ const identity: IdentityService = {
     loggedOut.push(token);
     return Promise.resolve();
   },
-  createAdmin: () => Promise.reject(new Error('not used here')),
-  startMfaEnrolment: () => Promise.reject(new Error('not used here')),
-  confirmMfa: () => Promise.reject(new Error('not used here')),
-  resetPassword: () => Promise.reject(new Error('not used here')),
-  changePassword: () => Promise.reject(new Error('not used here')),
-};
+});
 /** Trips and items are proven against the database in skeleton.int.test.ts. */
 /** A registered operation that is still a stub (trips.history, slice 1b). */
 const PLANNED = '/v1/trips/trp_01h455vb4pex5vsknk084sn02q/history';
-const unused = () => Promise.reject(new Error('not used here'));
-const trips: TripsService = {
-  create: unused,
-  list: unused,
-  get: unused,
-  update: unused,
-  delete: unused,
-};
-const members: MembersService = { list: unused, add: unused, setRole: unused, remove: unused };
-const invites: InvitesService = {
-  create: unused,
-  list: unused,
-  revoke: unused,
-  preview: unused,
-  accept: unused,
-};
-const items: ItemsService = {
-  create: unused,
-  get: unused,
-  list: unused,
-  update: unused,
-  delete: unused,
-  rsvp: unused,
-  reveal: unused,
-};
-const tickets: TicketsService = {
-  list: unused,
-  create: unused,
-  update: unused,
-  delete: unused,
-  reveal: unused,
-};
-
-const units: UnitsService = {
-  list: unused,
-  create: unused,
-  update: unused,
-  delete: unused,
-  board: unused,
-  replaceBoard: unused,
-};
-const itinerary: ItineraryService = { get: unused };
-const dashboard: DashboardService = { get: unused };
-const library: LibraryService = {
-  search: unused,
-  createPerson: unused,
-  getPerson: unused,
-  ownPerson: unused,
-  updatePerson: unused,
-  updateOwnPerson: unused,
-  createPlace: unused,
-  createVendor: unused,
-};
-
-const files: FilesService = {
-  list: unused,
-  get: unused,
-  upload: unused,
-  update: unused,
-  delete: unused,
-  download: unused,
-  purgeDue: unused,
-};
-
-const myTasks: MyTasksService = {
-  get: unused,
-};
-
-const offlineBundle: OfflineBundleService = { get: unused };
-
-const personReveal: PersonRevealService = { reveal: unused };
-
-const overlays: OverlaysService = {
-  get: unused,
-  put: unused,
-  delete: unused,
-};
-
-const expenses: ExpensesService = {
-  list: unused,
-  get: unused,
-  create: unused,
-  update: unused,
-  void: unused,
-};
 
 let app: FastifyInstance | undefined;
 let lines: Record<string, unknown>[] = [];
@@ -217,21 +140,21 @@ async function server(overrides: Partial<ServerDeps> = {}) {
       ...operationHandlers({
         identity,
         csrfSecret: secret,
-        trips,
-        members,
-        invites,
-        items,
-        itinerary,
-        dashboard,
-        myTasks,
-        offlineBundle,
-        personReveal,
-        overlays,
-        tickets,
-        units,
-        library,
-        files,
-        expenses,
+        trips: notUsed<TripsService>(),
+        members: notUsed<MembersService>(),
+        invites: notUsed<InvitesService>(),
+        items: notUsed<ItemsService>(),
+        itinerary: notUsed<ItineraryService>(),
+        dashboard: notUsed<DashboardService>(),
+        myTasks: notUsed<MyTasksService>(),
+        offlineBundle: notUsed<OfflineBundleService>(),
+        personReveal: notUsed<PersonRevealService>(),
+        overlays: notUsed<OverlaysService>(),
+        tickets: notUsed<TicketsService>(),
+        units: notUsed<UnitsService>(),
+        library: notUsed<LibraryService>(),
+        files: notUsed<FilesService>(),
+        expenses: notUsed<ExpensesService>(),
       }),
       'test.ip': (request) => {
         request.log.info('handler ran');
